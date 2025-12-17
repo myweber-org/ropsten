@@ -673,4 +673,111 @@ def clean_dataset(input_path, output_path):
     print(f"Cleaned shape: {df.shape}")
 
 if __name__ == "__main__":
-    clean_dataset('raw_data.csv', 'cleaned_data.csv')
+    clean_dataset('raw_data.csv', 'cleaned_data.csv')import pandas as pd
+import numpy as np
+
+def remove_duplicates(df, subset=None):
+    """
+    Remove duplicate rows from DataFrame.
+    
+    Args:
+        df: pandas DataFrame
+        subset: column label or sequence of labels to consider for duplicates
+    
+    Returns:
+        DataFrame with duplicates removed
+    """
+    return df.drop_duplicates(subset=subset, keep='first')
+
+def convert_column_types(df, column_types):
+    """
+    Convert columns to specified data types.
+    
+    Args:
+        df: pandas DataFrame
+        column_types: dict mapping column names to target types
+    
+    Returns:
+        DataFrame with converted column types
+    """
+    df_converted = df.copy()
+    for column, dtype in column_types.items():
+        if column in df_converted.columns:
+            df_converted[column] = df_converted[column].astype(dtype)
+    return df_converted
+
+def handle_missing_values(df, strategy='drop', fill_value=None):
+    """
+    Handle missing values in DataFrame.
+    
+    Args:
+        df: pandas DataFrame
+        strategy: 'drop' to remove rows, 'fill' to fill values
+        fill_value: value to use when strategy is 'fill'
+    
+    Returns:
+        DataFrame with handled missing values
+    """
+    if strategy == 'drop':
+        return df.dropna()
+    elif strategy == 'fill':
+        return df.fillna(fill_value)
+    else:
+        raise ValueError("Strategy must be 'drop' or 'fill'")
+
+def normalize_column(df, column):
+    """
+    Normalize a column to range [0, 1].
+    
+    Args:
+        df: pandas DataFrame
+        column: column name to normalize
+    
+    Returns:
+        DataFrame with normalized column
+    """
+    if column not in df.columns:
+        return df
+    
+    df_normalized = df.copy()
+    col_min = df_normalized[column].min()
+    col_max = df_normalized[column].max()
+    
+    if col_max != col_min:
+        df_normalized[column] = (df_normalized[column] - col_min) / (col_max - col_min)
+    
+    return df_normalized
+
+def clean_dataframe(df, cleaning_steps):
+    """
+    Apply multiple cleaning steps to DataFrame.
+    
+    Args:
+        df: pandas DataFrame
+        cleaning_steps: list of cleaning step configurations
+    
+    Returns:
+        Cleaned DataFrame
+    """
+    cleaned_df = df.copy()
+    
+    for step in cleaning_steps:
+        step_type = step.get('type')
+        
+        if step_type == 'remove_duplicates':
+            cleaned_df = remove_duplicates(cleaned_df, step.get('subset'))
+        
+        elif step_type == 'convert_types':
+            cleaned_df = convert_column_types(cleaned_df, step.get('column_types'))
+        
+        elif step_type == 'handle_missing':
+            cleaned_df = handle_missing_values(
+                cleaned_df,
+                strategy=step.get('strategy', 'drop'),
+                fill_value=step.get('fill_value')
+            )
+        
+        elif step_type == 'normalize':
+            cleaned_df = normalize_column(cleaned_df, step.get('column'))
+    
+    return cleaned_df
