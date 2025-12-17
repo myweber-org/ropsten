@@ -380,3 +380,66 @@ if __name__ == "__main__":
     print("\nCleaned dataset statistics:")
     print(calculate_statistics(cleaned_df, 'value'))
     print(f"\nOriginal rows: {len(df)}, Cleaned rows: {len(cleaned_df)}")
+import pandas as pd
+import numpy as np
+
+def remove_outliers_iqr(df, columns=None):
+    """
+    Remove outliers from DataFrame using Interquartile Range method.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    columns (list): List of column names to process. If None, process all numeric columns.
+    
+    Returns:
+    pd.DataFrame: DataFrame with outliers removed
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns.tolist()
+    
+    df_clean = df.copy()
+    
+    for col in columns:
+        if col in df.columns and pd.api.types.is_numeric_dtype(df[col]):
+            Q1 = df[col].quantile(0.25)
+            Q3 = df[col].quantile(0.75)
+            IQR = Q3 - Q1
+            
+            lower_bound = Q1 - 1.5 * IQR
+            upper_bound = Q3 + 1.5 * IQR
+            
+            mask = (df_clean[col] >= lower_bound) & (df_clean[col] <= upper_bound)
+            df_clean = df_clean[mask]
+    
+    return df_clean.reset_index(drop=True)
+
+def calculate_summary_statistics(df):
+    """
+    Calculate summary statistics for numeric columns.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    
+    Returns:
+    pd.DataFrame: Summary statistics
+    """
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    summary = df[numeric_cols].agg(['mean', 'median', 'std', 'min', 'max'])
+    return summary.T
+
+if __name__ == "__main__":
+    sample_data = {
+        'A': np.random.normal(100, 15, 1000),
+        'B': np.random.exponential(50, 1000),
+        'C': np.random.randint(1, 100, 1000)
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original shape:", df.shape)
+    print("\nOriginal summary:")
+    print(calculate_summary_statistics(df))
+    
+    df_clean = remove_outliers_iqr(df)
+    print("\nCleaned shape:", df_clean.shape)
+    print("\nCleaned summary:")
+    print(calculate_summary_statistics(df_clean))
