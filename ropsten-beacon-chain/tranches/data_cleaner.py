@@ -207,4 +207,106 @@ def example_usage():
     return cleaned_df
 
 if __name__ == "__main__":
-    example_usage()
+    example_usage()import pandas as pd
+import numpy as np
+from pathlib import Path
+
+class DataCleaner:
+    def __init__(self, file_path):
+        self.file_path = Path(file_path)
+        self.data = None
+        
+    def load_data(self):
+        if not self.file_path.exists():
+            raise FileNotFoundError(f"File not found: {self.file_path}")
+        
+        if self.file_path.suffix == '.csv':
+            self.data = pd.read_csv(self.file_path)
+        elif self.file_path.suffix in ['.xlsx', '.xls']:
+            self.data = pd.read_excel(self.file_path)
+        else:
+            raise ValueError("Unsupported file format")
+            
+        return self.data
+    
+    def handle_missing_values(self, strategy='mean', columns=None):
+        if self.data is None:
+            self.load_data()
+        
+        if columns is None:
+            columns = self.data.columns
+        
+        for column in columns:
+            if column in self.data.columns:
+                if self.data[column].isnull().any():
+                    if strategy == 'mean':
+                        fill_value = self.data[column].mean()
+                    elif strategy == 'median':
+                        fill_value = self.data[column].median()
+                    elif strategy == 'mode':
+                        fill_value = self.data[column].mode()[0]
+                    elif strategy == 'drop':
+                        self.data = self.data.dropna(subset=[column])
+                        continue
+                    else:
+                        fill_value = strategy
+                    
+                    self.data[column] = self.data[column].fillna(fill_value)
+        
+        return self.data
+    
+    def remove_duplicates(self, subset=None):
+        if self.data is None:
+            self.load_data()
+        
+        initial_rows = len(self.data)
+        self.data = self.data.drop_duplicates(subset=subset)
+        removed = initial_rows - len(self.data)
+        
+        return self.data, removed
+    
+    def normalize_column(self, column, method='minmax'):
+        if self.data is None:
+            self.load_data()
+        
+        if column not in self.data.columns:
+            raise ValueError(f"Column '{column}' not found in data")
+        
+        if method == 'minmax':
+            col_min = self.data[column].min()
+            col_max = self.data[column].max()
+            if col_max != col_min:
+                self.data[column] = (self.data[column] - col_min) / (col_max - col_min)
+        
+        elif method == 'zscore':
+            col_mean = self.data[column].mean()
+            col_std = self.data[column].std()
+            if col_std != 0:
+                self.data[column] = (self.data[column] - col_mean) / col_std
+        
+        return self.data
+    
+    def save_cleaned_data(self, output_path=None):
+        if self.data is None:
+            raise ValueError("No data to save. Load and clean data first.")
+        
+        if output_path is None:
+            output_path = self.file_path.parent / f"cleaned_{self.file_path.name}"
+        
+        output_path = Path(output_path)
+        
+        if output_path.suffix == '.csv':
+            self.data.to_csv(output_path, index=False)
+        elif output_path.suffix in ['.xlsx', '.xls']:
+            self.data.to_excel(output_path, index=False)
+        
+        return output_path
+
+def clean_dataset(input_file, output_file=None, missing_strategy='mean'):
+    cleaner = DataCleaner(input_file)
+    cleaner.load_data()
+    cleaner.handle_missing_values(strategy=missing_strategy)
+    cleaner.remove_duplicates()
+    cleaner.save_cleaned_data(output_file)
+    
+    return cleaner.data
