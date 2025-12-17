@@ -1,75 +1,40 @@
 
-import pandas as pd
 import numpy as np
 
-def remove_outliers_iqr(df, column):
+def remove_outliers_iqr(data, column):
     """
-    Remove outliers from a DataFrame column using the Interquartile Range method.
+    Remove outliers from a specified column using the IQR method.
     
-    Args:
-        df (pd.DataFrame): Input DataFrame
-        column (str): Column name to clean
+    Parameters:
+    data (pd.DataFrame): The input DataFrame.
+    column (str): The column name to process.
     
     Returns:
-        pd.DataFrame: DataFrame with outliers removed
+    pd.DataFrame: DataFrame with outliers removed.
     """
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
-    
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
+    Q1 = data[column].quantile(0.25)
+    Q3 = data[column].quantile(0.75)
     IQR = Q3 - Q1
-    
     lower_bound = Q1 - 1.5 * IQR
     upper_bound = Q3 + 1.5 * IQR
     
-    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
-    
-    return filtered_df
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    return filtered_data
 
-def clean_dataset(df, columns_to_clean=None):
+def calculate_summary_statistics(data, column):
     """
-    Clean multiple columns in a DataFrame by removing outliers.
+    Calculate summary statistics for a specified column.
     
-    Args:
-        df (pd.DataFrame): Input DataFrame
-        columns_to_clean (list, optional): List of column names to clean. 
-                                         If None, clean all numeric columns.
+    Parameters:
+    data (pd.DataFrame): The input DataFrame.
+    column (str): The column name to analyze.
     
     Returns:
-        pd.DataFrame: Cleaned DataFrame
-    """
-    if columns_to_clean is None:
-        numeric_cols = df.select_dtypes(include=[np.number]).columns
-        columns_to_clean = list(numeric_cols)
-    
-    cleaned_df = df.copy()
-    
-    for column in columns_to_clean:
-        if column in cleaned_df.columns:
-            try:
-                cleaned_df = remove_outliers_iqr(cleaned_df, column)
-            except Exception as e:
-                print(f"Warning: Could not clean column '{column}': {e}")
-    
-    return cleaned_df
-
-def get_cleaning_stats(original_df, cleaned_df):
-    """
-    Get statistics about the cleaning process.
-    
-    Args:
-        original_df (pd.DataFrame): Original DataFrame before cleaning
-        cleaned_df (pd.DataFrame): DataFrame after cleaning
-    
-    Returns:
-        dict: Dictionary containing cleaning statistics
+    dict: Dictionary containing mean, median, and standard deviation.
     """
     stats = {
-        'original_rows': len(original_df),
-        'cleaned_rows': len(cleaned_df),
-        'removed_rows': len(original_df) - len(cleaned_df),
-        'removed_percentage': ((len(original_df) - len(cleaned_df)) / len(original_df)) * 100
+        'mean': data[column].mean(),
+        'median': data[column].median(),
+        'std': data[column].std()
     }
-    
     return stats
