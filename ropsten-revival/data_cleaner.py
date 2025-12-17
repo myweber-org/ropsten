@@ -579,3 +579,63 @@ def example_usage():
 
 if __name__ == "__main__":
     result_df = example_usage()
+import pandas as pd
+
+def remove_duplicates(dataframe, subset=None, keep='first'):
+    """
+    Remove duplicate rows from a DataFrame.
+    
+    Args:
+        dataframe (pd.DataFrame): Input DataFrame.
+        subset (list, optional): Column labels to consider for duplicates.
+        keep (str, optional): Determines which duplicates to keep.
+    
+    Returns:
+        pd.DataFrame: DataFrame with duplicates removed.
+    """
+    if dataframe.empty:
+        return dataframe
+    
+    cleaned_df = dataframe.drop_duplicates(subset=subset, keep=keep)
+    return cleaned_df
+
+def validate_dataframe(dataframe, required_columns):
+    """
+    Validate DataFrame structure and required columns.
+    
+    Args:
+        dataframe (pd.DataFrame): DataFrame to validate.
+        required_columns (list): List of required column names.
+    
+    Returns:
+        bool: True if validation passes, False otherwise.
+    """
+    if not isinstance(dataframe, pd.DataFrame):
+        return False
+    
+    missing_columns = [col for col in required_columns if col not in dataframe.columns]
+    
+    if missing_columns:
+        print(f"Missing required columns: {missing_columns}")
+        return False
+    
+    return True
+
+def clean_numeric_columns(dataframe, columns):
+    """
+    Clean numeric columns by converting to appropriate types.
+    
+    Args:
+        dataframe (pd.DataFrame): Input DataFrame.
+        columns (list): List of column names to clean.
+    
+    Returns:
+        pd.DataFrame: DataFrame with cleaned numeric columns.
+    """
+    df_copy = dataframe.copy()
+    
+    for column in columns:
+        if column in df_copy.columns:
+            df_copy[column] = pd.to_numeric(df_copy[column], errors='coerce')
+    
+    return df_copy
