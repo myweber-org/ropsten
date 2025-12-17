@@ -292,3 +292,11 @@ if __name__ == "__main__":
     print("Validation Results:")
     for key, value in validation.items():
         print(f"{key}: {value}")
+def deduplicate_list(input_list):
+    seen = set()
+    result = []
+    for item in input_list:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
