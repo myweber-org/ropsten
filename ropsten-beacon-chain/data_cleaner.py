@@ -536,4 +536,82 @@ def validate_data(df, required_columns=None, min_rows=1):
 #     print(cleaned)
 #     
 #     is_valid, message = validate_data(cleaned, required_columns=['id', 'value'])
-#     print(f"\nValidation: {is_valid} - {message}")
+#     print(f"\nValidation: {is_valid} - {message}")import pandas as pd
+import numpy as np
+from datetime import datetime
+
+def clean_dataframe(df):
+    """
+    Clean a pandas DataFrame by removing duplicates and standardizing date columns.
+    """
+    # Remove duplicate rows
+    initial_rows = df.shape[0]
+    df = df.drop_duplicates()
+    removed_duplicates = initial_rows - df.shape[0]
+    
+    # Standardize date columns
+    date_columns = [col for col in df.columns if 'date' in col.lower()]
+    for col in date_columns:
+        try:
+            df[col] = pd.to_datetime(df[col], errors='coerce')
+        except Exception as e:
+            print(f"Could not convert column {col}: {e}")
+    
+    # Fill missing numeric values with column mean
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    for col in numeric_cols:
+        df[col] = df[col].fillna(df[col].mean())
+    
+    # Log cleaning results
+    print(f"Removed {removed_duplicates} duplicate rows.")
+    print(f"Standardized {len(date_columns)} date columns.")
+    
+    return df
+
+def validate_data(df, required_columns):
+    """
+    Validate that required columns exist and have no null values.
+    """
+    missing_columns = [col for col in required_columns if col not in df.columns]
+    if missing_columns:
+        raise ValueError(f"Missing required columns: {missing_columns}")
+    
+    null_counts = df[required_columns].isnull().sum()
+    if null_counts.any():
+        print("Warning: Some required columns contain null values:")
+        for col, count in null_counts.items():
+            if count > 0:
+                print(f"  {col}: {count} null values")
+    
+    return True
+
+def save_cleaned_data(df, output_path):
+    """
+    Save cleaned DataFrame to CSV file.
+    """
+    df.to_csv(output_path, index=False)
+    print(f"Cleaned data saved to {output_path}")
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'order_date': ['2023-01-01', '2023-01-01', '2023-01-02', None],
+        'customer_id': [101, 101, 102, 103],
+        'amount': [50.0, 50.0, 75.5, None],
+        'product': ['A', 'A', 'B', 'C']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\nCleaning data...")
+    
+    cleaned_df = clean_dataframe(df)
+    print("\nCleaned DataFrame:")
+    print(cleaned_df)
+    
+    try:
+        validate_data(cleaned_df, ['customer_id', 'amount'])
+        print("Data validation passed.")
+    except ValueError as e:
+        print(f"Data validation failed: {e}")
