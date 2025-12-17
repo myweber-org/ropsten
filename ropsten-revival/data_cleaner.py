@@ -187,3 +187,113 @@ if __name__ == "__main__":
     normalized_df = normalize_column(df, 'values', method='minmax')
     print("DataFrame after min-max normalization:")
     print(normalized_df)
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(data, column, factor=1.5):
+    """
+    Remove outliers using IQR method
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    Q1 = data[column].quantile(0.25)
+    Q3 = data[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - factor * IQR
+    upper_bound = Q3 + factor * IQR
+    
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    removed_count = len(data) - len(filtered_data)
+    
+    return filtered_data, removed_count
+
+def z_score_normalize(data, column):
+    """
+    Normalize data using z-score method
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    mean = data[column].mean()
+    std = data[column].std()
+    
+    if std == 0:
+        return data[column]
+    
+    normalized = (data[column] - mean) / std
+    return normalized
+
+def min_max_normalize(data, column, feature_range=(0, 1)):
+    """
+    Normalize data using min-max scaling
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    min_val = data[column].min()
+    max_val = data[column].max()
+    
+    if max_val == min_val:
+        return data[column]
+    
+    normalized = (data[column] - min_val) / (max_val - min_val)
+    
+    if feature_range != (0, 1):
+        min_target, max_target = feature_range
+        normalized = normalized * (max_target - min_target) + min_target
+    
+    return normalized
+
+def detect_skewed_columns(data, threshold=0.5):
+    """
+    Detect columns with skewed distributions
+    """
+    skewed_columns = []
+    
+    for column in data.select_dtypes(include=[np.number]).columns:
+        skewness = stats.skew(data[column].dropna())
+        if abs(skewness) > threshold:
+            skewed_columns.append((column, skewness))
+    
+    return sorted(skewed_columns, key=lambda x: abs(x[1]), reverse=True)
+
+def log_transform(data, column):
+    """
+    Apply log transformation to reduce skewness
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    if data[column].min() <= 0:
+        transformed = np.log1p(data[column] - data[column].min() + 1)
+    else:
+        transformed = np.log(data[column])
+    
+    return transformed
+
+def create_cleaning_report(data, cleaned_data):
+    """
+    Generate a cleaning report comparing original and cleaned data
+    """
+    report = {
+        'original_rows': len(data),
+        'cleaned_rows': len(cleaned_data),
+        'rows_removed': len(data) - len(cleaned_data),
+        'removal_percentage': ((len(data) - len(cleaned_data)) / len(data)) * 100,
+        'original_columns': list(data.columns),
+        'cleaned_columns': list(cleaned_data.columns)
+    }
+    
+    numeric_cols = data.select_dtypes(include=[np.number]).columns
+    
+    for col in numeric_cols:
+        if col in cleaned_data.columns:
+            report[f'{col}_original_mean'] = data[col].mean()
+            report[f'{col}_cleaned_mean'] = cleaned_data[col].mean()
+            report[f'{col}_original_std'] = data[col].std()
+            report[f'{col}_cleaned_std'] = cleaned_data[col].std()
+    
+    return report
