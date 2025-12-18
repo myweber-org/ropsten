@@ -451,3 +451,102 @@ def clean_dataset(df, numeric_columns):
             cleaned_df = normalize_minmax(cleaned_df, col)
             cleaned_df = standardize_zscore(cleaned_df, col)
     return cleaned_df
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df, drop_duplicates=True, fill_missing='mean'):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame to clean.
+    drop_duplicates (bool): Whether to drop duplicate rows. Default True.
+    fill_missing (str): Strategy for filling missing values. 
+                       Options: 'mean', 'median', 'mode', or 'drop'. Default 'mean'.
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame.
+    """
+    cleaned_df = df.copy()
+    
+    if drop_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates()
+    
+    if fill_missing == 'drop':
+        cleaned_df = cleaned_df.dropna()
+    elif fill_missing in ['mean', 'median', 'mode']:
+        for column in cleaned_df.select_dtypes(include=[np.number]).columns:
+            if cleaned_df[column].isnull().any():
+                if fill_missing == 'mean':
+                    cleaned_df[column].fillna(cleaned_df[column].mean(), inplace=True)
+                elif fill_missing == 'median':
+                    cleaned_df[column].fillna(cleaned_df[column].median(), inplace=True)
+                elif fill_missing == 'mode':
+                    cleaned_df[column].fillna(cleaned_df[column].mode()[0], inplace=True)
+    
+    return cleaned_df
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate a DataFrame for basic integrity checks.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate.
+    required_columns (list): List of column names that must be present.
+    
+    Returns:
+    dict: Dictionary containing validation results.
+    """
+    validation_results = {
+        'is_valid': True,
+        'errors': [],
+        'warnings': []
+    }
+    
+    if df.empty:
+        validation_results['is_valid'] = False
+        validation_results['errors'].append('DataFrame is empty')
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            validation_results['is_valid'] = False
+            validation_results['errors'].append(f'Missing required columns: {missing_columns}')
+    
+    duplicate_count = df.duplicated().sum()
+    if duplicate_count > 0:
+        validation_results['warnings'].append(f'Found {duplicate_count} duplicate rows')
+    
+    missing_values = df.isnull().sum().sum()
+    if missing_values > 0:
+        validation_results['warnings'].append(f'Found {missing_values} missing values')
+    
+    return validation_results
+
+def normalize_columns(df, columns=None):
+    """
+    Normalize specified columns to range [0, 1].
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame.
+    columns (list): List of column names to normalize. If None, normalize all numeric columns.
+    
+    Returns:
+    pd.DataFrame: DataFrame with normalized columns.
+    """
+    normalized_df = df.copy()
+    
+    if columns is None:
+        columns = normalized_df.select_dtypes(include=[np.number]).columns
+    
+    for column in columns:
+        if column in normalized_df.columns and pd.api.types.is_numeric_dtype(normalized_df[column]):
+            col_min = normalized_df[column].min()
+            col_max = normalized_df[column].max()
+            
+            if col_max != col_min:
+                normalized_df[column] = (normalized_df[column] - col_min) / (col_max - col_min)
+            else:
+                normalized_df[column] = 0
+    
+    return normalized_df
