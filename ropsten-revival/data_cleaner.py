@@ -587,4 +587,67 @@ if __name__ == "__main__":
     
     sample_data.to_csv('sample_data.csv', index=False)
     cleaned_df = clean_csv_data('sample_data.csv', 'cleaned_sample.csv')
-    print("Sample cleaning completed.")
+    print("Sample cleaning completed.")import pandas as pd
+import numpy as np
+
+def remove_missing_values(df, threshold=0.5):
+    """
+    Remove columns with missing values exceeding threshold percentage.
+    """
+    missing_ratio = df.isnull().sum() / len(df)
+    columns_to_drop = missing_ratio[missing_ratio > threshold].index
+    return df.drop(columns=columns_to_drop)
+
+def standardize_column_names(df):
+    """
+    Standardize column names to lowercase with underscores.
+    """
+    df.columns = df.columns.str.lower().str.replace(' ', '_')
+    return df
+
+def convert_to_datetime(df, date_columns):
+    """
+    Convert specified columns to datetime format.
+    """
+    for col in date_columns:
+        if col in df.columns:
+            df[col] = pd.to_datetime(df[col], errors='coerce')
+    return df
+
+def remove_outliers(df, column, method='iqr', multiplier=1.5):
+    """
+    Remove outliers from a specified column using IQR or Z-score method.
+    """
+    if column not in df.columns:
+        return df
+    
+    if method == 'iqr':
+        Q1 = df[column].quantile(0.25)
+        Q3 = df[column].quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - multiplier * IQR
+        upper_bound = Q3 + multiplier * IQR
+        mask = (df[column] >= lower_bound) & (df[column] <= upper_bound)
+    elif method == 'zscore':
+        z_scores = np.abs((df[column] - df[column].mean()) / df[column].std())
+        mask = z_scores < multiplier
+    else:
+        return df
+    
+    return df[mask]
+
+def clean_dataframe(df, date_columns=None, outlier_columns=None):
+    """
+    Main function to apply all cleaning steps to a DataFrame.
+    """
+    df = remove_missing_values(df)
+    df = standardize_column_names(df)
+    
+    if date_columns:
+        df = convert_to_datetime(df, date_columns)
+    
+    if outlier_columns:
+        for col in outlier_columns:
+            df = remove_outliers(df, col)
+    
+    return df.reset_index(drop=True)
