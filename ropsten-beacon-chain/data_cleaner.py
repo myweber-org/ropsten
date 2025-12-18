@@ -399,4 +399,137 @@ def get_summary_statistics(data):
         'missing': numeric_data.isnull().sum()
     })
     
-    return summary.T
+    return summary.Timport pandas as pd
+
+def clean_dataset(df, drop_duplicates=True, fill_method='drop'):
+    """
+    Clean a pandas DataFrame by handling missing values and duplicates.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean.
+        drop_duplicates (bool): Whether to drop duplicate rows.
+        fill_method (str): Method to handle missing values ('drop', 'mean', 'median', 'mode').
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame.
+    """
+    cleaned_df = df.copy()
+    
+    # Handle missing values
+    if fill_method == 'drop':
+        cleaned_df = cleaned_df.dropna()
+    elif fill_method == 'mean':
+        cleaned_df = cleaned_df.fillna(cleaned_df.mean(numeric_only=True))
+    elif fill_method == 'median':
+        cleaned_df = cleaned_df.fillna(cleaned_df.median(numeric_only=True))
+    elif fill_method == 'mode':
+        cleaned_df = cleaned_df.fillna(cleaned_df.mode().iloc[0])
+    
+    # Remove duplicates
+    if drop_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates()
+    
+    # Reset index after cleaning
+    cleaned_df = cleaned_df.reset_index(drop=True)
+    
+    return cleaned_df
+
+def validate_dataset(df, required_columns=None):
+    """
+    Validate dataset structure and content.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate.
+        required_columns (list): List of required column names.
+    
+    Returns:
+        dict: Validation results with status and messages.
+    """
+    validation_result = {
+        'is_valid': True,
+        'messages': [],
+        'missing_columns': [],
+        'null_counts': {}
+    }
+    
+    # Check required columns
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            validation_result['is_valid'] = False
+            validation_result['missing_columns'] = missing_cols
+            validation_result['messages'].append(f"Missing required columns: {missing_cols}")
+    
+    # Check for null values
+    null_counts = df.isnull().sum()
+    columns_with_nulls = null_counts[null_counts > 0]
+    
+    if not columns_with_nulls.empty:
+        validation_result['null_counts'] = columns_with_nulls.to_dict()
+        validation_result['messages'].append(f"Found null values in columns: {list(columns_with_nulls.index)}")
+    
+    return validation_result
+
+def get_dataset_summary(df):
+    """
+    Generate a summary of the dataset.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame.
+    
+    Returns:
+        dict: Summary statistics.
+    """
+    summary = {
+        'shape': df.shape,
+        'columns': list(df.columns),
+        'dtypes': df.dtypes.to_dict(),
+        'memory_usage': df.memory_usage(deep=True).sum(),
+        'null_percentage': (df.isnull().sum() / len(df) * 100).to_dict()
+    }
+    
+    # Add numeric column statistics
+    numeric_cols = df.select_dtypes(include=['number']).columns
+    if len(numeric_cols) > 0:
+        summary['numeric_stats'] = df[numeric_cols].describe().to_dict()
+    
+    # Add categorical column statistics
+    categorical_cols = df.select_dtypes(include=['object', 'category']).columns
+    if len(categorical_cols) > 0:
+        summary['categorical_stats'] = {}
+        for col in categorical_cols:
+            summary['categorical_stats'][col] = {
+                'unique_values': df[col].nunique(),
+                'top_value': df[col].mode().iloc[0] if not df[col].mode().empty else None
+            }
+    
+    return summary
+
+# Example usage (commented out for production)
+# if __name__ == "__main__":
+#     # Create sample data
+#     sample_data = {
+#         'A': [1, 2, None, 4, 1],
+#         'B': [5, 6, 7, None, 5],
+#         'C': ['x', 'y', 'x', 'z', 'x']
+#     }
+#     
+#     df = pd.DataFrame(sample_data)
+#     print("Original DataFrame:")
+#     print(df)
+#     
+#     # Clean the data
+#     cleaned = clean_dataset(df, fill_method='mean')
+#     print("\nCleaned DataFrame:")
+#     print(cleaned)
+#     
+#     # Validate the data
+#     validation = validate_dataset(df, required_columns=['A', 'B', 'C'])
+#     print("\nValidation Results:")
+#     print(validation)
+#     
+#     # Get summary
+#     summary = get_dataset_summary(df)
+#     print("\nDataset Summary:")
+#     print(f"Shape: {summary['shape']}")
+#     print(f"Memory Usage: {summary['memory_usage']} bytes")
