@@ -535,3 +535,56 @@ def main():
 
 if __name__ == "__main__":
     main()
+import pandas as pd
+import numpy as np
+from typing import Optional
+
+def clean_csv_data(file_path: str, output_path: Optional[str] = None) -> pd.DataFrame:
+    """
+    Load a CSV file, clean missing values, and optionally save cleaned data.
+    
+    Args:
+        file_path: Path to the input CSV file.
+        output_path: Optional path to save cleaned CSV.
+    
+    Returns:
+        Cleaned pandas DataFrame.
+    """
+    try:
+        df = pd.read_csv(file_path)
+    except FileNotFoundError:
+        raise FileNotFoundError(f"File not found: {file_path}")
+    
+    print(f"Original shape: {df.shape}")
+    print(f"Missing values before cleaning:\n{df.isnull().sum()}")
+    
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    categorical_cols = df.select_dtypes(exclude=[np.number]).columns
+    
+    for col in numeric_cols:
+        if df[col].isnull().any():
+            df[col].fillna(df[col].median(), inplace=True)
+    
+    for col in categorical_cols:
+        if df[col].isnull().any():
+            df[col].fillna(df[col].mode()[0] if not df[col].mode().empty else 'Unknown', inplace=True)
+    
+    print(f"Missing values after cleaning:\n{df.isnull().sum()}")
+    print(f"Cleaned shape: {df.shape}")
+    
+    if output_path:
+        df.to_csv(output_path, index=False)
+        print(f"Cleaned data saved to: {output_path}")
+    
+    return df
+
+if __name__ == "__main__":
+    sample_data = pd.DataFrame({
+        'A': [1, 2, np.nan, 4],
+        'B': ['x', np.nan, 'z', 'x'],
+        'C': [5.5, 6.7, np.nan, 8.9]
+    })
+    
+    sample_data.to_csv('sample_data.csv', index=False)
+    cleaned_df = clean_csv_data('sample_data.csv', 'cleaned_sample.csv')
+    print("Sample cleaning completed.")
