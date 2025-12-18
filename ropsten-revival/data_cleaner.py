@@ -71,3 +71,86 @@ if __name__ == "__main__":
     print("\nSummary statistics:")
     for key, value in stats.items():
         print(f"{key}: {value:.2f}")
+import pandas as pd
+import numpy as np
+from datetime import datetime
+
+def clean_csv_data(input_file, output_file):
+    """
+    Clean CSV data by handling missing values and converting data types.
+    """
+    try:
+        df = pd.read_csv(input_file)
+        
+        # Fill missing numeric values with column mean
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        df[numeric_cols] = df[numeric_cols].apply(lambda x: x.fillna(x.mean()))
+        
+        # Fill missing categorical values with mode
+        categorical_cols = df.select_dtypes(include=['object']).columns
+        for col in categorical_cols:
+            df[col] = df[col].fillna(df[col].mode()[0] if not df[col].mode().empty else 'Unknown')
+        
+        # Convert date columns if present
+        for col in df.columns:
+            if df[col].dtype == 'object':
+                try:
+                    df[col] = pd.to_datetime(df[col])
+                except (ValueError, TypeError):
+                    continue
+        
+        # Remove duplicate rows
+        df = df.drop_duplicates()
+        
+        # Reset index
+        df = df.reset_index(drop=True)
+        
+        # Save cleaned data
+        df.to_csv(output_file, index=False)
+        print(f"Data cleaning completed. Cleaned data saved to {output_file}")
+        return df
+        
+    except FileNotFoundError:
+        print(f"Error: Input file '{input_file}' not found.")
+        return None
+    except Exception as e:
+        print(f"Error during data cleaning: {str(e)}")
+        return None
+
+def validate_dataframe(df):
+    """
+    Validate dataframe structure and content.
+    """
+    if df is None or df.empty:
+        return False
+    
+    # Check for required columns
+    required_columns = ['id', 'timestamp']
+    if not all(col in df.columns for col in required_columns):
+        print("Warning: Missing required columns")
+        return False
+    
+    # Check data types
+    if not pd.api.types.is_numeric_dtype(df['id']):
+        print("Warning: 'id' column should be numeric")
+        return False
+    
+    return True
+
+if __name__ == "__main__":
+    # Example usage
+    input_csv = "raw_data.csv"
+    output_csv = "cleaned_data.csv"
+    
+    cleaned_df = clean_csv_data(input_csv, output_csv)
+    
+    if cleaned_df is not None:
+        is_valid = validate_dataframe(cleaned_df)
+        print(f"Data validation result: {is_valid}")
+        
+        # Display basic statistics
+        print("\nData Summary:")
+        print(f"Total rows: {len(cleaned_df)}")
+        print(f"Total columns: {len(cleaned_df.columns)}")
+        print("\nColumn data types:")
+        print(cleaned_df.dtypes)
