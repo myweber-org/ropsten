@@ -135,3 +135,50 @@ if __name__ == "__main__":
     print("\nCleaned DataFrame:")
     print(cleaned_df)
     print(f"\nRemoved {len(df) - len(cleaned_df)} total outliers")
+import re
+import pandas as pd
+from typing import Optional, List, Union
+
+def remove_whitespace(text: str) -> str:
+    """Remove extra whitespace from a string."""
+    if not isinstance(text, str):
+        return text
+    return re.sub(r'\s+', ' ', text).strip()
+
+def validate_email(email: str) -> bool:
+    """Validate an email address format."""
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return bool(re.match(pattern, email))
+
+def clean_numeric(value: Union[str, int, float]) -> Optional[float]:
+    """Convert a value to float, handling common issues."""
+    if pd.isna(value):
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        cleaned = re.sub(r'[^\d.-]', '', value)
+        try:
+            return float(cleaned)
+        except ValueError:
+            return None
+    return None
+
+def standardize_phone(phone: str) -> Optional[str]:
+    """Standardize phone number to digits only."""
+    if not isinstance(phone, str):
+        return None
+    digits = re.sub(r'\D', '', phone)
+    if 10 <= len(digits) <= 15:
+        return digits
+    return None
+
+def drop_duplicates_preserve_order(data: List) -> List:
+    """Remove duplicates from a list while preserving order."""
+    seen = set()
+    result = []
+    for item in data:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
