@@ -161,3 +161,112 @@ if __name__ == "__main__":
     final_data = cleaner.get_cleaned_data()
     print("Final cleaned data:")
     print(final_data)
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(dataframe, column, multiplier=1.5):
+    """
+    Remove outliers using IQR method
+    """
+    Q1 = dataframe[column].quantile(0.25)
+    Q3 = dataframe[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - multiplier * IQR
+    upper_bound = Q3 + multiplier * IQR
+    
+    filtered_df = dataframe[(dataframe[column] >= lower_bound) & 
+                           (dataframe[column] <= upper_bound)]
+    return filtered_df
+
+def remove_outliers_zscore(dataframe, column, threshold=3):
+    """
+    Remove outliers using Z-score method
+    """
+    z_scores = np.abs(stats.zscore(dataframe[column]))
+    filtered_df = dataframe[z_scores < threshold]
+    return filtered_df
+
+def normalize_minmax(dataframe, column):
+    """
+    Normalize column using min-max scaling
+    """
+    min_val = dataframe[column].min()
+    max_val = dataframe[column].max()
+    
+    if max_val == min_val:
+        return dataframe[column].apply(lambda x: 0.5)
+    
+    normalized = (dataframe[column] - min_val) / (max_val - min_val)
+    return normalized
+
+def normalize_zscore(dataframe, column):
+    """
+    Normalize column using Z-score standardization
+    """
+    mean_val = dataframe[column].mean()
+    std_val = dataframe[column].std()
+    
+    if std_val == 0:
+        return dataframe[column].apply(lambda x: 0)
+    
+    standardized = (dataframe[column] - mean_val) / std_val
+    return standardized
+
+def clean_dataset(dataframe, numerical_columns, outlier_method='iqr', normalize_method='minmax'):
+    """
+    Main cleaning function for numerical columns
+    """
+    cleaned_df = dataframe.copy()
+    
+    for column in numerical_columns:
+        if column not in cleaned_df.columns:
+            continue
+            
+        if outlier_method == 'iqr':
+            cleaned_df = remove_outliers_iqr(cleaned_df, column)
+        elif outlier_method == 'zscore':
+            cleaned_df = remove_outliers_zscore(cleaned_df, column)
+        
+        if normalize_method == 'minmax':
+            cleaned_df[f'{column}_normalized'] = normalize_minmax(cleaned_df, column)
+        elif normalize_method == 'zscore':
+            cleaned_df[f'{column}_standardized'] = normalize_zscore(cleaned_df, column)
+    
+    return cleaned_df
+
+def get_summary_statistics(dataframe, column):
+    """
+    Get detailed statistics for a column
+    """
+    stats_dict = {
+        'mean': dataframe[column].mean(),
+        'median': dataframe[column].median(),
+        'std': dataframe[column].std(),
+        'min': dataframe[column].min(),
+        'max': dataframe[column].max(),
+        'q1': dataframe[column].quantile(0.25),
+        'q3': dataframe[column].quantile(0.75),
+        'count': dataframe[column].count(),
+        'missing': dataframe[column].isnull().sum()
+    }
+    return stats_dict
+
+def detect_skewness(dataframe, column):
+    """
+    Detect skewness in data distribution
+    """
+    skewness = dataframe[column].skew()
+    
+    if abs(skewness) < 0.5:
+        skew_type = 'approximately symmetric'
+    elif 0.5 <= abs(skewness) < 1:
+        skew_type = 'moderately skewed'
+    else:
+        skew_type = 'highly skewed'
+    
+    return {
+        'skewness': skewness,
+        'type': skew_type,
+        'direction': 'right' if skewness > 0 else 'left' if skewness < 0 else 'none'
+    }
