@@ -645,3 +645,51 @@ def example_usage():
 if __name__ == "__main__":
     result_df = example_usage()
     print("Processing completed successfully.")
+import numpy as np
+
+def remove_outliers_iqr(data, column):
+    """
+    Remove outliers from a specified column using the IQR method.
+    
+    Parameters:
+    data (list or np.array): The dataset.
+    column (int): Index of the column to clean.
+    
+    Returns:
+    np.array: Data with outliers removed.
+    """
+    if not isinstance(data, np.ndarray):
+        data = np.array(data)
+    
+    col_data = data[:, column].astype(float)
+    
+    Q1 = np.percentile(col_data, 25)
+    Q3 = np.percentile(col_data, 75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    mask = (col_data >= lower_bound) & (col_data <= upper_bound)
+    
+    return data[mask]
+
+def example_usage():
+    sample_data = np.array([
+        [1, 150.5],
+        [2, 200.0],
+        [3, 50.0],
+        [4, 300.0],
+        [5, 180.0],
+        [6, 1000.0],
+        [7, 190.0]
+    ])
+    
+    cleaned_data = remove_outliers_iqr(sample_data, column=1)
+    print("Original data shape:", sample_data.shape)
+    print("Cleaned data shape:", cleaned_data.shape)
+    print("Cleaned data:")
+    print(cleaned_data)
+
+if __name__ == "__main__":
+    example_usage()
