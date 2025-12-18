@@ -623,3 +623,72 @@ def remove_duplicates(sequence):
             seen.add(item)
             result.append(item)
     return result
+import pandas as pd
+
+def clean_dataset(df, drop_na=True, rename_columns=True):
+    """
+    Clean a pandas DataFrame by removing null values and standardizing column names.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean
+        drop_na (bool): Whether to drop rows with null values
+        rename_columns (bool): Whether to standardize column names
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame
+    """
+    cleaned_df = df.copy()
+    
+    if drop_na:
+        cleaned_df = cleaned_df.dropna()
+    
+    if rename_columns:
+        cleaned_df.columns = (
+            cleaned_df.columns
+            .str.lower()
+            .str.replace(' ', '_')
+            .str.replace('[^a-z0-9_]', '', regex=True)
+        )
+    
+    return cleaned_df
+
+def validate_dataset(df, required_columns=None):
+    """
+    Validate a DataFrame for required columns and data types.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate
+        required_columns (list): List of required column names
+    
+    Returns:
+        tuple: (is_valid, error_message)
+    """
+    if required_columns:
+        missing_columns = [
+            col for col in required_columns 
+            if col not in df.columns
+        ]
+        if missing_columns:
+            return False, f"Missing required columns: {missing_columns}"
+    
+    if df.empty:
+        return False, "DataFrame is empty"
+    
+    return True, "Dataset is valid"
+
+if __name__ == "__main__":
+    sample_data = {
+        'User ID': [1, 2, None, 4],
+        'First Name': ['Alice', 'Bob', 'Charlie', None],
+        'Age': [25, 30, 35, 40]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\nCleaned DataFrame:")
+    cleaned = clean_dataset(df)
+    print(cleaned)
+    
+    is_valid, message = validate_dataset(cleaned, ['user_id', 'first_name', 'age'])
+    print(f"\nValidation: {message}")
