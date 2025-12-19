@@ -649,3 +649,110 @@ if __name__ == "__main__":
         save_cleaned_data(cleaned_df, output_file)
     except Exception as e:
         print(f"Error during data cleaning: {str(e)}")
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df, strategy='mean', threshold=3):
+    """
+    Clean dataset by handling missing values and removing outliers.
+    
+    Parameters:
+    df (pd.DataFrame): Input dataframe
+    strategy (str): Strategy for missing values ('mean', 'median', 'mode', 'drop')
+    threshold (float): Z-score threshold for outlier detection
+    
+    Returns:
+    pd.DataFrame: Cleaned dataframe
+    """
+    df_clean = df.copy()
+    
+    # Handle missing values
+    if strategy == 'mean':
+        df_clean = df_clean.fillna(df_clean.mean())
+    elif strategy == 'median':
+        df_clean = df_clean.fillna(df_clean.median())
+    elif strategy == 'mode':
+        df_clean = df_clean.fillna(df_clean.mode().iloc[0])
+    elif strategy == 'drop':
+        df_clean = df_clean.dropna()
+    
+    # Remove outliers using Z-score method
+    numeric_cols = df_clean.select_dtypes(include=[np.number]).columns
+    z_scores = np.abs((df_clean[numeric_cols] - df_clean[numeric_cols].mean()) / df_clean[numeric_cols].std())
+    df_clean = df_clean[(z_scores < threshold).all(axis=1)]
+    
+    return df_clean
+
+def normalize_data(df, method='minmax'):
+    """
+    Normalize numerical columns in dataframe.
+    
+    Parameters:
+    df (pd.DataFrame): Input dataframe
+    method (str): Normalization method ('minmax', 'standard')
+    
+    Returns:
+    pd.DataFrame: Normalized dataframe
+    """
+    df_norm = df.copy()
+    numeric_cols = df_norm.select_dtypes(include=[np.number]).columns
+    
+    if method == 'minmax':
+        for col in numeric_cols:
+            min_val = df_norm[col].min()
+            max_val = df_norm[col].max()
+            if max_val > min_val:
+                df_norm[col] = (df_norm[col] - min_val) / (max_val - min_val)
+    
+    elif method == 'standard':
+        for col in numeric_cols:
+            mean_val = df_norm[col].mean()
+            std_val = df_norm[col].std()
+            if std_val > 0:
+                df_norm[col] = (df_norm[col] - mean_val) / std_val
+    
+    return df_norm
+
+def validate_data(df, required_columns=None, unique_threshold=0.9):
+    """
+    Validate dataframe structure and content.
+    
+    Parameters:
+    df (pd.DataFrame): Input dataframe
+    required_columns (list): List of required column names
+    unique_threshold (float): Threshold for unique value ratio
+    
+    Returns:
+    dict: Validation results
+    """
+    validation_results = {
+        'is_valid': True,
+        'issues': [],
+        'stats': {}
+    }
+    
+    # Check required columns
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            validation_results['is_valid'] = False
+            validation_results['issues'].append(f'Missing columns: {missing_cols}')
+    
+    # Check for duplicate rows
+    duplicate_count = df.duplicated().sum()
+    if duplicate_count > 0:
+        validation_results['issues'].append(f'Found {duplicate_count} duplicate rows')
+    
+    # Calculate basic statistics
+    validation_results['stats']['total_rows'] = len(df)
+    validation_results['stats']['total_columns'] = len(df.columns)
+    validation_results['stats']['missing_values'] = df.isnull().sum().sum()
+    
+    # Check for low-variance columns
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    for col in numeric_cols:
+        unique_ratio = df[col].nunique() / len(df)
+        if unique_ratio < unique_threshold:
+            validation_results['issues'].append(f'Low variance in column {col}: {unique_ratio:.2%} unique values')
+    
+    return validation_results
