@@ -509,3 +509,58 @@ def summarize_cleaning(df_before, df_after, numeric_columns):
                 'cleaned_std': df_after[col].std()
             }
     return pd.DataFrame(summary).T
+import pandas as pd
+import re
+
+def clean_text_column(df, column_name):
+    """
+    Standardize text by converting to lowercase, removing extra spaces,
+    and stripping special characters (except alphanumeric and spaces).
+    """
+    if column_name not in df.columns:
+        raise ValueError(f"Column '{column_name}' not found in DataFrame")
+    
+    df[column_name] = df[column_name].astype(str)
+    df[column_name] = df[column_name].str.lower()
+    df[column_name] = df[column_name].str.strip()
+    df[column_name] = df[column_name].apply(lambda x: re.sub(r'[^a-z0-9\s]', '', x))
+    df[column_name] = df[column_name].apply(lambda x: re.sub(r'\s+', ' ', x))
+    
+    return df
+
+def remove_duplicates(df, subset=None, keep='first'):
+    """
+    Remove duplicate rows from DataFrame.
+    """
+    return df.drop_duplicates(subset=subset, keep=keep)
+
+def standardize_dataframe(df, text_columns=None):
+    """
+    Apply cleaning to all specified text columns and remove duplicates.
+    """
+    df_clean = df.copy()
+    
+    if text_columns:
+        for col in text_columns:
+            if col in df_clean.columns:
+                df_clean = clean_text_column(df_clean, col)
+    
+    df_clean = remove_duplicates(df_clean)
+    
+    return df_clean
+
+if __name__ == "__main__":
+    sample_data = {
+        'name': ['  John Doe  ', 'Jane SMITH', 'John Doe', 'Alice@Wonderland'],
+        'email': ['john@email.com', 'jane@email.com', 'john@email.com', 'alice@email.com'],
+        'notes': ['Important client!', 'Regular customer', 'Important client', 'New lead']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\n")
+    
+    cleaned_df = standardize_dataframe(df, text_columns=['name', 'notes'])
+    print("Cleaned DataFrame:")
+    print(cleaned_df)
