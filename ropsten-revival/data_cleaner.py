@@ -924,3 +924,91 @@ def example_usage():
 
 if __name__ == "__main__":
     example_usage()
+import pandas as pd
+import numpy as np
+from typing import Optional
+
+def clean_csv_data(file_path: str, 
+                   missing_strategy: str = 'drop',
+                   fill_value: Optional[float] = None) -> pd.DataFrame:
+    """
+    Load and clean CSV data by handling missing values.
+    
+    Args:
+        file_path: Path to CSV file
+        missing_strategy: Strategy for handling missing values ('drop', 'fill', 'interpolate')
+        fill_value: Value to fill missing entries when using 'fill' strategy
+    
+    Returns:
+        Cleaned pandas DataFrame
+    """
+    try:
+        df = pd.read_csv(file_path)
+        
+        if missing_strategy == 'drop':
+            df_cleaned = df.dropna()
+        elif missing_strategy == 'fill':
+            if fill_value is not None:
+                df_cleaned = df.fillna(fill_value)
+            else:
+                df_cleaned = df.fillna(df.mean(numeric_only=True))
+        elif missing_strategy == 'interpolate':
+            df_cleaned = df.interpolate(method='linear')
+        else:
+            raise ValueError(f"Unknown strategy: {missing_strategy}")
+        
+        numeric_cols = df_cleaned.select_dtypes(include=[np.number]).columns
+        if len(numeric_cols) > 0:
+            df_cleaned[numeric_cols] = df_cleaned[numeric_cols].round(3)
+        
+        return df_cleaned
+    
+    except FileNotFoundError:
+        raise FileNotFoundError(f"File not found: {file_path}")
+    except pd.errors.EmptyDataError:
+        raise ValueError("CSV file is empty")
+    except Exception as e:
+        raise RuntimeError(f"Error cleaning data: {str(e)}")
+
+def validate_dataframe(df: pd.DataFrame, 
+                      required_columns: list = None) -> bool:
+    """
+    Validate DataFrame structure and content.
+    
+    Args:
+        df: DataFrame to validate
+        required_columns: List of required column names
+    
+    Returns:
+        Boolean indicating if DataFrame is valid
+    """
+    if df.empty:
+        return False
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            print(f"Missing required columns: {missing_cols}")
+            return False
+    
+    if df.isnull().any().any():
+        print("Warning: DataFrame contains missing values")
+    
+    return True
+
+if __name__ == "__main__":
+    sample_data = {
+        'A': [1, 2, None, 4, 5],
+        'B': [1.1, None, 3.3, 4.4, 5.5],
+        'C': ['x', 'y', 'z', None, 'w']
+    }
+    
+    test_df = pd.DataFrame(sample_data)
+    test_df.to_csv('test_data.csv', index=False)
+    
+    cleaned = clean_csv_data('test_data.csv', missing_strategy='fill')
+    print("Cleaned DataFrame:")
+    print(cleaned)
+    
+    is_valid = validate_dataframe(cleaned, required_columns=['A', 'B'])
+    print(f"DataFrame valid: {is_valid}")
