@@ -1246,3 +1246,142 @@ def clean_dataset(df, columns_to_clean=None):
             }
     
     return cleaned_df, statistics
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(dataframe, column, threshold=1.5):
+    """
+    Remove outliers from a DataFrame column using IQR method.
+    
+    Args:
+        dataframe: pandas DataFrame
+        column: column name to process
+        threshold: IQR multiplier (default 1.5)
+    
+    Returns:
+        DataFrame with outliers removed
+    """
+    if column not in dataframe.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    q1 = dataframe[column].quantile(0.25)
+    q3 = dataframe[column].quantile(0.75)
+    iqr = q3 - q1
+    
+    lower_bound = q1 - threshold * iqr
+    upper_bound = q3 + threshold * iqr
+    
+    filtered_df = dataframe[(dataframe[column] >= lower_bound) & 
+                           (dataframe[column] <= upper_bound)]
+    
+    return filtered_df
+
+def normalize_minmax(dataframe, columns=None):
+    """
+    Normalize specified columns using min-max scaling.
+    
+    Args:
+        dataframe: pandas DataFrame
+        columns: list of column names to normalize (default: all numeric columns)
+    
+    Returns:
+        DataFrame with normalized columns
+    """
+    if columns is None:
+        columns = dataframe.select_dtypes(include=[np.number]).columns.tolist()
+    
+    normalized_df = dataframe.copy()
+    
+    for col in columns:
+        if col in normalized_df.columns and pd.api.types.is_numeric_dtype(normalized_df[col]):
+            col_min = normalized_df[col].min()
+            col_max = normalized_df[col].max()
+            
+            if col_max != col_min:
+                normalized_df[col] = (normalized_df[col] - col_min) / (col_max - col_min)
+            else:
+                normalized_df[col] = 0
+    
+    return normalized_df
+
+def detect_skewed_columns(dataframe, threshold=0.5):
+    """
+    Detect columns with skewed distributions.
+    
+    Args:
+        dataframe: pandas DataFrame
+        threshold: absolute skewness threshold (default 0.5)
+    
+    Returns:
+        Dictionary with skewness values for columns exceeding threshold
+    """
+    skewed_cols = {}
+    
+    numeric_cols = dataframe.select_dtypes(include=[np.number]).columns
+    
+    for col in numeric_cols:
+        skewness = stats.skew(dataframe[col].dropna())
+        if abs(skewness) > threshold:
+            skewed_cols[col] = skewness
+    
+    return skewed_cols
+
+def clean_missing_values(dataframe, strategy='mean', columns=None):
+    """
+    Handle missing values in DataFrame.
+    
+    Args:
+        dataframe: pandas DataFrame
+        strategy: imputation strategy ('mean', 'median', 'mode', 'drop')
+        columns: list of columns to process (default: all columns)
+    
+    Returns:
+        DataFrame with handled missing values
+    """
+    if columns is None:
+        columns = dataframe.columns
+    
+    cleaned_df = dataframe.copy()
+    
+    for col in columns:
+        if col not in cleaned_df.columns:
+            continue
+            
+        if strategy == 'drop':
+            cleaned_df = cleaned_df.dropna(subset=[col])
+        elif strategy == 'mean' and pd.api.types.is_numeric_dtype(cleaned_df[col]):
+            cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].mean())
+        elif strategy == 'median' and pd.api.types.is_numeric_dtype(cleaned_df[col]):
+            cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].median())
+        elif strategy == 'mode':
+            mode_value = cleaned_df[col].mode()
+            if not mode_value.empty:
+                cleaned_df[col] = cleaned_df[col].fillna(mode_value[0])
+    
+    return cleaned_df
+
+def validate_dataframe(dataframe, required_columns=None, min_rows=1):
+    """
+    Validate DataFrame structure and content.
+    
+    Args:
+        dataframe: pandas DataFrame to validate
+        required_columns: list of required column names
+        min_rows: minimum number of rows required
+    
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    if not isinstance(dataframe, pd.DataFrame):
+        return False, "Input is not a pandas DataFrame"
+    
+    if len(dataframe) < min_rows:
+        return False, f"DataFrame has fewer than {min_rows} rows"
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in dataframe.columns]
+        if missing_cols:
+            return False, f"Missing required columns: {missing_cols}"
+    
+    return True, "DataFrame validation passed"
