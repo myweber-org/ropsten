@@ -1879,3 +1879,26 @@ if __name__ == "__main__":
     result_df = clean_dataset(sample_df, numeric_cols)
     print(f"Original shape: {sample_df.shape}")
     print(f"Cleaned shape: {result_df.shape}")
+import re
+
+def clean_string(text):
+    """
+    Clean and normalize a string by:
+    1. Removing leading/trailing whitespace.
+    2. Replacing multiple spaces/newlines/tabs with a single space.
+    3. Converting to lowercase.
+    Returns an empty string if input is not a string.
+    """
+    if not isinstance(text, str):
+        return ""
+    
+    # Remove leading/trailing whitespace
+    text = text.strip()
+    
+    # Replace any sequence of whitespace characters with a single space
+    text = re.sub(r'\s+', ' ', text)
+    
+    # Convert to lowercase
+    text = text.lower()
+    
+    return text
