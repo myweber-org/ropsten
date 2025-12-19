@@ -1355,3 +1355,11 @@ def validate_data(data, required_columns=None, allow_nan=False):
         return False, f"NaN values found in columns: {nan_columns}"
     
     return True, "Data validation passed"
+def remove_duplicates_preserve_order(iterable):
+    seen = set()
+    result = []
+    for item in iterable:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
