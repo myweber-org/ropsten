@@ -801,3 +801,126 @@ if __name__ == "__main__":
     print(f"\nCleaned data shape: {cleaned_df.shape}")
     print("\nFirst 5 rows of cleaned data:")
     print(cleaned_df.head())
+import pandas as pd
+import numpy as np
+from pathlib import Path
+
+class DataCleaner:
+    def __init__(self, file_path):
+        self.file_path = Path(file_path)
+        self.df = None
+        
+    def load_data(self):
+        try:
+            self.df = pd.read_csv(self.file_path)
+            print(f"Data loaded successfully. Shape: {self.df.shape}")
+            return True
+        except FileNotFoundError:
+            print(f"File not found: {self.file_path}")
+            return False
+        except Exception as e:
+            print(f"Error loading file: {e}")
+            return False
+    
+    def check_missing_values(self):
+        if self.df is None:
+            print("No data loaded. Call load_data() first.")
+            return None
+        
+        missing_counts = self.df.isnull().sum()
+        missing_percent = (missing_counts / len(self.df)) * 100
+        
+        missing_info = pd.DataFrame({
+            'missing_count': missing_counts,
+            'missing_percent': missing_percent
+        })
+        
+        return missing_info[missing_info['missing_count'] > 0]
+    
+    def fill_missing_values(self, strategy='mean', custom_value=None):
+        if self.df is None:
+            print("No data loaded. Call load_data() first.")
+            return
+        
+        numeric_cols = self.df.select_dtypes(include=[np.number]).columns
+        
+        for col in numeric_cols:
+            if self.df[col].isnull().any():
+                if strategy == 'mean':
+                    fill_value = self.df[col].mean()
+                elif strategy == 'median':
+                    fill_value = self.df[col].median()
+                elif strategy == 'mode':
+                    fill_value = self.df[col].mode()[0]
+                elif strategy == 'custom' and custom_value is not None:
+                    fill_value = custom_value
+                else:
+                    continue
+                
+                self.df[col].fillna(fill_value, inplace=True)
+                print(f"Filled missing values in '{col}' with {fill_value}")
+    
+    def remove_duplicates(self, subset=None, keep='first'):
+        if self.df is None:
+            print("No data loaded. Call load_data() first.")
+            return 0
+        
+        initial_count = len(self.df)
+        self.df.drop_duplicates(subset=subset, keep=keep, inplace=True)
+        removed_count = initial_count - len(self.df)
+        
+        if removed_count > 0:
+            print(f"Removed {removed_count} duplicate rows")
+        
+        return removed_count
+    
+    def save_cleaned_data(self, output_path=None):
+        if self.df is None:
+            print("No data loaded. Call load_data() first.")
+            return False
+        
+        if output_path is None:
+            output_path = self.file_path.parent / f"cleaned_{self.file_path.name}"
+        
+        try:
+            self.df.to_csv(output_path, index=False)
+            print(f"Cleaned data saved to: {output_path}")
+            return True
+        except Exception as e:
+            print(f"Error saving file: {e}")
+            return False
+    
+    def get_summary(self):
+        if self.df is None:
+            print("No data loaded. Call load_data() first.")
+            return None
+        
+        summary = {
+            'original_file': str(self.file_path),
+            'rows': len(self.df),
+            'columns': len(self.df.columns),
+            'numeric_columns': len(self.df.select_dtypes(include=[np.number]).columns),
+            'categorical_columns': len(self.df.select_dtypes(include=['object']).columns),
+            'total_missing': self.df.isnull().sum().sum(),
+            'duplicates_removed': None
+        }
+        
+        return summary
+
+def example_usage():
+    cleaner = DataCleaner('sample_data.csv')
+    
+    if cleaner.load_data():
+        print("\nMissing values before cleaning:")
+        print(cleaner.check_missing_values())
+        
+        cleaner.fill_missing_values(strategy='mean')
+        cleaner.remove_duplicates()
+        
+        print("\nData summary:")
+        print(cleaner.get_summary())
+        
+        cleaner.save_cleaned_data()
+
+if __name__ == "__main__":
+    example_usage()
