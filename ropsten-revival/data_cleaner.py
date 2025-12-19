@@ -1362,4 +1362,119 @@ def remove_duplicates_preserve_order(iterable):
         if item not in seen:
             seen.add(item)
             result.append(item)
-    return result
+    return resultimport pandas as pd
+import numpy as np
+
+def clean_missing_data(df, strategy='mean', columns=None):
+    """
+    Handle missing values in a DataFrame using specified strategy.
+    
+    Args:
+        df: pandas DataFrame containing data with potential missing values
+        strategy: Method for handling missing values ('mean', 'median', 'mode', 'drop')
+        columns: List of column names to apply cleaning to (None for all columns)
+    
+    Returns:
+        Cleaned pandas DataFrame
+    """
+    if df.empty:
+        return df
+    
+    if columns is None:
+        columns = df.columns
+    
+    df_clean = df.copy()
+    
+    for col in columns:
+        if col not in df_clean.columns:
+            continue
+            
+        if df_clean[col].isnull().sum() == 0:
+            continue
+        
+        if strategy == 'drop':
+            df_clean = df_clean.dropna(subset=[col])
+        elif strategy == 'mean':
+            if pd.api.types.is_numeric_dtype(df_clean[col]):
+                df_clean[col] = df_clean[col].fillna(df_clean[col].mean())
+        elif strategy == 'median':
+            if pd.api.types.is_numeric_dtype(df_clean[col]):
+                df_clean[col] = df_clean[col].fillna(df_clean[col].median())
+        elif strategy == 'mode':
+            if not df_clean[col].mode().empty:
+                df_clean[col] = df_clean[col].fillna(df_clean[col].mode()[0])
+        else:
+            raise ValueError(f"Unknown strategy: {strategy}")
+    
+    return df_clean
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Args:
+        df: pandas DataFrame to validate
+        required_columns: List of column names that must be present
+    
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    if not isinstance(df, pd.DataFrame):
+        return False, "Input is not a pandas DataFrame"
+    
+    if df.empty:
+        return False, "DataFrame is empty"
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            return False, f"Missing required columns: {missing_cols}"
+    
+    return True, "DataFrame is valid"
+
+def load_and_clean_csv(filepath, cleaning_strategy='mean'):
+    """
+    Load CSV file and clean missing values.
+    
+    Args:
+        filepath: Path to CSV file
+        cleaning_strategy: Strategy for handling missing values
+    
+    Returns:
+        Cleaned pandas DataFrame
+    """
+    try:
+        df = pd.read_csv(filepath)
+        is_valid, message = validate_dataframe(df)
+        
+        if not is_valid:
+            print(f"Warning: {message}")
+        
+        df_clean = clean_missing_data(df, strategy=cleaning_strategy)
+        print(f"Cleaned data: {len(df)} -> {len(df_clean)} rows")
+        print(f"Removed {len(df) - len(df_clean)} rows with missing values")
+        
+        return df_clean
+        
+    except FileNotFoundError:
+        print(f"Error: File not found at {filepath}")
+        return pd.DataFrame()
+    except Exception as e:
+        print(f"Error loading file: {str(e)}")
+        return pd.DataFrame()
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'A': [1, 2, np.nan, 4, 5],
+        'B': [10, np.nan, 30, 40, 50],
+        'C': ['x', 'y', 'z', np.nan, 'w']
+    }
+    
+    df_sample = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df_sample)
+    
+    df_cleaned = clean_missing_data(df_sample, strategy='mean')
+    print("\nCleaned DataFrame (mean strategy):")
+    print(df_cleaned)
