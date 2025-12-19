@@ -512,3 +512,41 @@ def example_usage():
 if __name__ == "__main__":
     result = example_usage()
     print("Cleaning completed successfully")
+import numpy as np
+
+def remove_outliers_iqr(data, column):
+    """
+    Remove outliers from a specified column using the IQR method.
+    
+    Parameters:
+    data (pd.DataFrame): The input DataFrame.
+    column (str): The column name to process.
+    
+    Returns:
+    pd.DataFrame: DataFrame with outliers removed.
+    """
+    Q1 = data[column].quantile(0.25)
+    Q3 = data[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    return filtered_data
+
+def main():
+    # Example usage
+    import pandas as pd
+    np.random.seed(42)
+    sample_data = pd.DataFrame({
+        'value': np.random.randn(100)
+    })
+    sample_data.loc[0, 'value'] = 10  # Add an outlier
+    
+    print("Original data shape:", sample_data.shape)
+    cleaned_data = remove_outliers_iqr(sample_data, 'value')
+    print("Cleaned data shape:", cleaned_data.shape)
+    print("Outliers removed:", sample_data.shape[0] - cleaned_data.shape[0])
+
+if __name__ == "__main__":
+    main()
