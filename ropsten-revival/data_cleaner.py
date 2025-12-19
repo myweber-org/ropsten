@@ -563,4 +563,89 @@ if __name__ == "__main__":
     
     cleaned_df = standardize_dataframe(df, text_columns=['name', 'notes'])
     print("Cleaned DataFrame:")
-    print(cleaned_df)
+    print(cleaned_df)import pandas as pd
+import numpy as np
+
+def clean_csv_data(filepath, fill_strategy='mean', drop_threshold=0.5):
+    """
+    Load and clean CSV data by handling missing values.
+    
+    Parameters:
+    filepath (str): Path to the CSV file
+    fill_strategy (str): Strategy for filling missing values ('mean', 'median', 'mode', 'zero')
+    drop_threshold (float): Drop columns if missing values exceed this ratio (0.0 to 1.0)
+    
+    Returns:
+    pd.DataFrame: Cleaned dataframe
+    """
+    try:
+        df = pd.read_csv(filepath)
+    except FileNotFoundError:
+        raise FileNotFoundError(f"File not found: {filepath}")
+    except Exception as e:
+        raise ValueError(f"Error reading CSV: {str(e)}")
+    
+    original_shape = df.shape
+    print(f"Original data shape: {original_shape}")
+    
+    # Drop columns with too many missing values
+    missing_ratios = df.isnull().sum() / len(df)
+    columns_to_drop = missing_ratios[missing_ratios > drop_threshold].index
+    df = df.drop(columns=columns_to_drop)
+    
+    if len(columns_to_drop) > 0:
+        print(f"Dropped columns: {list(columns_to_drop)}")
+    
+    # Fill missing values based on strategy
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    
+    if fill_strategy == 'mean':
+        fill_values = df[numeric_cols].mean()
+    elif fill_strategy == 'median':
+        fill_values = df[numeric_cols].median()
+    elif fill_strategy == 'mode':
+        fill_values = df[numeric_cols].mode().iloc[0]
+    elif fill_strategy == 'zero':
+        fill_values = 0
+    else:
+        raise ValueError("Invalid fill_strategy. Choose from: 'mean', 'median', 'mode', 'zero'")
+    
+    # Fill numeric columns
+    df[numeric_cols] = df[numeric_cols].fillna(fill_values)
+    
+    # Fill categorical columns with mode
+    categorical_cols = df.select_dtypes(include=['object']).columns
+    for col in categorical_cols:
+        mode_value = df[col].mode()
+        if not mode_value.empty:
+            df[col] = df[col].fillna(mode_value.iloc[0])
+    
+    # Drop remaining rows with any NaN values
+    df = df.dropna()
+    
+    print(f"Cleaned data shape: {df.shape}")
+    print(f"Removed {original_shape[0] - df.shape[0]} rows and {original_shape[1] - df.shape[1]} columns")
+    
+    return df
+
+def save_cleaned_data(df, output_path):
+    """
+    Save cleaned dataframe to CSV.
+    
+    Parameters:
+    df (pd.DataFrame): Cleaned dataframe
+    output_path (str): Path to save the cleaned CSV
+    """
+    df.to_csv(output_path, index=False)
+    print(f"Cleaned data saved to: {output_path}")
+
+if __name__ == "__main__":
+    # Example usage
+    input_file = "raw_data.csv"
+    output_file = "cleaned_data.csv"
+    
+    try:
+        cleaned_df = clean_csv_data(input_file, fill_strategy='median', drop_threshold=0.3)
+        save_cleaned_data(cleaned_df, output_file)
+    except Exception as e:
+        print(f"Error during data cleaning: {str(e)}")
