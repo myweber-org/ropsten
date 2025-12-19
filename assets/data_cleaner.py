@@ -161,3 +161,85 @@ if __name__ == "__main__":
         print(f"\n{col}:")
         for stat_name, value in col_stats.items():
             print(f"  {stat_name}: {value:.2f}")
+import pandas as pd
+import numpy as np
+from typing import List, Optional
+
+class DataCleaner:
+    def __init__(self, df: pd.DataFrame):
+        self.df = df.copy()
+        self.original_shape = df.shape
+        
+    def remove_duplicates(self, subset: Optional[List[str]] = None) -> 'DataCleaner':
+        self.df = self.df.drop_duplicates(subset=subset, keep='first')
+        return self
+        
+    def normalize_column(self, column_name: str, method: str = 'minmax') -> 'DataCleaner':
+        if column_name not in self.df.columns:
+            raise ValueError(f"Column '{column_name}' not found in DataFrame")
+            
+        if method == 'minmax':
+            col_min = self.df[column_name].min()
+            col_max = self.df[column_name].max()
+            if col_max != col_min:
+                self.df[column_name] = (self.df[column_name] - col_min) / (col_max - col_min)
+        elif method == 'zscore':
+            col_mean = self.df[column_name].mean()
+            col_std = self.df[column_name].std()
+            if col_std > 0:
+                self.df[column_name] = (self.df[column_name] - col_mean) / col_std
+        else:
+            raise ValueError(f"Unknown normalization method: {method}")
+            
+        return self
+        
+    def fill_missing_values(self, strategy: str = 'mean', fill_value: Optional[float] = None) -> 'DataCleaner':
+        numeric_cols = self.df.select_dtypes(include=[np.number]).columns
+        
+        for col in numeric_cols:
+            if self.df[col].isnull().any():
+                if strategy == 'mean':
+                    self.df[col].fillna(self.df[col].mean(), inplace=True)
+                elif strategy == 'median':
+                    self.df[col].fillna(self.df[col].median(), inplace=True)
+                elif strategy == 'mode':
+                    self.df[col].fillna(self.df[col].mode()[0], inplace=True)
+                elif strategy == 'constant' and fill_value is not None:
+                    self.df[col].fillna(fill_value, inplace=True)
+                else:
+                    raise ValueError(f"Invalid strategy or missing fill_value: {strategy}")
+                    
+        return self
+        
+    def get_cleaned_data(self) -> pd.DataFrame:
+        return self.df.copy()
+        
+    def get_summary(self) -> dict:
+        cleaned_shape = self.df.shape
+        return {
+            'original_rows': self.original_shape[0],
+            'original_columns': self.original_shape[1],
+            'cleaned_rows': cleaned_shape[0],
+            'cleaned_columns': cleaned_shape[1],
+            'rows_removed': self.original_shape[0] - cleaned_shape[0],
+            'missing_values_filled': self.df.isnull().sum().sum()
+        }
+
+def clean_dataset(df: pd.DataFrame, 
+                  remove_dups: bool = True,
+                  normalize_cols: Optional[List[str]] = None,
+                  fill_missing: bool = True) -> pd.DataFrame:
+    cleaner = DataCleaner(df)
+    
+    if remove_dups:
+        cleaner.remove_duplicates()
+        
+    if normalize_cols:
+        for col in normalize_cols:
+            if col in df.columns:
+                cleaner.normalize_column(col)
+                
+    if fill_missing:
+        cleaner.fill_missing_values(strategy='mean')
+        
+    return cleaner.get_cleaned_data()
