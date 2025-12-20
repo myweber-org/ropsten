@@ -234,4 +234,44 @@ if __name__ == "__main__":
         validate_data(cleaned_df, ['id', 'name', 'age'])
         print("\nData validation passed.")
     except ValueError as e:
-        print(f"\nData validation failed: {e}")
+        print(f"\nData validation failed: {e}")import pandas as pd
+import re
+
+def clean_dataframe(df, columns_to_clean=None):
+    """
+    Clean a pandas DataFrame by removing duplicate rows and normalizing
+    specified string columns (strip whitespace, convert to lowercase).
+    If columns_to_clean is None, applies to all object dtype columns.
+    """
+    # Remove duplicate rows
+    df_cleaned = df.drop_duplicates().reset_index(drop=True)
+    
+    # Determine which columns to clean
+    if columns_to_clean is None:
+        columns_to_clean = df_cleaned.select_dtypes(include=['object']).columns
+    
+    # Normalize string columns
+    for col in columns_to_clean:
+        if col in df_cleaned.columns and df_cleaned[col].dtype == 'object':
+            df_cleaned[col] = df_cleaned[col].astype(str).str.strip().str.lower()
+    
+    return df_cleaned
+
+def remove_special_characters(text, regex_pattern=r'[^a-zA-Z0-9\s]'):
+    """
+    Remove special characters from a string using regex.
+    Default pattern keeps only alphanumeric and whitespace.
+    """
+    if pd.isna(text):
+        return text
+    return re.sub(regex_pattern, '', str(text))
+
+def validate_email(email):
+    """
+    Basic email validation using regex.
+    Returns True if email matches pattern, False otherwise.
+    """
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    if pd.isna(email):
+        return False
+    return bool(re.match(pattern, str(email).strip()))
