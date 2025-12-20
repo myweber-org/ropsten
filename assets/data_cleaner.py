@@ -1316,3 +1316,56 @@ def clean_dataset(df, columns_to_clean=None):
             print(f"Removed {removed_count} outliers from column '{column}'")
     
     return cleaned_df
+import re
+import string
+
+def clean_text(text):
+    """
+    Clean and normalize a given text string.
+    Removes extra whitespace, converts to lowercase, and removes punctuation.
+    """
+    if not isinstance(text, str):
+        return ""
+
+    # Convert to lowercase
+    text = text.lower()
+
+    # Remove punctuation
+    text = text.translate(str.maketrans('', '', string.punctuation))
+
+    # Remove extra whitespace and newlines
+    text = re.sub(r'\s+', ' ', text).strip()
+
+    return text
+
+def remove_special_characters(text, keep_spaces=True):
+    """
+    Remove all non-alphanumeric characters from the text.
+    Optionally preserve spaces.
+    """
+    if not isinstance(text, str):
+        return ""
+
+    if keep_spaces:
+        pattern = r'[^a-zA-Z0-9\s]'
+    else:
+        pattern = r'[^a-zA-Z0-9]'
+
+    return re.sub(pattern, '', text)
+
+def normalize_whitespace(text):
+    """
+    Normalize all whitespace characters to single spaces.
+    """
+    if not isinstance(text, str):
+        return ""
+
+    return re.sub(r'\s+', ' ', text).strip()
+
+if __name__ == "__main__":
+    # Example usage
+    sample_text = "  Hello,   World! This is a TEST...  "
+    print(f"Original: '{sample_text}'")
+    print(f"Cleaned: '{clean_text(sample_text)}'")
+    print(f"Without special chars: '{remove_special_characters(sample_text)}'")
+    print(f"Normalized whitespace: '{normalize_whitespace(sample_text)}'")
