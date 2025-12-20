@@ -1024,3 +1024,65 @@ if __name__ == "__main__":
     normalized_df = normalize_column(cleaned_df, 'values', method='minmax')
     print("\nNormalized DataFrame:")
     print(normalized_df)
+import pandas as pd
+
+def remove_duplicates(dataframe, subset=None, keep='first'):
+    """
+    Remove duplicate rows from a DataFrame.
+    
+    Args:
+        dataframe (pd.DataFrame): Input DataFrame
+        subset (list, optional): Columns to consider for duplicates
+        keep (str, optional): Which duplicates to keep ('first', 'last', False)
+    
+    Returns:
+        pd.DataFrame: DataFrame with duplicates removed
+    """
+    if dataframe.empty:
+        return dataframe
+    
+    cleaned_df = dataframe.drop_duplicates(subset=subset, keep=keep)
+    
+    removed_count = len(dataframe) - len(cleaned_df)
+    if removed_count > 0:
+        print(f"Removed {removed_count} duplicate rows")
+    
+    return cleaned_df
+
+def clean_numeric_columns(dataframe, columns):
+    """
+    Clean numeric columns by removing non-numeric values.
+    
+    Args:
+        dataframe (pd.DataFrame): Input DataFrame
+        columns (list): List of column names to clean
+    
+    Returns:
+        pd.DataFrame: DataFrame with cleaned numeric columns
+    """
+    cleaned_df = dataframe.copy()
+    
+    for col in columns:
+        if col in cleaned_df.columns:
+            cleaned_df[col] = pd.to_numeric(cleaned_df[col], errors='coerce')
+    
+    return cleaned_df
+
+def standardize_text(dataframe, columns):
+    """
+    Standardize text columns by converting to lowercase and stripping whitespace.
+    
+    Args:
+        dataframe (pd.DataFrame): Input DataFrame
+        columns (list): List of column names to standardize
+    
+    Returns:
+        pd.DataFrame: DataFrame with standardized text columns
+    """
+    cleaned_df = dataframe.copy()
+    
+    for col in columns:
+        if col in cleaned_df.columns:
+            cleaned_df[col] = cleaned_df[col].astype(str).str.lower().str.strip()
+    
+    return cleaned_df
