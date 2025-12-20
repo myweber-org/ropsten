@@ -1205,3 +1205,124 @@ if __name__ == "__main__":
     cleaned_data = clean_dataset('raw_data.csv', ['age', 'income', 'score'])
     cleaned_data.to_csv('cleaned_data.csv', index=False)
     print(f"Data cleaning complete. Remaining records: {len(cleaned_data)}")
+import pandas as pd
+
+def remove_duplicates(dataframe, subset=None, keep='first'):
+    """
+    Remove duplicate rows from a pandas DataFrame.
+    
+    Args:
+        dataframe: pandas DataFrame to clean
+        subset: column label or sequence of labels to consider for duplicates
+        keep: determines which duplicates to keep ('first', 'last', False)
+    
+    Returns:
+        Cleaned DataFrame with duplicates removed
+    """
+    if dataframe.empty:
+        return dataframe
+    
+    cleaned_df = dataframe.drop_duplicates(subset=subset, keep=keep)
+    
+    removed_count = len(dataframe) - len(cleaned_df)
+    if removed_count > 0:
+        print(f"Removed {removed_count} duplicate rows")
+    
+    return cleaned_df
+
+def validate_dataframe(dataframe, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Args:
+        dataframe: pandas DataFrame to validate
+        required_columns: list of column names that must be present
+    
+    Returns:
+        Boolean indicating if DataFrame is valid
+    """
+    if not isinstance(dataframe, pd.DataFrame):
+        raise TypeError("Input must be a pandas DataFrame")
+    
+    if dataframe.empty:
+        print("Warning: DataFrame is empty")
+        return True
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in dataframe.columns]
+        if missing_columns:
+            raise ValueError(f"Missing required columns: {missing_columns}")
+    
+    return True
+
+def clean_numeric_columns(dataframe, columns=None):
+    """
+    Clean numeric columns by converting to appropriate types and handling errors.
+    
+    Args:
+        dataframe: pandas DataFrame to clean
+        columns: specific columns to clean (defaults to all numeric columns)
+    
+    Returns:
+        DataFrame with cleaned numeric columns
+    """
+    if columns is None:
+        columns = dataframe.select_dtypes(include=['object']).columns
+    
+    for column in columns:
+        if column in dataframe.columns:
+            try:
+                dataframe[column] = pd.to_numeric(dataframe[column], errors='coerce')
+            except Exception as e:
+                print(f"Could not convert column {column}: {e}")
+    
+    return dataframe
+
+def get_data_summary(dataframe):
+    """
+    Generate summary statistics for the DataFrame.
+    
+    Args:
+        dataframe: pandas DataFrame to summarize
+    
+    Returns:
+        Dictionary containing summary statistics
+    """
+    summary = {
+        'total_rows': len(dataframe),
+        'total_columns': len(dataframe.columns),
+        'missing_values': dataframe.isnull().sum().sum(),
+        'duplicate_rows': dataframe.duplicated().sum(),
+        'column_types': dataframe.dtypes.to_dict(),
+        'numeric_columns': list(dataframe.select_dtypes(include=['number']).columns)
+    }
+    
+    return summary
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'id': [1, 2, 3, 1, 2, 4],
+        'name': ['Alice', 'Bob', 'Charlie', 'Alice', 'Bob', 'David'],
+        'age': ['25', '30', '35', '25', '30', '40'],
+        'score': [85, 92, 78, 85, 92, 88]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\n" + "="*50 + "\n")
+    
+    # Clean the data
+    df_clean = remove_duplicates(df, subset=['id', 'name'], keep='first')
+    df_clean = clean_numeric_columns(df_clean, columns=['age'])
+    
+    print("Cleaned DataFrame:")
+    print(df_clean)
+    print("\n" + "="*50 + "\n")
+    
+    # Get summary
+    summary = get_data_summary(df_clean)
+    print("Data Summary:")
+    for key, value in summary.items():
+        print(f"{key}: {value}")
