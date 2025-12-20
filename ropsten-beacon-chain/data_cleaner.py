@@ -183,4 +183,55 @@ def validate_data(data, required_columns=None, check_missing=True, check_duplica
             validation_results['duplicate_count'] = duplicate_count
             validation_results['issues'].append(f"Found {duplicate_count} duplicate rows")
     
-    return validation_results
+    return validation_resultsimport pandas as pd
+
+def clean_dataset(df, id_column='id'):
+    """
+    Remove duplicate rows based on ID column and standardize column names.
+    """
+    # Standardize column names: strip whitespace and convert to lowercase
+    df.columns = df.columns.str.strip().str.lower()
+    
+    # Remove duplicate rows based on the specified ID column
+    if id_column in df.columns:
+        df = df.drop_duplicates(subset=[id_column], keep='first')
+    else:
+        print(f"Warning: Column '{id_column}' not found. Skipping duplicate removal.")
+    
+    # Reset index after cleaning
+    df = df.reset_index(drop=True)
+    
+    return df
+
+def validate_data(df, required_columns):
+    """
+    Validate that required columns exist in the DataFrame.
+    """
+    missing_columns = [col for col in required_columns if col not in df.columns]
+    
+    if missing_columns:
+        raise ValueError(f"Missing required columns: {missing_columns}")
+    
+    return True
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'ID': [1, 2, 2, 3, 4],
+        'Name': ['Alice', 'Bob', 'Bob', 'Charlie', 'David'],
+        'Age': [25, 30, 30, 35, 28]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    
+    cleaned_df = clean_dataset(df, id_column='id')
+    print("\nCleaned DataFrame:")
+    print(cleaned_df)
+    
+    try:
+        validate_data(cleaned_df, ['id', 'name', 'age'])
+        print("\nData validation passed.")
+    except ValueError as e:
+        print(f"\nData validation failed: {e}")
