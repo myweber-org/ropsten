@@ -99,3 +99,80 @@ if __name__ == "__main__":
     is_valid, message = validate_data(cleaned_df, required_columns=['feature1', 'feature2'], min_rows=3)
     print(f"\nValidation result: {is_valid}")
     print(f"Validation message: {message}")
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df, column_mapping=None, drop_duplicates=True, normalize_text=True):
+    """
+    Clean a pandas DataFrame by removing duplicates, normalizing text columns,
+    and optionally renaming columns.
+    """
+    df_clean = df.copy()
+    
+    if drop_duplicates:
+        initial_rows = len(df_clean)
+        df_clean = df_clean.drop_duplicates()
+        removed = initial_rows - len(df_clean)
+        print(f"Removed {removed} duplicate rows")
+    
+    if normalize_text:
+        text_columns = df_clean.select_dtypes(include=['object']).columns
+        for col in text_columns:
+            df_clean[col] = df_clean[col].astype(str).str.strip().str.lower()
+            df_clean[col] = df_clean[col].replace('nan', np.nan)
+            df_clean[col] = df_clean[col].replace('none', np.nan)
+        print(f"Normalized text in columns: {list(text_columns)}")
+    
+    if column_mapping:
+        df_clean = df_clean.rename(columns=column_mapping)
+        print(f"Renamed columns according to mapping")
+    
+    df_clean = df_clean.reset_index(drop=True)
+    return df_clean
+
+def validate_data(df, required_columns=None, check_missing=True):
+    """
+    Validate the cleaned DataFrame for required columns and missing values.
+    """
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            raise ValueError(f"Missing required columns: {missing_cols}")
+    
+    if check_missing:
+        missing_counts = df.isnull().sum()
+        missing_cols = missing_counts[missing_counts > 0]
+        if not missing_cols.empty:
+            print("Warning: Missing values found in columns:")
+            for col, count in missing_cols.items():
+                print(f"  {col}: {count} missing values")
+    
+    return True
+
+def sample_usage():
+    """
+    Example usage of the data cleaning functions.
+    """
+    data = {
+        'Name': ['Alice', 'Bob', 'Alice', 'Charlie', 'bob', 'DAVID'],
+        'Age': [25, 30, 25, 35, 30, 40],
+        'City': ['New York', 'Los Angeles', 'new york', 'Chicago', 'los angeles', 'BOSTON']
+    }
+    
+    df = pd.DataFrame(data)
+    print("Original DataFrame:")
+    print(df)
+    print("\n" + "="*50 + "\n")
+    
+    cleaned_df = clean_dataset(df, drop_duplicates=True, normalize_text=True)
+    print("Cleaned DataFrame:")
+    print(cleaned_df)
+    
+    try:
+        validate_data(cleaned_df, required_columns=['Name', 'Age'])
+        print("\nData validation passed")
+    except ValueError as e:
+        print(f"\nData validation failed: {e}")
+
+if __name__ == "__main__":
+    sample_usage()
