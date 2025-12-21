@@ -197,3 +197,164 @@ if __name__ == "__main__":
     
     is_valid, message = validate_dataset(cleaned, required_columns=['A', 'B'], min_rows=3)
     print(f"\nValidation: {is_valid} - {message}")
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(dataframe, column, threshold=1.5):
+    """
+    Remove outliers from a DataFrame column using IQR method.
+    
+    Args:
+        dataframe: pandas DataFrame
+        column: column name to process
+        threshold: IQR multiplier (default 1.5)
+    
+    Returns:
+        DataFrame with outliers removed
+    """
+    if column not in dataframe.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    q1 = dataframe[column].quantile(0.25)
+    q3 = dataframe[column].quantile(0.75)
+    iqr = q3 - q1
+    
+    lower_bound = q1 - threshold * iqr
+    upper_bound = q3 + threshold * iqr
+    
+    filtered_df = dataframe[(dataframe[column] >= lower_bound) & 
+                           (dataframe[column] <= upper_bound)]
+    
+    return filtered_df
+
+def normalize_minmax(dataframe, columns=None):
+    """
+    Normalize specified columns using min-max scaling.
+    
+    Args:
+        dataframe: pandas DataFrame
+        columns: list of column names to normalize (default: all numeric columns)
+    
+    Returns:
+        DataFrame with normalized columns
+    """
+    if columns is None:
+        numeric_cols = dataframe.select_dtypes(include=[np.number]).columns
+        columns = list(numeric_cols)
+    
+    normalized_df = dataframe.copy()
+    
+    for col in columns:
+        if col not in normalized_df.columns:
+            continue
+            
+        col_min = normalized_df[col].min()
+        col_max = normalized_df[col].max()
+        
+        if col_max - col_min > 0:
+            normalized_df[col] = (normalized_df[col] - col_min) / (col_max - col_min)
+        else:
+            normalized_df[col] = 0
+    
+    return normalized_df
+
+def z_score_normalize(dataframe, columns=None):
+    """
+    Normalize specified columns using z-score normalization.
+    
+    Args:
+        dataframe: pandas DataFrame
+        columns: list of column names to normalize (default: all numeric columns)
+    
+    Returns:
+        DataFrame with z-score normalized columns
+    """
+    if columns is None:
+        numeric_cols = dataframe.select_dtypes(include=[np.number]).columns
+        columns = list(numeric_cols)
+    
+    normalized_df = dataframe.copy()
+    
+    for col in columns:
+        if col not in normalized_df.columns:
+            continue
+            
+        col_mean = normalized_df[col].mean()
+        col_std = normalized_df[col].std()
+        
+        if col_std > 0:
+            normalized_df[col] = (normalized_df[col] - col_mean) / col_std
+        else:
+            normalized_df[col] = 0
+    
+    return normalized_df
+
+def clean_dataset(dataframe, outlier_columns=None, normalize_method='minmax'):
+    """
+    Comprehensive data cleaning pipeline.
+    
+    Args:
+        dataframe: pandas DataFrame
+        outlier_columns: list of columns to remove outliers from
+        normalize_method: 'minmax' or 'zscore' normalization method
+    
+    Returns:
+        Cleaned DataFrame
+    """
+    cleaned_df = dataframe.copy()
+    
+    if outlier_columns:
+        for col in outlier_columns:
+            if col in cleaned_df.columns:
+                cleaned_df = remove_outliers_iqr(cleaned_df, col)
+    
+    if normalize_method == 'minmax':
+        cleaned_df = normalize_minmax(cleaned_df)
+    elif normalize_method == 'zscore':
+        cleaned_df = z_score_normalize(cleaned_df)
+    
+    return cleaned_df
+
+def calculate_statistics(dataframe):
+    """
+    Calculate basic statistics for numeric columns.
+    
+    Args:
+        dataframe: pandas DataFrame
+    
+    Returns:
+        Dictionary containing statistics
+    """
+    stats_dict = {}
+    
+    numeric_cols = dataframe.select_dtypes(include=[np.number]).columns
+    
+    for col in numeric_cols:
+        stats_dict[col] = {
+            'mean': dataframe[col].mean(),
+            'median': dataframe[col].median(),
+            'std': dataframe[col].std(),
+            'min': dataframe[col].min(),
+            'max': dataframe[col].max(),
+            'count': dataframe[col].count(),
+            'missing': dataframe[col].isnull().sum()
+        }
+    
+    return stats_dict
+
+def save_cleaned_data(dataframe, filename, format='csv'):
+    """
+    Save cleaned DataFrame to file.
+    
+    Args:
+        dataframe: pandas DataFrame
+        filename: output filename
+        format: 'csv' or 'parquet'
+    """
+    if format == 'csv':
+        dataframe.to_csv(filename, index=False)
+    elif format == 'parquet':
+        dataframe.to_parquet(filename, index=False)
+    else:
+        raise ValueError(f"Unsupported format: {format}")
