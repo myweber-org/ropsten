@@ -777,4 +777,129 @@ def get_data_summary(data):
         'missing_values': data.isnull().sum().to_dict(),
         'numeric_summary': data.describe().to_dict() if data.select_dtypes(include=[np.number]).shape[1] > 0 else {}
     }
-    return summary
+    return summaryimport pandas as pd
+import numpy as np
+
+def clean_csv_data(filepath, fill_strategy='mean', drop_threshold=0.5):
+    """
+    Load and clean CSV data by handling missing values.
+    
+    Parameters:
+    filepath (str): Path to the CSV file
+    fill_strategy (str): Strategy for filling missing values ('mean', 'median', 'mode', 'zero')
+    drop_threshold (float): Drop columns with missing ratio above this threshold
+    
+    Returns:
+    pandas.DataFrame: Cleaned dataframe
+    """
+    
+    df = pd.read_csv(filepath)
+    original_shape = df.shape
+    
+    print(f"Original data shape: {original_shape}")
+    print(f"Missing values per column:")
+    print(df.isnull().sum())
+    
+    missing_ratios = df.isnull().sum() / len(df)
+    columns_to_drop = missing_ratios[missing_ratios > drop_threshold].index
+    df = df.drop(columns=columns_to_drop)
+    
+    if len(columns_to_drop) > 0:
+        print(f"Dropped columns with >{drop_threshold*100}% missing values: {list(columns_to_drop)}")
+    
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    categorical_cols = df.select_dtypes(exclude=[np.number]).columns
+    
+    for col in numeric_cols:
+        if df[col].isnull().any():
+            if fill_strategy == 'mean':
+                fill_value = df[col].mean()
+            elif fill_strategy == 'median':
+                fill_value = df[col].median()
+            elif fill_strategy == 'zero':
+                fill_value = 0
+            else:
+                fill_value = df[col].mean()
+            
+            df[col] = df[col].fillna(fill_value)
+            print(f"Filled missing values in {col} with {fill_strategy}: {fill_value}")
+    
+    for col in categorical_cols:
+        if df[col].isnull().any():
+            mode_value = df[col].mode()[0] if not df[col].mode().empty else 'Unknown'
+            df[col] = df[col].fillna(mode_value)
+            print(f"Filled missing values in {col} with mode: {mode_value}")
+    
+    print(f"Cleaned data shape: {df.shape}")
+    print(f"Remaining missing values: {df.isnull().sum().sum()}")
+    
+    return df
+
+def detect_outliers_iqr(df, column, multiplier=1.5):
+    """
+    Detect outliers using IQR method.
+    
+    Parameters:
+    df (pandas.DataFrame): Input dataframe
+    column (str): Column name to check for outliers
+    multiplier (float): IQR multiplier for outlier detection
+    
+    Returns:
+    tuple: (lower_bound, upper_bound, outlier_indices)
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column {column} not found in dataframe")
+    
+    if not np.issubdtype(df[column].dtype, np.number):
+        raise ValueError(f"Column {column} must be numeric")
+    
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - multiplier * IQR
+    upper_bound = Q3 + multiplier * IQR
+    
+    outliers = df[(df[column] < lower_bound) | (df[column] > upper_bound)]
+    
+    return lower_bound, upper_bound, outliers.index.tolist()
+
+def remove_duplicates(df, subset=None, keep='first'):
+    """
+    Remove duplicate rows from dataframe.
+    
+    Parameters:
+    df (pandas.DataFrame): Input dataframe
+    subset (list): Columns to consider for duplicate detection
+    keep (str): Which duplicates to keep ('first', 'last', False)
+    
+    Returns:
+    pandas.DataFrame: Dataframe with duplicates removed
+    """
+    initial_count = len(df)
+    df_clean = df.drop_duplicates(subset=subset, keep=keep)
+    removed_count = initial_count - len(df_clean)
+    
+    print(f"Removed {removed_count} duplicate rows")
+    
+    return df_clean
+
+if __name__ == "__main__":
+    sample_data = {
+        'A': [1, 2, np.nan, 4, 5, 100],
+        'B': [np.nan, 2, 3, np.nan, 5, 6],
+        'C': ['a', 'b', np.nan, 'a', 'b', 'c'],
+        'D': [1, 1, 1, 1, 1, 1]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    df.to_csv('sample_data.csv', index=False)
+    
+    cleaned_df = clean_csv_data('sample_data.csv', fill_strategy='median')
+    
+    lower, upper, outliers = detect_outliers_iqr(cleaned_df, 'A')
+    print(f"Outlier bounds for column A: [{lower:.2f}, {upper:.2f}]")
+    print(f"Outlier indices: {outliers}")
+    
+    final_df = remove_duplicates(cleaned_df, subset=['C'])
+    print(f"Final dataframe shape: {final_df.shape}")
