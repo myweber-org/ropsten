@@ -1069,4 +1069,68 @@ def validate_data(data, required_columns=None, allow_nan=False):
         nan_columns = data.columns[data.isnull().any()].tolist()
         return False, f"NaN values found in columns: {nan_columns}"
     
-    return True, "Data validation passed"
+    return True, "Data validation passed"import pandas as pd
+import numpy as np
+
+def clean_csv_data(input_file, output_file, fill_strategy='mean'):
+    """
+    Clean a CSV file by handling missing values and removing duplicates.
+    
+    Args:
+        input_file (str): Path to the input CSV file.
+        output_file (str): Path to save the cleaned CSV file.
+        fill_strategy (str): Strategy for filling missing values ('mean', 'median', 'mode', or 'drop').
+    
+    Returns:
+        pd.DataFrame: The cleaned DataFrame.
+    """
+    try:
+        df = pd.read_csv(input_file)
+        print(f"Original data shape: {df.shape}")
+        
+        # Remove duplicate rows
+        df = df.drop_duplicates()
+        print(f"After removing duplicates: {df.shape}")
+        
+        # Handle missing values
+        if fill_strategy == 'drop':
+            df = df.dropna()
+        else:
+            numeric_cols = df.select_dtypes(include=[np.number]).columns
+            for col in numeric_cols:
+                if df[col].isnull().any():
+                    if fill_strategy == 'mean':
+                        fill_value = df[col].mean()
+                    elif fill_strategy == 'median':
+                        fill_value = df[col].median()
+                    elif fill_strategy == 'mode':
+                        fill_value = df[col].mode()[0]
+                    else:
+                        raise ValueError(f"Invalid fill strategy: {fill_strategy}")
+                    df[col].fillna(fill_value, inplace=True)
+        
+        # Save cleaned data
+        df.to_csv(output_file, index=False)
+        print(f"Cleaned data saved to: {output_file}")
+        print(f"Final data shape: {df.shape}")
+        
+        return df
+        
+    except FileNotFoundError:
+        print(f"Error: Input file '{input_file}' not found.")
+        return None
+    except Exception as e:
+        print(f"Error during data cleaning: {str(e)}")
+        return None
+
+if __name__ == "__main__":
+    # Example usage
+    input_csv = "raw_data.csv"
+    output_csv = "cleaned_data.csv"
+    
+    cleaned_df = clean_csv_data(input_csv, output_csv, fill_strategy='median')
+    
+    if cleaned_df is not None:
+        print("Data cleaning completed successfully.")
+        print("\nFirst 5 rows of cleaned data:")
+        print(cleaned_df.head())
