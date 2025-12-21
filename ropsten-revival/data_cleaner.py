@@ -189,3 +189,112 @@ def remove_duplicates_preserve_order(sequence):
             seen.add(item)
             result.append(item)
     return result
+import pandas as pd
+import re
+
+def clean_string_column(series, case='lower', remove_special=True):
+    """
+    Standardize string series by adjusting case and removing special characters.
+    
+    Args:
+        series (pd.Series): Input string series
+        case (str): 'lower', 'upper', or 'title' for case conversion
+        remove_special (bool): Whether to remove non-alphanumeric characters
+    
+    Returns:
+        pd.Series: Cleaned string series
+    """
+    if not pd.api.types.is_string_dtype(series):
+        series = series.astype(str)
+    
+    result = series.copy()
+    
+    if case == 'lower':
+        result = result.str.lower()
+    elif case == 'upper':
+        result = result.str.upper()
+    elif case == 'title':
+        result = result.str.title()
+    
+    if remove_special:
+        result = result.apply(lambda x: re.sub(r'[^a-zA-Z0-9\s]', '', x) if pd.notna(x) else x)
+    
+    return result
+
+def remove_duplicates(df, subset=None, keep='first'):
+    """
+    Remove duplicate rows with additional logging.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        subset (list): Columns to consider for duplicates
+        keep (str): 'first', 'last', or False to drop all duplicates
+    
+    Returns:
+        pd.DataFrame: DataFrame with duplicates removed
+    """
+    initial_count = len(df)
+    cleaned_df = df.drop_duplicates(subset=subset, keep=keep).reset_index(drop=True)
+    final_count = len(cleaned_df)
+    
+    duplicates_removed = initial_count - final_count
+    if duplicates_removed > 0:
+        print(f"Removed {duplicates_removed} duplicate rows")
+    
+    return cleaned_df
+
+def standardize_dataframe(df, string_columns=None, case='lower'):
+    """
+    Apply cleaning operations to multiple columns in a DataFrame.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        string_columns (list): Columns to clean, defaults to all object columns
+        case (str): Case standardization for string columns
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame
+    """
+    if string_columns is None:
+        string_columns = df.select_dtypes(include=['object']).columns.tolist()
+    
+    cleaned_df = df.copy()
+    
+    for col in string_columns:
+        if col in cleaned_df.columns:
+            cleaned_df[col] = clean_string_column(cleaned_df[col], case=case)
+    
+    cleaned_df = remove_duplicates(cleaned_df)
+    
+    return cleaned_df
+
+def validate_email_format(series):
+    """
+    Validate email format in a series and return boolean mask.
+    
+    Args:
+        series (pd.Series): Series containing email addresses
+    
+    Returns:
+        pd.Series: Boolean series indicating valid emails
+    """
+    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return series.str.match(email_pattern, na=False)
+
+if __name__ == "__main__":
+    sample_data = {
+        'name': ['John Doe', 'Jane Smith', 'john doe', 'Bob Johnson', 'Jane Smith'],
+        'email': ['john@example.com', 'jane@test.org', 'invalid-email', 'bob@company.net', 'jane@test.org'],
+        'age': [25, 30, 25, 35, 30]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\nCleaned DataFrame:")
+    cleaned = standardize_dataframe(df)
+    print(cleaned)
+    
+    print("\nEmail validation:")
+    df['valid_email'] = validate_email_format(df['email'])
+    print(df[['email', 'valid_email']])
