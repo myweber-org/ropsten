@@ -667,4 +667,106 @@ if __name__ == "__main__":
         validate_dataset(cleaned_df, required_columns=['id', 'value'])
         print("\nDataset validation passed")
     except ValueError as e:
-        print(f"\nDataset validation failed: {e}")
+        print(f"\nDataset validation failed: {e}")import csv
+import re
+from typing import List, Dict, Optional
+
+class DataCleaner:
+    def __init__(self, input_file: str, output_file: str):
+        self.input_file = input_file
+        self.output_file = output_file
+        self.data = []
+        
+    def load_data(self) -> List[Dict]:
+        """Load CSV data into memory"""
+        try:
+            with open(self.input_file, 'r', encoding='utf-8') as file:
+                reader = csv.DictReader(file)
+                self.data = [row for row in reader]
+            return self.data
+        except FileNotFoundError:
+            print(f"Error: File {self.input_file} not found")
+            return []
+    
+    def clean_whitespace(self) -> None:
+        """Remove extra whitespace from all string fields"""
+        for row in self.data:
+            for key, value in row.items():
+                if isinstance(value, str):
+                    row[key] = ' '.join(value.split())
+    
+    def normalize_phone_numbers(self, phone_field: str) -> None:
+        """Normalize phone numbers to standard format"""
+        for row in self.data:
+            if phone_field in row:
+                phone = row[phone_field]
+                if phone:
+                    # Remove all non-digit characters
+                    digits = re.sub(r'\D', '', phone)
+                    # Format as (XXX) XXX-XXXX if 10 digits
+                    if len(digits) == 10:
+                        row[phone_field] = f"({digits[:3]}) {digits[3:6]}-{digits[6:]}"
+    
+    def remove_empty_rows(self, required_fields: List[str]) -> None:
+        """Remove rows missing required fields"""
+        self.data = [
+            row for row in self.data 
+            if all(row.get(field) not in [None, ''] for field in required_fields)
+        ]
+    
+    def save_cleaned_data(self) -> bool:
+        """Save cleaned data to output file"""
+        if not self.data:
+            print("No data to save")
+            return False
+        
+        try:
+            with open(self.output_file, 'w', newline='', encoding='utf-8') as file:
+                if self.data:
+                    fieldnames = self.data[0].keys()
+                    writer = csv.DictWriter(file, fieldnames=fieldnames)
+                    writer.writeheader()
+                    writer.writerows(self.data)
+            return True
+        except Exception as e:
+            print(f"Error saving file: {e}")
+            return False
+    
+    def get_statistics(self) -> Dict:
+        """Return basic statistics about the data"""
+        if not self.data:
+            return {}
+        
+        stats = {
+            'total_rows': len(self.data),
+            'fields': list(self.data[0].keys()) if self.data else [],
+            'sample_row': self.data[0] if self.data else {}
+        }
+        return stats
+
+def process_csv_file(input_path: str, output_path: str) -> Optional[Dict]:
+    """Convenience function to clean a CSV file"""
+    cleaner = DataCleaner(input_path, output_path)
+    
+    if not cleaner.load_data():
+        return None
+    
+    print(f"Loaded {len(cleaner.data)} rows")
+    
+    # Apply cleaning operations
+    cleaner.clean_whitespace()
+    cleaner.normalize_phone_numbers('phone')
+    cleaner.remove_empty_rows(['email', 'name'])
+    
+    # Save cleaned data
+    if cleaner.save_cleaned_data():
+        print(f"Saved cleaned data to {output_path}")
+        return cleaner.get_statistics()
+    
+    return None
+
+if __name__ == "__main__":
+    # Example usage
+    stats = process_csv_file('raw_data.csv', 'cleaned_data.csv')
+    if stats:
+        print(f"Processing complete. Statistics: {stats}")
