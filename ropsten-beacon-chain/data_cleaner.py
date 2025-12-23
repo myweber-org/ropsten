@@ -708,3 +708,48 @@ def remove_outliers_iqr(data, column):
     
     filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
     return filtered_data
+import pandas as pd
+
+def clean_dataset(df, id_column=None):
+    """
+    Remove duplicate rows and standardize column names.
+    Optionally, specify an ID column to drop duplicates based on that column.
+    """
+    # Standardize column names: lowercase and replace spaces with underscores
+    df.columns = df.columns.str.lower().str.replace(' ', '_')
+    
+    # Remove duplicate rows
+    if id_column and id_column in df.columns:
+        df = df.drop_duplicates(subset=[id_column])
+    else:
+        df = df.drop_duplicates()
+    
+    # Reset index after dropping rows
+    df = df.reset_index(drop=True)
+    
+    return df
+
+def validate_data(df, required_columns=None):
+    """
+    Validate the dataset for missing values and required columns.
+    """
+    validation_report = {}
+    
+    # Check for missing values
+    missing_values = df.isnull().sum()
+    validation_report['missing_values'] = missing_values[missing_values > 0].to_dict()
+    
+    # Check required columns
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        validation_report['missing_columns'] = missing_columns
+    
+    return validation_report
+
+def sample_data(df, sample_size=1000, random_state=42):
+    """
+    Return a random sample of the dataset for testing purposes.
+    """
+    if len(df) > sample_size:
+        return df.sample(n=sample_size, random_state=random_state)
+    return df
