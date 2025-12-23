@@ -2430,3 +2430,109 @@ def validate_dataframe(dataframe, required_columns):
         return False
     
     return True
+import pandas as pd
+
+def clean_dataset(df, columns_to_check=None, fill_na_method='mean'):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean.
+        columns_to_check (list, optional): List of column names to check for duplicates.
+            If None, uses all columns. Defaults to None.
+        fill_na_method (str, optional): Method to fill missing values.
+            Options: 'mean', 'median', 'mode', 'zero', or 'drop'.
+            Defaults to 'mean'.
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame.
+    """
+    # Create a copy to avoid modifying the original DataFrame
+    cleaned_df = df.copy()
+    
+    # Remove duplicates
+    if columns_to_check is None:
+        columns_to_check = cleaned_df.columns.tolist()
+    
+    initial_rows = len(cleaned_df)
+    cleaned_df = cleaned_df.drop_duplicates(subset=columns_to_check)
+    duplicates_removed = initial_rows - len(cleaned_df)
+    
+    # Handle missing values
+    numeric_cols = cleaned_df.select_dtypes(include=['number']).columns
+    categorical_cols = cleaned_df.select_dtypes(exclude=['number']).columns
+    
+    if fill_na_method == 'drop':
+        cleaned_df = cleaned_df.dropna()
+    elif fill_na_method == 'mean':
+        cleaned_df[numeric_cols] = cleaned_df[numeric_cols].fillna(cleaned_df[numeric_cols].mean())
+        cleaned_df[categorical_cols] = cleaned_df[categorical_cols].fillna('Unknown')
+    elif fill_na_method == 'median':
+        cleaned_df[numeric_cols] = cleaned_df[numeric_cols].fillna(cleaned_df[numeric_cols].median())
+        cleaned_df[categorical_cols] = cleaned_df[categorical_cols].fillna('Unknown')
+    elif fill_na_method == 'mode':
+        for col in cleaned_df.columns:
+            if col in numeric_cols:
+                mode_val = cleaned_df[col].mode()
+                if not mode_val.empty:
+                    cleaned_df[col] = cleaned_df[col].fillna(mode_val.iloc[0])
+            else:
+                cleaned_df[col] = cleaned_df[col].fillna('Unknown')
+    elif fill_na_method == 'zero':
+        cleaned_df[numeric_cols] = cleaned_df[numeric_cols].fillna(0)
+        cleaned_df[categorical_cols] = cleaned_df[categorical_cols].fillna('Unknown')
+    
+    # Print cleaning summary
+    print(f"Data cleaning completed:")
+    print(f"  - Removed {duplicates_removed} duplicate rows")
+    print(f"  - Final dataset shape: {cleaned_df.shape}")
+    print(f"  - Missing values filled using: {fill_na_method} method")
+    
+    return cleaned_df
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate that a DataFrame meets basic requirements.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate.
+        required_columns (list, optional): List of required column names.
+    
+    Returns:
+        bool: True if validation passes, False otherwise.
+    """
+    if not isinstance(df, pd.DataFrame):
+        print("Error: Input is not a pandas DataFrame")
+        return False
+    
+    if df.empty:
+        print("Warning: DataFrame is empty")
+        return True  # Empty is valid, just a warning
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            print(f"Error: Missing required columns: {missing_cols}")
+            return False
+    
+    return True
+
+# Example usage (commented out for production)
+# if __name__ == "__main__":
+#     # Create sample data
+#     data = {
+#         'id': [1, 2, 2, 3, 4, None],
+#         'name': ['Alice', 'Bob', 'Bob', 'Charlie', None, 'Eve'],
+#         'age': [25, 30, 30, None, 35, 40],
+#         'score': [85.5, 92.0, 92.0, 78.5, None, 88.0]
+#     }
+#     
+#     df = pd.DataFrame(data)
+#     print("Original DataFrame:")
+#     print(df)
+#     print("\n" + "="*50 + "\n")
+#     
+#     # Clean the data
+#     cleaned = clean_dataset(df, fill_na_method='mean')
+#     print("\nCleaned DataFrame:")
+#     print(cleaned)
