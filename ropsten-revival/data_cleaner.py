@@ -188,4 +188,114 @@ def remove_duplicates_preserve_order(sequence):
         if item not in seen:
             seen.add(item)
             result.append(item)
-    return result
+    return resultimport numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(data, column, factor=1.5):
+    """
+    Remove outliers using IQR method
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    Q1 = data[column].quantile(0.25)
+    Q3 = data[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - factor * IQR
+    upper_bound = Q3 + factor * IQR
+    
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    return filtered_data.copy()
+
+def z_score_normalize(data, column):
+    """
+    Normalize data using z-score normalization
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    mean = data[column].mean()
+    std = data[column].std()
+    
+    if std == 0:
+        return data[column].copy()
+    
+    normalized = (data[column] - mean) / std
+    return normalized
+
+def min_max_normalize(data, column, feature_range=(0, 1)):
+    """
+    Normalize data using min-max scaling
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    min_val = data[column].min()
+    max_val = data[column].max()
+    
+    if min_val == max_val:
+        return data[column].copy() * feature_range[0]
+    
+    normalized = (data[column] - min_val) / (max_val - min_val)
+    normalized = normalized * (feature_range[1] - feature_range[0]) + feature_range[0]
+    return normalized
+
+def detect_missing_patterns(data, threshold=0.3):
+    """
+    Detect columns with high percentage of missing values
+    """
+    missing_percentage = data.isnull().sum() / len(data)
+    high_missing_cols = missing_percentage[missing_percentage > threshold].index.tolist()
+    
+    return {
+        'missing_percentage': missing_percentage,
+        'high_missing_columns': high_missing_cols,
+        'total_missing': data.isnull().sum().sum()
+    }
+
+def clean_dataset(data, drop_threshold=0.5, outlier_columns=None, normalize_columns=None):
+    """
+    Comprehensive dataset cleaning pipeline
+    """
+    cleaned_data = data.copy()
+    
+    missing_info = detect_missing_patterns(cleaned_data, threshold=drop_threshold)
+    
+    for col in missing_info['high_missing_columns']:
+        cleaned_data = cleaned_data.drop(columns=[col])
+    
+    if outlier_columns:
+        for col in outlier_columns:
+            if col in cleaned_data.columns:
+                cleaned_data = remove_outliers_iqr(cleaned_data, col)
+    
+    if normalize_columns:
+        for col in normalize_columns:
+            if col in cleaned_data.columns:
+                cleaned_data[col] = z_score_normalize(cleaned_data, col)
+    
+    cleaned_data = cleaned_data.dropna()
+    cleaned_data = cleaned_data.reset_index(drop=True)
+    
+    return cleaned_data
+
+def validate_data_quality(data):
+    """
+    Validate data quality metrics
+    """
+    metrics = {
+        'total_rows': len(data),
+        'total_columns': len(data.columns),
+        'missing_values': data.isnull().sum().sum(),
+        'duplicate_rows': data.duplicated().sum(),
+        'numeric_columns': len(data.select_dtypes(include=[np.number]).columns),
+        'categorical_columns': len(data.select_dtypes(include=['object', 'category']).columns)
+    }
+    
+    numeric_cols = data.select_dtypes(include=[np.number]).columns
+    if len(numeric_cols) > 0:
+        metrics['numeric_stats'] = data[numeric_cols].describe().to_dict()
+    
+    return metrics
