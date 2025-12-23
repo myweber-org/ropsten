@@ -375,3 +375,137 @@ def example_usage():
 
 if __name__ == "__main__":
     cleaned_data = example_usage()
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(data, column, factor=1.5):
+    """
+    Remove outliers using IQR method
+    """
+    q1 = data[column].quantile(0.25)
+    q3 = data[column].quantile(0.75)
+    iqr = q3 - q1
+    lower_bound = q1 - factor * iqr
+    upper_bound = q3 + factor * iqr
+    
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    return filtered_data
+
+def z_score_normalize(data, column):
+    """
+    Normalize data using z-score method
+    """
+    mean = data[column].mean()
+    std = data[column].std()
+    
+    if std == 0:
+        return data[column]
+    
+    normalized = (data[column] - mean) / std
+    return normalized
+
+def min_max_normalize(data, column):
+    """
+    Normalize data using min-max scaling
+    """
+    min_val = data[column].min()
+    max_val = data[column].max()
+    
+    if max_val == min_val:
+        return data[column]
+    
+    normalized = (data[column] - min_val) / (max_val - min_val)
+    return normalized
+
+def detect_skewness(data, column, threshold=0.5):
+    """
+    Detect skewness in data
+    """
+    skewness = data[column].skew()
+    is_skewed = abs(skewness) > threshold
+    return skewness, is_skewed
+
+def log_transform(data, column):
+    """
+    Apply log transformation to reduce skewness
+    """
+    if data[column].min() <= 0:
+        shifted_data = data[column] - data[column].min() + 1
+        transformed = np.log(shifted_data)
+    else:
+        transformed = np.log(data[column])
+    
+    return transformed
+
+def clean_dataset(df, numeric_columns, outlier_factor=1.5, normalize_method='zscore'):
+    """
+    Main cleaning function for datasets
+    """
+    cleaned_df = df.copy()
+    
+    for column in numeric_columns:
+        if column in cleaned_df.columns:
+            # Remove outliers
+            cleaned_df = remove_outliers_iqr(cleaned_df, column, outlier_factor)
+            
+            # Check skewness
+            skewness, is_skewed = detect_skewness(cleaned_df, column)
+            
+            # Apply transformation if skewed
+            if is_skewed:
+                cleaned_df[f'{column}_log'] = log_transform(cleaned_df, column)
+            
+            # Normalize data
+            if normalize_method == 'zscore':
+                cleaned_df[f'{column}_normalized'] = z_score_normalize(cleaned_df, column)
+            elif normalize_method == 'minmax':
+                cleaned_df[f'{column}_normalized'] = min_max_normalize(cleaned_df, column)
+    
+    return cleaned_df
+
+def validate_data(df, required_columns, numeric_threshold=0.8):
+    """
+    Validate data quality
+    """
+    validation_report = {}
+    
+    # Check required columns
+    missing_columns = [col for col in required_columns if col not in df.columns]
+    validation_report['missing_columns'] = missing_columns
+    
+    # Check for null values
+    null_counts = df.isnull().sum()
+    validation_report['null_counts'] = null_counts[null_counts > 0].to_dict()
+    
+    # Check numeric columns ratio
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    numeric_ratio = len(numeric_cols) / len(df.columns)
+    validation_report['numeric_ratio'] = numeric_ratio
+    validation_report['is_mostly_numeric'] = numeric_ratio >= numeric_threshold
+    
+    return validation_report
+
+# Example usage
+if __name__ == "__main__":
+    # Create sample data
+    np.random.seed(42)
+    sample_data = {
+        'feature_a': np.random.normal(100, 15, 1000),
+        'feature_b': np.random.exponential(50, 1000),
+        'feature_c': np.random.uniform(0, 1, 1000),
+        'category': np.random.choice(['A', 'B', 'C'], 1000)
+    }
+    
+    df = pd.DataFrame(sample_data)
+    
+    # Clean the data
+    numeric_cols = ['feature_a', 'feature_b', 'feature_c']
+    cleaned_df = clean_dataset(df, numeric_cols, outlier_factor=1.5, normalize_method='zscore')
+    
+    # Validate
+    validation = validate_data(cleaned_df, numeric_cols)
+    
+    print(f"Original shape: {df.shape}")
+    print(f"Cleaned shape: {cleaned_df.shape}")
+    print(f"Validation report: {validation}")
