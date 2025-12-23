@@ -752,4 +752,41 @@ def sample_data(df, sample_size=1000, random_state=42):
     """
     if len(df) > sample_size:
         return df.sample(n=sample_size, random_state=random_state)
-    return df
+    return dfimport pandas as pd
+import re
+
+def clean_dataframe(df, text_column):
+    """
+    Clean a DataFrame by removing duplicates and normalizing text in a specified column.
+    """
+    # Remove duplicate rows
+    df_cleaned = df.drop_duplicates().reset_index(drop=True)
+    
+    # Normalize text: lowercase and remove extra whitespace
+    if text_column in df_cleaned.columns:
+        df_cleaned[text_column] = df_cleaned[text_column].apply(
+            lambda x: re.sub(r'\s+', ' ', str(x).strip().lower())
+        )
+    
+    return df_cleaned
+
+def save_cleaned_data(df, output_path):
+    """
+    Save the cleaned DataFrame to a CSV file.
+    """
+    df.to_csv(output_path, index=False)
+    print(f"Cleaned data saved to {output_path}")
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'id': [1, 2, 3, 4, 4],
+        'text': ['  Hello  World  ', 'hello world', 'Python Code', '  python code  ', 'Python Code']
+    }
+    df_raw = pd.DataFrame(sample_data)
+    
+    df_clean = clean_dataframe(df_raw, 'text')
+    print("Cleaned DataFrame:")
+    print(df_clean)
+    
+    save_cleaned_data(df_clean, 'cleaned_data.csv')
