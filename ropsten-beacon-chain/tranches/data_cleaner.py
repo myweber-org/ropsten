@@ -1806,4 +1806,95 @@ def validate_dataframe(df, required_columns=None):
         if missing_cols:
             return False, f"Missing required columns: {missing_cols}"
     
-    return True, "DataFrame is valid"
+    return True, "DataFrame is valid"import pandas as pd
+import numpy as np
+
+def clean_dataset(df, drop_duplicates=True, fill_missing='mean'):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    """
+    cleaned_df = df.copy()
+    
+    if drop_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates()
+    
+    if fill_missing is not None:
+        if fill_missing == 'mean':
+            numeric_cols = cleaned_df.select_dtypes(include=[np.number]).columns
+            cleaned_df[numeric_cols] = cleaned_df[numeric_cols].fillna(cleaned_df[numeric_cols].mean())
+        elif fill_missing == 'median':
+            numeric_cols = cleaned_df.select_dtypes(include=[np.number]).columns
+            cleaned_df[numeric_cols] = cleaned_df[numeric_cols].fillna(cleaned_df[numeric_cols].median())
+        elif fill_missing == 'mode':
+            for col in cleaned_df.columns:
+                if cleaned_df[col].dtype == 'object':
+                    cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].mode()[0] if not cleaned_df[col].mode().empty else 'Unknown')
+        elif fill_missing == 'drop':
+            cleaned_df = cleaned_df.dropna()
+    
+    return cleaned_df
+
+def remove_outliers(df, column, method='iqr', threshold=1.5):
+    """
+    Remove outliers from a specific column using IQR or Z-score method.
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    if method == 'iqr':
+        Q1 = df[column].quantile(0.25)
+        Q3 = df[column].quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - threshold * IQR
+        upper_bound = Q3 + threshold * IQR
+        filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    elif method == 'zscore':
+        from scipy import stats
+        z_scores = np.abs(stats.zscore(df[column].dropna()))
+        filtered_df = df[(z_scores < threshold) | (df[column].isna())]
+    else:
+        raise ValueError("Method must be 'iqr' or 'zscore'")
+    
+    return filtered_df
+
+def normalize_column(df, column, method='minmax'):
+    """
+    Normalize a column using min-max or standard scaling.
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    normalized_df = df.copy()
+    
+    if method == 'minmax':
+        min_val = normalized_df[column].min()
+        max_val = normalized_df[column].max()
+        if max_val != min_val:
+            normalized_df[column] = (normalized_df[column] - min_val) / (max_val - min_val)
+    elif method == 'standard':
+        mean_val = normalized_df[column].mean()
+        std_val = normalized_df[column].std()
+        if std_val != 0:
+            normalized_df[column] = (normalized_df[column] - mean_val) / std_val
+    else:
+        raise ValueError("Method must be 'minmax' or 'standard'")
+    
+    return normalized_df
+
+def validate_dataframe(df, required_columns=None, dtypes=None):
+    """
+    Validate DataFrame structure and data types.
+    """
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            raise ValueError(f"Missing required columns: {missing_cols}")
+    
+    if dtypes:
+        for col, expected_dtype in dtypes.items():
+            if col in df.columns:
+                actual_dtype = df[col].dtype
+                if not np.issubdtype(actual_dtype, expected_dtype):
+                    raise TypeError(f"Column '{col}' has dtype {actual_dtype}, expected {expected_dtype}")
+    
+    return True
