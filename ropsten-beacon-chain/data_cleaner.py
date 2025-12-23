@@ -357,4 +357,128 @@ if __name__ == "__main__":
     
     required_cols = ['name', 'age', 'city']
     is_valid = validate_data(cleaned_df, required_cols)
-    print(f"\nData validation result: {is_valid}")
+    print(f"\nData validation result: {is_valid}")import pandas as pd
+import numpy as np
+from scipy import stats
+
+def clean_dataset(df, strategy='mean', z_threshold=3):
+    """
+    Clean dataset by handling missing values and removing outliers.
+    
+    Parameters:
+    df (pd.DataFrame): Input dataframe
+    strategy (str): Imputation strategy ('mean', 'median', 'mode')
+    z_threshold (float): Z-score threshold for outlier detection
+    
+    Returns:
+    pd.DataFrame: Cleaned dataframe
+    """
+    
+    df_clean = df.copy()
+    
+    # Handle missing values
+    if strategy == 'mean':
+        df_clean = df_clean.fillna(df_clean.mean())
+    elif strategy == 'median':
+        df_clean = df_clean.fillna(df_clean.median())
+    elif strategy == 'mode':
+        df_clean = df_clean.fillna(df_clean.mode().iloc[0])
+    
+    # Remove outliers using z-score method
+    numeric_cols = df_clean.select_dtypes(include=[np.number]).columns
+    z_scores = np.abs(stats.zscore(df_clean[numeric_cols]))
+    
+    # Create mask for outliers
+    outlier_mask = (z_scores < z_threshold).all(axis=1)
+    df_clean = df_clean[outlier_mask]
+    
+    return df_clean.reset_index(drop=True)
+
+def validate_data(df, required_columns=None, min_rows=10):
+    """
+    Validate dataset structure and content.
+    
+    Parameters:
+    df (pd.DataFrame): Dataframe to validate
+    required_columns (list): List of required column names
+    min_rows (int): Minimum number of rows required
+    
+    Returns:
+    tuple: (is_valid, error_message)
+    """
+    
+    if len(df) < min_rows:
+        return False, f"Dataset must have at least {min_rows} rows"
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            return False, f"Missing required columns: {missing_cols}"
+    
+    # Check for infinite values
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    if not numeric_cols.empty:
+        has_inf = np.isinf(df[numeric_cols]).any().any()
+        if has_inf:
+            return False, "Dataset contains infinite values"
+    
+    return True, "Dataset validation passed"
+
+def normalize_data(df, method='minmax'):
+    """
+    Normalize numerical columns in the dataframe.
+    
+    Parameters:
+    df (pd.DataFrame): Input dataframe
+    method (str): Normalization method ('minmax', 'standard')
+    
+    Returns:
+    pd.DataFrame: Normalized dataframe
+    """
+    
+    df_norm = df.copy()
+    numeric_cols = df_norm.select_dtypes(include=[np.number]).columns
+    
+    if method == 'minmax':
+        for col in numeric_cols:
+            col_min = df_norm[col].min()
+            col_max = df_norm[col].max()
+            if col_max != col_min:  # Avoid division by zero
+                df_norm[col] = (df_norm[col] - col_min) / (col_max - col_min)
+    
+    elif method == 'standard':
+        for col in numeric_cols:
+            col_mean = df_norm[col].mean()
+            col_std = df_norm[col].std()
+            if col_std != 0:  # Avoid division by zero
+                df_norm[col] = (df_norm[col] - col_mean) / col_std
+    
+    return df_norm
+
+# Example usage
+if __name__ == "__main__":
+    # Create sample data
+    sample_data = {
+        'feature_a': [1, 2, np.nan, 4, 5, 100],
+        'feature_b': [10, 20, 30, np.nan, 50, 60],
+        'category': ['A', 'B', 'A', 'B', 'A', 'B']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original dataset:")
+    print(df)
+    print("\n" + "="*50)
+    
+    # Clean the data
+    cleaned_df = clean_dataset(df, strategy='median', z_threshold=2.5)
+    print("Cleaned dataset:")
+    print(cleaned_df)
+    
+    # Validate the cleaned data
+    is_valid, message = validate_data(cleaned_df, min_rows=3)
+    print(f"\nValidation: {is_valid} - {message}")
+    
+    # Normalize the data
+    normalized_df = normalize_data(cleaned_df.select_dtypes(include=[np.number]), method='minmax')
+    print("\nNormalized numerical features:")
+    print(normalized_df)
