@@ -45,3 +45,122 @@ if __name__ == "__main__":
     
     weather_data = get_weather(api_key, city)
     display_weather(weather_data)
+import requests
+import json
+import os
+from datetime import datetime
+
+def get_weather_data(city_name, api_key):
+    base_url = "http://api.openweathermap.org/data/2.5/weather"
+    params = {
+        'q': city_name,
+        'appid': api_key,
+        'units': 'metric'
+    }
+    
+    try:
+        response = requests.get(base_url, params=params)
+        response.raise_for_status()
+        data = response.json()
+        
+        if data['cod'] != 200:
+            print(f"Error: {data.get('message', 'Unknown error')}")
+            return None
+            
+        return {
+            'city': data['name'],
+            'country': data['sys']['country'],
+            'temperature': data['main']['temp'],
+            'feels_like': data['main']['feels_like'],
+            'humidity': data['main']['humidity'],
+            'pressure': data['main']['pressure'],
+            'weather': data['weather'][0]['description'],
+            'wind_speed': data['wind']['speed'],
+            'wind_direction': data['wind'].get('deg', 'N/A'),
+            'visibility': data.get('visibility', 'N/A'),
+            'clouds': data['clouds']['all'],
+            'sunrise': datetime.fromtimestamp(data['sys']['sunrise']).strftime('%H:%M:%S'),
+            'sunset': datetime.fromtimestamp(data['sys']['sunset']).strftime('%H:%M:%S'),
+            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        }
+        
+    except requests.exceptions.RequestException as e:
+        print(f"Network error: {e}")
+        return None
+    except json.JSONDecodeError as e:
+        print(f"JSON decode error: {e}")
+        return None
+    except KeyError as e:
+        print(f"Unexpected data structure: {e}")
+        return None
+
+def save_weather_data(data, filename='weather_data.json'):
+    if data is None:
+        return False
+        
+    try:
+        existing_data = []
+        if os.path.exists(filename):
+            with open(filename, 'r') as f:
+                existing_data = json.load(f)
+        
+        existing_data.append(data)
+        
+        with open(filename, 'w') as f:
+            json.dump(existing_data, f, indent=2)
+        
+        print(f"Weather data saved to {filename}")
+        return True
+        
+    except (IOError, json.JSONDecodeError) as e:
+        print(f"Error saving data: {e}")
+        return False
+
+def display_weather_data(data):
+    if data is None:
+        print("No weather data to display")
+        return
+        
+    print("\n" + "="*50)
+    print(f"Weather Report for {data['city']}, {data['country']}")
+    print(f"Timestamp: {data['timestamp']}")
+    print("="*50)
+    print(f"Temperature: {data['temperature']}°C")
+    print(f"Feels like: {data['feels_like']}°C")
+    print(f"Weather: {data['weather'].title()}")
+    print(f"Humidity: {data['humidity']}%")
+    print(f"Pressure: {data['pressure']} hPa")
+    print(f"Wind: {data['wind_speed']} m/s at {data['wind_direction']}°")
+    print(f"Cloudiness: {data['clouds']}%")
+    print(f"Visibility: {data['visibility']} meters")
+    print(f"Sunrise: {data['sunrise']}")
+    print(f"Sunset: {data['sunset']}")
+    print("="*50)
+
+def main():
+    api_key = os.environ.get('OPENWEATHER_API_KEY')
+    
+    if not api_key:
+        print("Please set OPENWEATHER_API_KEY environment variable")
+        return
+    
+    city_name = input("Enter city name: ").strip()
+    
+    if not city_name:
+        print("City name cannot be empty")
+        return
+    
+    print(f"Fetching weather data for {city_name}...")
+    weather_data = get_weather_data(city_name, api_key)
+    
+    if weather_data:
+        display_weather_data(weather_data)
+        
+        save_option = input("\nSave this data? (y/n): ").strip().lower()
+        if save_option == 'y':
+            save_weather_data(weather_data)
+    else:
+        print("Failed to fetch weather data")
+
+if __name__ == "__main__":
+    main()
