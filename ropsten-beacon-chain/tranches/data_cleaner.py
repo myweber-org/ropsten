@@ -1213,4 +1213,99 @@ if __name__ == "__main__":
     
     numeric_samples = ["1.5", "invalid", None, 3.2, "4.7"]
     print("Numeric samples:", numeric_samples)
-    print("Cleaned numeric:", clean_numeric_data(numeric_samples))
+    print("Cleaned numeric:", clean_numeric_data(numeric_samples))import pandas as pd
+
+def remove_duplicates(df, subset=None, keep='first'):
+    """
+    Remove duplicate rows from a DataFrame.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame.
+    subset (list, optional): Column labels to consider for duplicates.
+    keep (str, optional): Which duplicates to keep.
+    
+    Returns:
+    pd.DataFrame: DataFrame with duplicates removed.
+    """
+    if df.empty:
+        return df
+    
+    cleaned_df = df.drop_duplicates(subset=subset, keep=keep)
+    return cleaned_df
+
+def clean_numeric_columns(df, columns):
+    """
+    Clean numeric columns by converting to appropriate types.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame.
+    columns (list): List of column names to clean.
+    
+    Returns:
+    pd.DataFrame: DataFrame with cleaned numeric columns.
+    """
+    for col in columns:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+    return df
+
+def validate_dataframe(df, required_columns):
+    """
+    Validate that DataFrame contains required columns.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame.
+    required_columns (list): List of required column names.
+    
+    Returns:
+    bool: True if all required columns are present.
+    """
+    missing_columns = [col for col in required_columns if col not in df.columns]
+    
+    if missing_columns:
+        print(f"Missing columns: {missing_columns}")
+        return False
+    
+    return True
+
+def get_cleaning_summary(original_df, cleaned_df):
+    """
+    Generate a summary of the cleaning process.
+    
+    Parameters:
+    original_df (pd.DataFrame): Original DataFrame.
+    cleaned_df (pd.DataFrame): Cleaned DataFrame.
+    
+    Returns:
+    dict: Summary statistics.
+    """
+    summary = {
+        'original_rows': len(original_df),
+        'cleaned_rows': len(cleaned_df),
+        'rows_removed': len(original_df) - len(cleaned_df),
+        'removal_percentage': round((len(original_df) - len(cleaned_df)) / len(original_df) * 100, 2)
+    }
+    
+    return summary
+
+def process_dataframe(df, cleaning_steps):
+    """
+    Apply multiple cleaning steps to a DataFrame.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame.
+    cleaning_steps (list): List of cleaning functions and their arguments.
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame.
+    """
+    result_df = df.copy()
+    
+    for step in cleaning_steps:
+        func = step['function']
+        args = step.get('args', [])
+        kwargs = step.get('kwargs', {})
+        
+        result_df = func(result_df, *args, **kwargs)
+    
+    return result_df
