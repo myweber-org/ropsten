@@ -913,4 +913,49 @@ if __name__ == "__main__":
 def clean_data(data):
     if not isinstance(data, list):
         raise TypeError("Input must be a list")
-    return remove_duplicates(data)
+    return remove_duplicates(data)import pandas as pd
+import numpy as np
+
+def remove_duplicates(df, subset=None):
+    """
+    Remove duplicate rows from DataFrame.
+    """
+    if subset is None:
+        subset = df.columns.tolist()
+    return df.drop_duplicates(subset=subset, keep='first')
+
+def convert_column_types(df, column_type_map):
+    """
+    Convert columns to specified data types.
+    """
+    for column, dtype in column_type_map.items():
+        if column in df.columns:
+            df[column] = df[column].astype(dtype)
+    return df
+
+def handle_missing_values(df, strategy='drop', fill_value=None):
+    """
+    Handle missing values in DataFrame.
+    """
+    if strategy == 'drop':
+        df = df.dropna()
+    elif strategy == 'fill':
+        if fill_value is not None:
+            df = df.fillna(fill_value)
+        else:
+            df = df.fillna(df.mean(numeric_only=True))
+    return df
+
+def clean_dataframe(df, deduplicate=True, type_conversions=None, missing_strategy='drop'):
+    """
+    Main function to clean DataFrame with multiple operations.
+    """
+    if deduplicate:
+        df = remove_duplicates(df)
+    
+    if type_conversions:
+        df = convert_column_types(df, type_conversions)
+    
+    df = handle_missing_values(df, strategy=missing_strategy)
+    
+    return df.reset_index(drop=True)
