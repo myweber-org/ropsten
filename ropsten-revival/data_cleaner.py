@@ -1028,3 +1028,177 @@ def process_numerical_data(df, columns):
             all_stats[col] = stats
     
     return cleaned_df, all_stats
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(data, column, threshold=1.5):
+    """
+    Remove outliers using IQR method.
+    
+    Args:
+        data: pandas DataFrame
+        column: column name to process
+        threshold: IQR multiplier (default 1.5)
+    
+    Returns:
+        DataFrame with outliers removed
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    q1 = data[column].quantile(0.25)
+    q3 = data[column].quantile(0.75)
+    iqr = q3 - q1
+    lower_bound = q1 - threshold * iqr
+    upper_bound = q3 + threshold * iqr
+    
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    return filtered_data
+
+def remove_outliers_zscore(data, column, threshold=3):
+    """
+    Remove outliers using Z-score method.
+    
+    Args:
+        data: pandas DataFrame
+        column: column name to process
+        threshold: Z-score threshold (default 3)
+    
+    Returns:
+        DataFrame with outliers removed
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    z_scores = np.abs(stats.zscore(data[column].dropna()))
+    filtered_indices = np.where(z_scores < threshold)[0]
+    filtered_data = data.iloc[filtered_indices]
+    return filtered_data
+
+def normalize_minmax(data, column):
+    """
+    Normalize data using Min-Max scaling.
+    
+    Args:
+        data: pandas DataFrame
+        column: column name to normalize
+    
+    Returns:
+        Series with normalized values
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    min_val = data[column].min()
+    max_val = data[column].max()
+    
+    if max_val == min_val:
+        return pd.Series([0.5] * len(data), index=data.index)
+    
+    normalized = (data[column] - min_val) / (max_val - min_val)
+    return normalized
+
+def normalize_zscore(data, column):
+    """
+    Normalize data using Z-score standardization.
+    
+    Args:
+        data: pandas DataFrame
+        column: column name to normalize
+    
+    Returns:
+        Series with standardized values
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    mean_val = data[column].mean()
+    std_val = data[column].std()
+    
+    if std_val == 0:
+        return pd.Series([0] * len(data), index=data.index)
+    
+    standardized = (data[column] - mean_val) / std_val
+    return standardized
+
+def handle_missing_values(data, strategy='mean', columns=None):
+    """
+    Handle missing values in DataFrame.
+    
+    Args:
+        data: pandas DataFrame
+        strategy: imputation strategy ('mean', 'median', 'mode', 'drop')
+        columns: list of columns to process (None for all numeric columns)
+    
+    Returns:
+        DataFrame with missing values handled
+    """
+    if columns is None:
+        columns = data.select_dtypes(include=[np.number]).columns
+    
+    data_copy = data.copy()
+    
+    for col in columns:
+        if col not in data_copy.columns:
+            continue
+            
+        if strategy == 'drop':
+            data_copy = data_copy.dropna(subset=[col])
+        elif strategy == 'mean':
+            data_copy[col] = data_copy[col].fillna(data_copy[col].mean())
+        elif strategy == 'median':
+            data_copy[col] = data_copy[col].fillna(data_copy[col].median())
+        elif strategy == 'mode':
+            mode_val = data_copy[col].mode()
+            if not mode_val.empty:
+                data_copy[col] = data_copy[col].fillna(mode_val.iloc[0])
+        else:
+            raise ValueError(f"Unknown strategy: {strategy}")
+    
+    return data_copy
+
+def get_data_summary(data):
+    """
+    Generate comprehensive data summary.
+    
+    Args:
+        data: pandas DataFrame
+    
+    Returns:
+        Dictionary with data summary statistics
+    """
+    summary = {
+        'shape': data.shape,
+        'columns': list(data.columns),
+        'dtypes': data.dtypes.to_dict(),
+        'missing_values': data.isnull().sum().to_dict(),
+        'numeric_summary': {},
+        'categorical_summary': {}
+    }
+    
+    numeric_cols = data.select_dtypes(include=[np.number]).columns
+    for col in numeric_cols:
+        summary['numeric_summary'][col] = {
+            'mean': data[col].mean(),
+            'std': data[col].std(),
+            'min': data[col].min(),
+            '25%': data[col].quantile(0.25),
+            '50%': data[col].median(),
+            '75%': data[col].quantile(0.75),
+            'max': data[col].max(),
+            'skewness': data[col].skew(),
+            'kurtosis': data[col].kurtosis()
+        }
+    
+    categorical_cols = data.select_dtypes(include=['object', 'category']).columns
+    for col in categorical_cols:
+        value_counts = data[col].value_counts()
+        summary['categorical_summary'][col] = {
+            'unique_values': data[col].nunique(),
+            'top_value': value_counts.index[0] if not value_counts.empty else None,
+            'top_count': value_counts.iloc[0] if not value_counts.empty else 0,
+            'value_counts': value_counts.head(10).to_dict()
+        }
+    
+    return summary
