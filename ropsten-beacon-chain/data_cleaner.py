@@ -1155,4 +1155,37 @@ if __name__ == "__main__":
     print("\nCleaned DataFrame:")
     print(cleaned_df)
     print("\nCleaned Statistics:")
-    print(calculate_basic_stats(cleaned_df, 'values'))
+    print(calculate_basic_stats(cleaned_df, 'values'))import re
+from typing import List, Optional
+
+def remove_duplicates(data: List[str]) -> List[str]:
+    """Remove duplicate entries from a list while preserving order."""
+    seen = set()
+    result = []
+    for item in data:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
+
+def validate_email(email: str) -> bool:
+    """Validate an email address format."""
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return re.match(pattern, email) is not None
+
+def clean_whitespace(text: str) -> str:
+    """Remove extra whitespace from a string."""
+    return ' '.join(text.split())
+
+def filter_empty_strings(strings: List[str]) -> List[str]:
+    """Filter out empty strings from a list."""
+    return [s for s in strings if s.strip()]
+
+def normalize_case(strings: List[str], case: str = 'lower') -> List[str]:
+    """Normalize the case of strings in a list."""
+    if case == 'upper':
+        return [s.upper() for s in strings]
+    elif case == 'title':
+        return [s.title() for s in strings]
+    else:
+        return [s.lower() for s in strings]
