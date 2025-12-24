@@ -679,4 +679,84 @@ if __name__ == "__main__":
         validate_dataframe(cleaned)
         print("Data validation passed")
     except ValueError as e:
-        print(f"Data validation error: {e}")
+        print(f"Data validation error: {e}")import numpy as np
+
+def remove_outliers_iqr(data, column):
+    """
+    Remove outliers from a specified column using the IQR method.
+    
+    Parameters:
+    data (list or array): The dataset
+    column (int): Index of the column to clean
+    
+    Returns:
+    numpy.ndarray: Data with outliers removed
+    """
+    if not isinstance(data, (list, np.ndarray)):
+        raise TypeError("Data must be a list or numpy array")
+    
+    data_array = np.array(data)
+    if column >= data_array.shape[1]:
+        raise IndexError("Column index out of bounds")
+    
+    col_data = data_array[:, column]
+    q1 = np.percentile(col_data, 25)
+    q3 = np.percentile(col_data, 75)
+    iqr = q3 - q1
+    
+    lower_bound = q1 - 1.5 * iqr
+    upper_bound = q3 + 1.5 * iqr
+    
+    mask = (col_data >= lower_bound) & (col_data <= upper_bound)
+    cleaned_data = data_array[mask]
+    
+    return cleaned_data
+
+def calculate_statistics(data, column):
+    """
+    Calculate basic statistics for a column after cleaning.
+    
+    Parameters:
+    data (numpy.ndarray): The cleaned dataset
+    column (int): Index of the column to analyze
+    
+    Returns:
+    dict: Dictionary containing statistics
+    """
+    col_data = data[:, column]
+    
+    stats = {
+        'mean': np.mean(col_data),
+        'median': np.median(col_data),
+        'std': np.std(col_data),
+        'min': np.min(col_data),
+        'max': np.max(col_data),
+        'count': len(col_data)
+    }
+    
+    return stats
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = [
+        [1, 100, 10.5],
+        [2, 150, 12.3],
+        [3, 200, 11.8],
+        [4, 50, 9.7],
+        [5, 300, 13.2],
+        [6, 25, 8.9],
+        [7, 400, 14.1],
+        [8, 175, 12.0]
+    ]
+    
+    print("Original data:")
+    print(sample_data)
+    
+    cleaned = remove_outliers_iqr(sample_data, 1)
+    print("\nCleaned data (column 1 outliers removed):")
+    print(cleaned)
+    
+    stats = calculate_statistics(cleaned, 1)
+    print("\nStatistics for column 1:")
+    for key, value in stats.items():
+        print(f"{key}: {value:.2f}")
