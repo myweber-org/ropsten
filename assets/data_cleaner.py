@@ -1872,4 +1872,178 @@ def remove_outliers(df, column, method='iqr', threshold=1.5):
     else:
         raise ValueError("Method must be 'iqr' or 'zscore'")
     
-    return filtered_df
+    return filtered_dfimport pandas as pd
+import numpy as np
+from typing import Optional, List, Dict, Any
+
+def remove_duplicates(df: pd.DataFrame, subset: Optional[List[str]] = None) -> pd.DataFrame:
+    """
+    Remove duplicate rows from DataFrame.
+    
+    Args:
+        df: Input DataFrame
+        subset: Columns to consider for identifying duplicates
+    
+    Returns:
+        DataFrame with duplicates removed
+    """
+    return df.drop_duplicates(subset=subset, keep='first')
+
+def handle_missing_values(df: pd.DataFrame, 
+                         strategy: str = 'drop', 
+                         fill_value: Any = None) -> pd.DataFrame:
+    """
+    Handle missing values in DataFrame.
+    
+    Args:
+        df: Input DataFrame
+        strategy: 'drop' to remove rows, 'fill' to fill values
+        fill_value: Value to fill when strategy is 'fill'
+    
+    Returns:
+        DataFrame with handled missing values
+    """
+    if strategy == 'drop':
+        return df.dropna()
+    elif strategy == 'fill':
+        return df.fillna(fill_value)
+    else:
+        raise ValueError("Strategy must be 'drop' or 'fill'")
+
+def normalize_column(df: pd.DataFrame, 
+                    column: str, 
+                    method: str = 'minmax') -> pd.DataFrame:
+    """
+    Normalize a column using specified method.
+    
+    Args:
+        df: Input DataFrame
+        column: Column name to normalize
+        method: 'minmax' or 'zscore' normalization
+    
+    Returns:
+        DataFrame with normalized column
+    """
+    df_copy = df.copy()
+    
+    if method == 'minmax':
+        min_val = df_copy[column].min()
+        max_val = df_copy[column].max()
+        if max_val != min_val:
+            df_copy[column] = (df_copy[column] - min_val) / (max_val - min_val)
+    
+    elif method == 'zscore':
+        mean_val = df_copy[column].mean()
+        std_val = df_copy[column].std()
+        if std_val > 0:
+            df_copy[column] = (df_copy[column] - mean_val) / std_val
+    
+    else:
+        raise ValueError("Method must be 'minmax' or 'zscore'")
+    
+    return df_copy
+
+def filter_outliers(df: pd.DataFrame, 
+                   column: str, 
+                   method: str = 'iqr',
+                   threshold: float = 1.5) -> pd.DataFrame:
+    """
+    Filter outliers from a column.
+    
+    Args:
+        df: Input DataFrame
+        column: Column name to filter
+        method: 'iqr' or 'zscore' method
+        threshold: Threshold for outlier detection
+    
+    Returns:
+        DataFrame with outliers removed
+    """
+    df_copy = df.copy()
+    
+    if method == 'iqr':
+        Q1 = df_copy[column].quantile(0.25)
+        Q3 = df_copy[column].quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - threshold * IQR
+        upper_bound = Q3 + threshold * IQR
+        mask = (df_copy[column] >= lower_bound) & (df_copy[column] <= upper_bound)
+    
+    elif method == 'zscore':
+        z_scores = np.abs((df_copy[column] - df_copy[column].mean()) / df_copy[column].std())
+        mask = z_scores <= threshold
+    
+    else:
+        raise ValueError("Method must be 'iqr' or 'zscore'")
+    
+    return df_copy[mask]
+
+def clean_dataframe(df: pd.DataFrame, 
+                   config: Dict[str, Any]) -> pd.DataFrame:
+    """
+    Apply multiple cleaning operations based on configuration.
+    
+    Args:
+        df: Input DataFrame
+        config: Dictionary with cleaning configuration
+    
+    Returns:
+        Cleaned DataFrame
+    """
+    cleaned_df = df.copy()
+    
+    if config.get('remove_duplicates'):
+        subset = config.get('duplicate_subset')
+        cleaned_df = remove_duplicates(cleaned_df, subset)
+    
+    if config.get('handle_missing'):
+        strategy = config.get('missing_strategy', 'drop')
+        fill_value = config.get('fill_value')
+        cleaned_df = handle_missing_values(cleaned_df, strategy, fill_value)
+    
+    if config.get('normalize_columns'):
+        for col_info in config['normalize_columns']:
+            column = col_info['column']
+            method = col_info.get('method', 'minmax')
+            cleaned_df = normalize_column(cleaned_df, column, method)
+    
+    if config.get('filter_outliers'):
+        for outlier_info in config['filter_outliers']:
+            column = outlier_info['column']
+            method = outlier_info.get('method', 'iqr')
+            threshold = outlier_info.get('threshold', 1.5)
+            cleaned_df = filter_outliers(cleaned_df, column, method, threshold)
+    
+    return cleaned_df
+
+def validate_dataframe(df: pd.DataFrame, 
+                      rules: Dict[str, Any]) -> Dict[str, bool]:
+    """
+    Validate DataFrame against specified rules.
+    
+    Args:
+        df: DataFrame to validate
+        rules: Dictionary of validation rules
+    
+    Returns:
+        Dictionary with validation results
+    """
+    results = {}
+    
+    if 'required_columns' in rules:
+        required = set(rules['required_columns'])
+        actual = set(df.columns)
+        results['has_required_columns'] = required.issubset(actual)
+    
+    if 'no_null_columns' in rules:
+        null_columns = df.columns[df.isnull().any()].tolist()
+        results['has_no_null_columns'] = len(null_columns) == 0
+        results['null_columns'] = null_columns
+    
+    if 'unique_constraint' in rules:
+        for constraint in rules['unique_constraint']:
+            column = constraint['column']
+            is_unique = df[column].is_unique
+            results[f'unique_{column}'] = is_unique
+    
+    return results
