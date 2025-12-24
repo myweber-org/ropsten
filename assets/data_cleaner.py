@@ -391,3 +391,104 @@ def remove_outliers_iqr(df, column, multiplier=1.5):
     filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
     
     return filtered_df
+import pandas as pd
+import numpy as np
+
+def clean_csv_data(input_path, output_path, missing_strategy='mean'):
+    """
+    Clean CSV data by handling missing values and removing duplicates.
+    
+    Parameters:
+    input_path (str): Path to input CSV file
+    output_path (str): Path to save cleaned CSV file
+    missing_strategy (str): Strategy for handling missing values ('mean', 'median', 'drop')
+    
+    Returns:
+    pd.DataFrame: Cleaned dataframe
+    """
+    
+    try:
+        df = pd.read_csv(input_path)
+        print(f"Loaded data with shape: {df.shape}")
+        
+        # Remove duplicate rows
+        initial_rows = len(df)
+        df = df.drop_duplicates()
+        duplicates_removed = initial_rows - len(df)
+        print(f"Removed {duplicates_removed} duplicate rows")
+        
+        # Handle missing values
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        
+        if missing_strategy == 'mean':
+            for col in numeric_cols:
+                if df[col].isnull().any():
+                    df[col].fillna(df[col].mean(), inplace=True)
+        elif missing_strategy == 'median':
+            for col in numeric_cols:
+                if df[col].isnull().any():
+                    df[col].fillna(df[col].median(), inplace=True)
+        elif missing_strategy == 'drop':
+            df = df.dropna(subset=numeric_cols)
+        else:
+            raise ValueError(f"Unknown missing strategy: {missing_strategy}")
+        
+        # Reset index after cleaning
+        df = df.reset_index(drop=True)
+        
+        # Save cleaned data
+        df.to_csv(output_path, index=False)
+        print(f"Cleaned data saved to: {output_path}")
+        print(f"Final shape: {df.shape}")
+        
+        return df
+        
+    except FileNotFoundError:
+        print(f"Error: Input file not found at {input_path}")
+        return None
+    except Exception as e:
+        print(f"Error during data cleaning: {str(e)}")
+        return None
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate dataframe structure and content.
+    
+    Parameters:
+    df (pd.DataFrame): Dataframe to validate
+    required_columns (list): List of required column names
+    
+    Returns:
+    bool: True if validation passes, False otherwise
+    """
+    
+    if df is None or df.empty:
+        print("Validation failed: Dataframe is empty or None")
+        return False
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            print(f"Validation failed: Missing required columns: {missing_cols}")
+            return False
+    
+    # Check for infinite values
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    for col in numeric_cols:
+        if np.any(np.isinf(df[col])):
+            print(f"Validation failed: Column {col} contains infinite values")
+            return False
+    
+    print("Data validation passed")
+    return True
+
+if __name__ == "__main__":
+    # Example usage
+    input_file = "raw_data.csv"
+    output_file = "cleaned_data.csv"
+    
+    cleaned_df = clean_csv_data(input_file, output_file, missing_strategy='mean')
+    
+    if cleaned_df is not None:
+        validation_result = validate_dataframe(cleaned_df)
+        print(f"Data validation result: {validation_result}")
