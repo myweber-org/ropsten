@@ -335,4 +335,54 @@ if __name__ == "__main__":
     print(cleaned)
     
     is_valid = validate_dataframe(cleaned, required_columns=['A', 'B'])
-    print(f"\nDataFrame valid: {is_valid}")
+    print(f"\nDataFrame valid: {is_valid}")import pandas as pd
+from datetime import datetime
+
+def clean_dataframe(df, date_column='date', id_column='id'):
+    """
+    Clean a DataFrame by removing duplicate IDs and standardizing date formats.
+    """
+    # Remove duplicate entries based on ID column
+    df_cleaned = df.drop_duplicates(subset=[id_column], keep='first')
+    
+    # Standardize date format to YYYY-MM-DD
+    if date_column in df_cleaned.columns:
+        df_cleaned[date_column] = pd.to_datetime(df_cleaned[date_column], errors='coerce').dt.strftime('%Y-%m-%d')
+    
+    # Remove rows where date conversion failed (NaT)
+    df_cleaned = df_cleaned.dropna(subset=[date_column])
+    
+    return df_cleaned
+
+def load_and_clean_csv(file_path, date_column='date', id_column='id'):
+    """
+    Load a CSV file and clean the data.
+    """
+    try:
+        df = pd.read_csv(file_path)
+        cleaned_df = clean_dataframe(df, date_column, id_column)
+        return cleaned_df
+    except FileNotFoundError:
+        print(f"Error: File not found at {file_path}")
+        return None
+    except Exception as e:
+        print(f"Error processing file: {e}")
+        return None
+
+def save_cleaned_data(df, output_path):
+    """
+    Save cleaned DataFrame to a CSV file.
+    """
+    if df is not None:
+        df.to_csv(output_path, index=False)
+        print(f"Cleaned data saved to {output_path}")
+    else:
+        print("No data to save.")
+
+if __name__ == "__main__":
+    # Example usage
+    input_file = "raw_data.csv"
+    output_file = "cleaned_data.csv"
+    
+    cleaned_data = load_and_clean_csv(input_file)
+    save_cleaned_data(cleaned_data, output_file)
