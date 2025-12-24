@@ -784,3 +784,112 @@ def validate_data(data, required_columns=None):
             return False, f"Missing required columns: {missing_columns}"
     
     return True, "Data validation passed"
+import pandas as pd
+import numpy as np
+
+def clean_csv_data(file_path, output_path=None, fill_strategy='mean'):
+    """
+    Clean CSV data by handling missing values and removing duplicates.
+    
+    Args:
+        file_path (str): Path to input CSV file
+        output_path (str, optional): Path for cleaned output CSV
+        fill_strategy (str): Strategy for filling missing values ('mean', 'median', 'mode', 'zero')
+    
+    Returns:
+        pandas.DataFrame: Cleaned dataframe
+    """
+    try:
+        df = pd.read_csv(file_path)
+        
+        # Remove duplicate rows
+        initial_rows = len(df)
+        df = df.drop_duplicates()
+        duplicates_removed = initial_rows - len(df)
+        
+        # Handle missing values
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        categorical_cols = df.select_dtypes(exclude=[np.number]).columns
+        
+        for col in df.columns:
+            if df[col].isnull().sum() > 0:
+                if col in numeric_cols:
+                    if fill_strategy == 'mean':
+                        df[col].fillna(df[col].mean(), inplace=True)
+                    elif fill_strategy == 'median':
+                        df[col].fillna(df[col].median(), inplace=True)
+                    elif fill_strategy == 'zero':
+                        df[col].fillna(0, inplace=True)
+                    else:
+                        df[col].fillna(df[col].mean(), inplace=True)
+                else:
+                    # For categorical columns, fill with most frequent value
+                    df[col].fillna(df[col].mode()[0] if not df[col].mode().empty else 'Unknown', inplace=True)
+        
+        # Remove columns with too many missing values (threshold: 50%)
+        cols_to_drop = [col for col in df.columns if df[col].isnull().sum() / len(df) > 0.5]
+        if cols_to_drop:
+            df = df.drop(columns=cols_to_drop)
+        
+        # Save cleaned data if output path provided
+        if output_path:
+            df.to_csv(output_path, index=False)
+        
+        # Print cleaning summary
+        print(f"Data cleaning completed:")
+        print(f"  - Removed {duplicates_removed} duplicate rows")
+        print(f"  - Dropped {len(cols_to_drop)} columns with >50% missing values")
+        print(f"  - Final dataset shape: {df.shape}")
+        
+        return df
+        
+    except FileNotFoundError:
+        print(f"Error: File not found at {file_path}")
+        return None
+    except Exception as e:
+        print(f"Error during data cleaning: {str(e)}")
+        return None
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate dataframe structure and content.
+    
+    Args:
+        df (pandas.DataFrame): Dataframe to validate
+        required_columns (list): List of required column names
+    
+    Returns:
+        bool: True if validation passes, False otherwise
+    """
+    if df is None or df.empty:
+        print("Validation failed: Dataframe is empty or None")
+        return False
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            print(f"Validation failed: Missing required columns: {missing_cols}")
+            return False
+    
+    # Check for infinite values in numeric columns
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    for col in numeric_cols:
+        if np.any(np.isinf(df[col])):
+            print(f"Validation warning: Column '{col}' contains infinite values")
+    
+    return True
+
+if __name__ == "__main__":
+    # Example usage
+    cleaned_data = clean_csv_data(
+        file_path='raw_data.csv',
+        output_path='cleaned_data.csv',
+        fill_strategy='mean'
+    )
+    
+    if cleaned_data is not None:
+        is_valid = validate_dataframe(cleaned_data)
+        if is_valid:
+            print("Data validation passed")
+        else:
+            print("Data validation failed")
