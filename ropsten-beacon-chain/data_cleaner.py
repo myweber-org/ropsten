@@ -951,3 +951,67 @@ def main():
 
 if __name__ == "__main__":
     main()
+import pandas as pd
+
+def clean_dataset(df, remove_nulls=True, remove_duplicates=True):
+    """
+    Clean a pandas DataFrame by removing null values and duplicates.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean
+        remove_nulls (bool): Whether to remove rows with null values
+        remove_duplicates (bool): Whether to remove duplicate rows
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame
+    """
+    cleaned_df = df.copy()
+    
+    if remove_nulls:
+        cleaned_df = cleaned_df.dropna()
+    
+    if remove_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates()
+    
+    return cleaned_df
+
+def validate_data(df, required_columns=None):
+    """
+    Validate that DataFrame meets basic requirements.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate
+        required_columns (list): List of required column names
+    
+    Returns:
+        tuple: (is_valid, error_message)
+    """
+    if df.empty:
+        return False, "DataFrame is empty"
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            return False, f"Missing required columns: {missing_columns}"
+    
+    return True, "Data validation passed"
+
+def get_data_summary(df):
+    """
+    Generate a summary of the DataFrame.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+    
+    Returns:
+        dict: Summary statistics
+    """
+    summary = {
+        'rows': len(df),
+        'columns': len(df.columns),
+        'null_count': df.isnull().sum().sum(),
+        'duplicate_rows': df.duplicated().sum(),
+        'column_types': df.dtypes.to_dict(),
+        'memory_usage': df.memory_usage(deep=True).sum()
+    }
+    return summary
