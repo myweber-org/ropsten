@@ -1395,3 +1395,145 @@ if __name__ == "__main__":
     
     print("\nFirst 5 rows of cleaned data:")
     print(cleaned_df.head())
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(data, column, factor=1.5):
+    """
+    Remove outliers using Interquartile Range method
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    Q1 = data[column].quantile(0.25)
+    Q3 = data[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - factor * IQR
+    upper_bound = Q3 + factor * IQR
+    
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    outliers_removed = len(data) - len(filtered_data)
+    
+    return filtered_data, outliers_removed
+
+def normalize_minmax(data, column):
+    """
+    Normalize data using Min-Max scaling
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    min_val = data[column].min()
+    max_val = data[column].max()
+    
+    if max_val == min_val:
+        return data[column].apply(lambda x: 0.5)
+    
+    normalized = (data[column] - min_val) / (max_val - min_val)
+    return normalized
+
+def standardize_zscore(data, column):
+    """
+    Standardize data using Z-score normalization
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    mean_val = data[column].mean()
+    std_val = data[column].std()
+    
+    if std_val == 0:
+        return data[column].apply(lambda x: 0)
+    
+    standardized = (data[column] - mean_val) / std_val
+    return standardized
+
+def handle_missing_values(data, strategy='mean'):
+    """
+    Handle missing values using specified strategy
+    """
+    strategies = ['mean', 'median', 'mode', 'drop']
+    
+    if strategy not in strategies:
+        raise ValueError(f"Strategy must be one of {strategies}")
+    
+    data_clean = data.copy()
+    
+    for column in data_clean.columns:
+        if data_clean[column].dtype in ['int64', 'float64']:
+            if data_clean[column].isnull().any():
+                if strategy == 'mean':
+                    fill_value = data_clean[column].mean()
+                elif strategy == 'median':
+                    fill_value = data_clean[column].median()
+                elif strategy == 'mode':
+                    fill_value = data_clean[column].mode()[0]
+                elif strategy == 'drop':
+                    data_clean = data_clean.dropna(subset=[column])
+                    continue
+                
+                data_clean[column] = data_clean[column].fillna(fill_value)
+    
+    return data_clean
+
+def validate_dataframe(data):
+    """
+    Validate DataFrame structure and content
+    """
+    if not isinstance(data, pd.DataFrame):
+        raise TypeError("Input must be a pandas DataFrame")
+    
+    if data.empty:
+        raise ValueError("DataFrame is empty")
+    
+    validation_report = {
+        'rows': len(data),
+        'columns': len(data.columns),
+        'missing_values': data.isnull().sum().sum(),
+        'duplicate_rows': data.duplicated().sum(),
+        'data_types': data.dtypes.to_dict()
+    }
+    
+    return validation_report
+
+def create_sample_data():
+    """
+    Create sample data for testing
+    """
+    np.random.seed(42)
+    
+    data = {
+        'feature_a': np.random.normal(100, 15, 100),
+        'feature_b': np.random.exponential(50, 100),
+        'feature_c': np.random.uniform(0, 1, 100),
+        'category': np.random.choice(['A', 'B', 'C'], 100)
+    }
+    
+    df = pd.DataFrame(data)
+    
+    df.loc[np.random.choice(100, 5), 'feature_a'] = np.nan
+    df.loc[10:15, 'feature_b'] = df['feature_b'].max() * 10
+    
+    return df
+
+if __name__ == "__main__":
+    sample_data = create_sample_data()
+    print("Original data shape:", sample_data.shape)
+    
+    report = validate_dataframe(sample_data)
+    print("Validation report:", report)
+    
+    cleaned_data = handle_missing_values(sample_data, strategy='mean')
+    print("After handling missing values:", cleaned_data.shape)
+    
+    filtered_data, outliers = remove_outliers_iqr(cleaned_data, 'feature_b')
+    print(f"Removed {outliers} outliers from feature_b")
+    print("Filtered data shape:", filtered_data.shape)
+    
+    filtered_data['feature_a_normalized'] = normalize_minmax(filtered_data, 'feature_a')
+    filtered_data['feature_b_standardized'] = standardize_zscore(filtered_data, 'feature_b')
+    
+    print("Data cleaning completed successfully")
+    print("Final columns:", filtered_data.columns.tolist())
