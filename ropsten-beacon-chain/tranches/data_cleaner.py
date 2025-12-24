@@ -323,3 +323,58 @@ def clean_dataset(df, method='iqr', normalize=False, fill_missing=True):
         cleaner.normalize_minmax()
     
     return cleaner.get_cleaned_data(), cleaner.get_summary()
+import pandas as pd
+import re
+
+def clean_dataframe(df, column_name):
+    """
+    Clean a specified column in a DataFrame by removing duplicates,
+    stripping whitespace, and converting to lowercase.
+    """
+    if column_name not in df.columns:
+        raise ValueError(f"Column '{column_name}' not found in DataFrame")
+    
+    df_clean = df.copy()
+    
+    df_clean[column_name] = df_clean[column_name].astype(str)
+    df_clean[column_name] = df_clean[column_name].str.strip()
+    df_clean[column_name] = df_clean[column_name].str.lower()
+    
+    df_clean = df_clean.drop_duplicates(subset=[column_name], keep='first')
+    
+    return df_clean.reset_index(drop=True)
+
+def remove_special_characters(text):
+    """
+    Remove special characters from a string, keeping only alphanumeric and spaces.
+    """
+    if not isinstance(text, str):
+        return text
+    
+    cleaned_text = re.sub(r'[^a-zA-Z0-9\s]', '', text)
+    return cleaned_text
+
+def normalize_column(df, column_name):
+    """
+    Apply special character removal to an entire column.
+    """
+    if column_name not in df.columns:
+        raise ValueError(f"Column '{column_name}' not found in DataFrame")
+    
+    df[column_name] = df[column_name].apply(remove_special_characters)
+    return df
+
+if __name__ == "__main__":
+    sample_data = {'Name': ['  John Doe  ', 'Jane Smith', 'JOHN DOE', 'Alice!', 'Bob@Example']}
+    df = pd.DataFrame(sample_data)
+    
+    print("Original DataFrame:")
+    print(df)
+    
+    cleaned_df = clean_dataframe(df, 'Name')
+    print("\nCleaned DataFrame:")
+    print(cleaned_df)
+    
+    normalized_df = normalize_column(cleaned_df, 'Name')
+    print("\nNormalized DataFrame:")
+    print(normalized_df)
