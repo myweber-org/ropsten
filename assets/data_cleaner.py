@@ -670,4 +670,70 @@ if __name__ == "__main__":
     
     cleaned = clean_numeric_data(df, columns=['values'])
     print("\nCleaned DataFrame:")
-    print(cleaned)
+    print(cleaned)import csv
+import re
+from typing import List, Optional
+
+def remove_duplicates(data: List[List[str]]) -> List[List[str]]:
+    """Remove duplicate rows from data while preserving order."""
+    seen = set()
+    unique_data = []
+    for row in data:
+        row_tuple = tuple(row)
+        if row_tuple not in seen:
+            seen.add(row_tuple)
+            unique_data.append(row)
+    return unique_data
+
+def clean_numeric_string(value: str) -> Optional[str]:
+    """Remove non-numeric characters from string except decimal point and negative sign."""
+    if not isinstance(value, str):
+        return value
+    cleaned = re.sub(r'[^\d.-]', '', value)
+    return cleaned if cleaned else None
+
+def validate_email(email: str) -> bool:
+    """Basic email validation using regex pattern."""
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return bool(re.match(pattern, email))
+
+def trim_whitespace(data: List[List[str]]) -> List[List[str]]:
+    """Remove leading/trailing whitespace from all string values."""
+    return [[cell.strip() if isinstance(cell, str) else cell for cell in row] 
+            for row in data]
+
+def read_csv_file(filepath: str) -> List[List[str]]:
+    """Read CSV file and return data as list of lists."""
+    with open(filepath, 'r', newline='', encoding='utf-8') as file:
+        reader = csv.reader(file)
+        return [row for row in reader]
+
+def write_csv_file(filepath: str, data: List[List[str]]) -> None:
+    """Write data to CSV file."""
+    with open(filepath, 'w', newline='', encoding='utf-8') as file:
+        writer = csv.writer(file)
+        writer.writerows(data)
+
+def clean_csv_data(input_file: str, output_file: str) -> None:
+    """Main function to clean CSV data by applying all cleaning operations."""
+    data = read_csv_file(input_file)
+    
+    if not data:
+        print("No data found in input file.")
+        return
+    
+    headers = data[0]
+    rows = data[1:]
+    
+    cleaned_rows = trim_whitespace(rows)
+    cleaned_rows = remove_duplicates(cleaned_rows)
+    
+    cleaned_data = [headers] + cleaned_rows
+    write_csv_file(output_file, cleaned_data)
+    
+    print(f"Data cleaning completed. Original rows: {len(rows)}, Cleaned rows: {len(cleaned_rows)}")
+
+if __name__ == "__main__":
+    input_csv = "raw_data.csv"
+    output_csv = "cleaned_data.csv"
+    clean_csv_data(input_csv, output_csv)
