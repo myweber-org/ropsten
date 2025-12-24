@@ -151,3 +151,52 @@ def validate_data(df, required_columns, min_rows=10):
     }
     
     return validation_result
+import re
+import pandas as pd
+from typing import List, Optional, Union
+
+def remove_duplicates(data: List) -> List:
+    """
+    Remove duplicate items from a list while preserving order.
+    """
+    seen = set()
+    result = []
+    for item in data:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
+
+def validate_email(email: str) -> bool:
+    """
+    Validate an email address format.
+    """
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return re.match(pattern, email) is not None
+
+def normalize_string(text: str) -> str:
+    """
+    Normalize string by converting to lowercase and stripping whitespace.
+    """
+    return text.strip().lower()
+
+def clean_numeric(value: Union[str, int, float]) -> Optional[float]:
+    """
+    Attempt to convert a value to a float, handling common issues.
+    Returns None if conversion fails.
+    """
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        cleaned = value.replace(',', '').strip()
+        try:
+            return float(cleaned)
+        except ValueError:
+            return None
+    return None
+
+def filter_dataframe(df: pd.DataFrame, column: str, condition) -> pd.DataFrame:
+    """
+    Filter a pandas DataFrame based on a condition applied to a column.
+    """
+    return df[df[column].apply(condition)]
