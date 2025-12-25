@@ -62,3 +62,72 @@ if __name__ == "__main__":
     cleaned_df = load_and_clean_data("sample_data.csv")
     cleaned_df.to_csv("cleaned_data.csv", index=False)
     print("Data cleaning complete. Saved to cleaned_data.csv")
+import numpy as np
+
+def remove_outliers_iqr(data, column):
+    """
+    Remove outliers from a pandas DataFrame column using the IQR method.
+    
+    Parameters:
+    data (pd.DataFrame): Input DataFrame
+    column (str): Column name to process
+    
+    Returns:
+    pd.DataFrame: DataFrame with outliers removed
+    """
+    Q1 = data[column].quantile(0.25)
+    Q3 = data[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    return filtered_data
+
+def calculate_summary_stats(data, column):
+    """
+    Calculate summary statistics for a column after outlier removal.
+    
+    Parameters:
+    data (pd.DataFrame): Input DataFrame
+    column (str): Column name to analyze
+    
+    Returns:
+    dict: Dictionary containing summary statistics
+    """
+    stats = {
+        'mean': data[column].mean(),
+        'median': data[column].median(),
+        'std': data[column].std(),
+        'min': data[column].min(),
+        'max': data[column].max(),
+        'count': data[column].count()
+    }
+    return stats
+
+def process_numerical_data(data, numerical_columns):
+    """
+    Process multiple numerical columns by removing outliers.
+    
+    Parameters:
+    data (pd.DataFrame): Input DataFrame
+    numerical_columns (list): List of column names to process
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame
+    dict: Statistics for each processed column
+    """
+    cleaned_data = data.copy()
+    all_stats = {}
+    
+    for col in numerical_columns:
+        if col in cleaned_data.columns:
+            original_count = len(cleaned_data)
+            cleaned_data = remove_outliers_iqr(cleaned_data, col)
+            removed_count = original_count - len(cleaned_data)
+            
+            stats = calculate_summary_stats(cleaned_data, col)
+            stats['outliers_removed'] = removed_count
+            all_stats[col] = stats
+    
+    return cleaned_data, all_stats
