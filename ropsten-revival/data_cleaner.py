@@ -131,3 +131,70 @@ def process_numerical_data(data, numerical_columns):
             all_stats[col] = stats
     
     return cleaned_data, all_stats
+import pandas as pd
+import numpy as np
+
+def clean_dataframe(df, drop_duplicates=True, fill_missing=True):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    """
+    cleaned_df = df.copy()
+    
+    if drop_duplicates:
+        initial_rows = len(cleaned_df)
+        cleaned_df = cleaned_df.drop_duplicates()
+        removed = initial_rows - len(cleaned_df)
+        print(f"Removed {removed} duplicate rows")
+    
+    if fill_missing:
+        numeric_cols = cleaned_df.select_dtypes(include=[np.number]).columns
+        cleaned_df[numeric_cols] = cleaned_df[numeric_cols].fillna(cleaned_df[numeric_cols].median())
+        
+        categorical_cols = cleaned_df.select_dtypes(include=['object']).columns
+        cleaned_df[categorical_cols] = cleaned_df[categorical_cols].fillna('Unknown')
+        
+        print("Filled missing values in numeric and categorical columns")
+    
+    return cleaned_df
+
+def validate_dataframe(df):
+    """
+    Validate DataFrame for common data quality issues.
+    """
+    issues = []
+    
+    if df.empty:
+        issues.append("DataFrame is empty")
+    
+    missing_percentage = (df.isnull().sum() / len(df)) * 100
+    high_missing = missing_percentage[missing_percentage > 50].index.tolist()
+    
+    if high_missing:
+        issues.append(f"Columns with >50% missing values: {high_missing}")
+    
+    duplicate_count = df.duplicated().sum()
+    if duplicate_count > 0:
+        issues.append(f"Found {duplicate_count} duplicate rows")
+    
+    return issues
+
+def main():
+    # Example usage
+    data = {
+        'id': [1, 2, 2, 3, 4, 5],
+        'value': [10, 20, 20, None, 40, None],
+        'category': ['A', 'B', 'B', None, 'C', 'A']
+    }
+    
+    df = pd.DataFrame(data)
+    print("Original DataFrame:")
+    print(df)
+    print("\nValidation issues:", validate_dataframe(df))
+    
+    cleaned_df = clean_dataframe(df)
+    print("\nCleaned DataFrame:")
+    print(cleaned_df)
+    print("\nValidation issues after cleaning:", validate_dataframe(cleaned_df))
+
+if __name__ == "__main__":
+    main()
