@@ -198,4 +198,96 @@ def handle_missing_values(df, column, strategy='mean'):
         raise ValueError("Strategy must be 'mean', 'median', 'mode', or 'drop'")
     
     df_copy[column] = df_copy[column].fillna(fill_value)
-    return df_copy
+    return df_copyimport pandas as pd
+import numpy as np
+
+def clean_csv_data(filepath, fill_method='mean', drop_threshold=0.8):
+    """
+    Load and clean CSV data by handling missing values.
+    
+    Parameters:
+    filepath (str): Path to the CSV file
+    fill_method (str): Method for filling missing values ('mean', 'median', 'mode', 'zero')
+    drop_threshold (float): Drop columns with missing ratio above this threshold
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame
+    """
+    try:
+        df = pd.read_csv(filepath)
+        
+        # Calculate missing ratio for each column
+        missing_ratio = df.isnull().sum() / len(df)
+        
+        # Drop columns with too many missing values
+        columns_to_drop = missing_ratio[missing_ratio > drop_threshold].index
+        df = df.drop(columns=columns_to_drop)
+        
+        # Fill missing values based on specified method
+        for column in df.columns:
+            if df[column].isnull().any():
+                if fill_method == 'mean' and pd.api.types.is_numeric_dtype(df[column]):
+                    df[column].fillna(df[column].mean(), inplace=True)
+                elif fill_method == 'median' and pd.api.types.is_numeric_dtype(df[column]):
+                    df[column].fillna(df[column].median(), inplace=True)
+                elif fill_method == 'mode':
+                    df[column].fillna(df[column].mode()[0], inplace=True)
+                elif fill_method == 'zero':
+                    df[column].fillna(0, inplace=True)
+                else:
+                    df[column].fillna(df[column].mean(), inplace=True)
+        
+        # Remove duplicate rows
+        df = df.drop_duplicates()
+        
+        # Reset index after cleaning
+        df.reset_index(drop=True, inplace=True)
+        
+        print(f"Data cleaning completed. Removed {len(columns_to_drop)} columns.")
+        print(f"Final shape: {df.shape}")
+        
+        return df
+        
+    except FileNotFoundError:
+        print(f"Error: File not found at {filepath}")
+        return None
+    except Exception as e:
+        print(f"Error during data cleaning: {str(e)}")
+        return None
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate
+    required_columns (list): List of required column names
+    
+    Returns:
+    bool: True if validation passes, False otherwise
+    """
+    if df is None or df.empty:
+        print("Error: DataFrame is empty or None")
+        return False
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            print(f"Error: Missing required columns: {missing_columns}")
+            return False
+    
+    # Check for infinite values
+    if np.any(np.isinf(df.select_dtypes(include=[np.number]))):
+        print("Warning: DataFrame contains infinite values")
+    
+    return True
+
+if __name__ == "__main__":
+    # Example usage
+    cleaned_data = clean_csv_data('sample_data.csv', fill_method='median')
+    
+    if cleaned_data is not None:
+        is_valid = validate_dataframe(cleaned_data)
+        if is_valid:
+            cleaned_data.to_csv('cleaned_data.csv', index=False)
+            print("Cleaned data saved to 'cleaned_data.csv'")
