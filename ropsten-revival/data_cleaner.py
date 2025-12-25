@@ -1,28 +1,72 @@
+
+import numpy as np
 import pandas as pd
-import re
 
-def clean_text_column(df, column_name):
-    """Standardize text by lowercasing and removing extra whitespace."""
-    df[column_name] = df[column_name].astype(str).str.lower()
-    df[column_name] = df[column_name].apply(lambda x: re.sub(r'\s+', ' ', x).strip())
-    return df
+def remove_outliers_iqr(df, column):
+    """
+    Remove outliers from a DataFrame column using the Interquartile Range method.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        column (str): Column name to process
+    
+    Returns:
+        pd.DataFrame: DataFrame with outliers removed
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    
+    return filtered_df
 
-def remove_duplicates(df, subset_columns):
-    """Remove duplicate rows based on specified columns."""
-    return df.drop_duplicates(subset=subset_columns, keep='first')
+def calculate_summary_statistics(df, column):
+    """
+    Calculate summary statistics for a column after outlier removal.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        column (str): Column name to analyze
+    
+    Returns:
+        dict: Dictionary containing summary statistics
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    stats = {
+        'mean': df[column].mean(),
+        'median': df[column].median(),
+        'std': df[column].std(),
+        'min': df[column].min(),
+        'max': df[column].max(),
+        'count': df[column].count()
+    }
+    
+    return stats
 
-def process_dataframe(input_file, output_file, text_column, key_columns):
-    """Main function to load, clean, deduplicate, and save data."""
-    df = pd.read_csv(input_file)
-    df = clean_text_column(df, text_column)
-    df = remove_duplicates(df, key_columns)
-    df.to_csv(output_file, index=False)
-    print(f"Processed data saved to {output_file}")
-    return df
-
-if __name__ == "__main__":
-    input_path = "raw_data.csv"
-    output_path = "cleaned_data.csv"
-    text_col = "description"
-    key_cols = ["id", "name"]
-    process_dataframe(input_path, output_path, text_col, key_cols)
+def clean_dataset(df, numeric_columns):
+    """
+    Clean dataset by removing outliers from multiple numeric columns.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        numeric_columns (list): List of column names to clean
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame
+    """
+    cleaned_df = df.copy()
+    
+    for column in numeric_columns:
+        if column in cleaned_df.columns:
+            cleaned_df = remove_outliers_iqr(cleaned_df, column)
+    
+    return cleaned_df
