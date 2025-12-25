@@ -101,3 +101,11 @@ def remove_outliers(df, column, method='iqr', threshold=1.5):
     print(f"Removed {removed} outliers from column '{column}'")
     
     return filtered_df
+def remove_duplicates_preserve_order(sequence):
+    seen = set()
+    result = []
+    for item in sequence:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
