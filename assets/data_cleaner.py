@@ -3,7 +3,7 @@ import numpy as np
 
 def remove_outliers_iqr(data, column):
     """
-    Remove outliers from a specified column using the IQR method.
+    Remove outliers from a pandas DataFrame column using the IQR method.
     
     Parameters:
     data (pd.DataFrame): The input DataFrame.
@@ -20,3 +20,23 @@ def remove_outliers_iqr(data, column):
     
     filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
     return filtered_data
+
+def calculate_summary_stats(data, column):
+    """
+    Calculate summary statistics for a DataFrame column.
+    
+    Parameters:
+    data (pd.DataFrame): The input DataFrame.
+    column (str): The column name to analyze.
+    
+    Returns:
+    dict: Dictionary containing count, mean, std, min, max.
+    """
+    stats = {
+        'count': data[column].count(),
+        'mean': data[column].mean(),
+        'std': data[column].std(),
+        'min': data[column].min(),
+        'max': data[column].max()
+    }
+    return stats
