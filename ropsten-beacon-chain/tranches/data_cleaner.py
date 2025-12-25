@@ -1,134 +1,85 @@
+
 import numpy as np
-import pandas as pd
 
-def remove_outliers_iqr(data, column, factor=1.5):
+def remove_outliers_iqr(data, column):
     """
-    Remove outliers using IQR method
+    Remove outliers from a specific column using the Interquartile Range method.
+    
+    Parameters:
+    data (np.ndarray): Input data array
+    column (int): Column index to process
+    
+    Returns:
+    np.ndarray: Data with outliers removed
     """
-    if column not in data.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
+    if data.size == 0:
+        return data
     
-    Q1 = data[column].quantile(0.25)
-    Q3 = data[column].quantile(0.75)
-    IQR = Q3 - Q1
+    col_data = data[:, column]
+    q1 = np.percentile(col_data, 25)
+    q3 = np.percentile(col_data, 75)
+    iqr = q3 - q1
     
-    lower_bound = Q1 - factor * IQR
-    upper_bound = Q3 + factor * IQR
+    lower_bound = q1 - 1.5 * iqr
+    upper_bound = q3 + 1.5 * iqr
     
-    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
-    return filtered_data
+    mask = (col_data >= lower_bound) & (col_data <= upper_bound)
+    return data[mask]
 
-def normalize_minmax(data, column):
+def calculate_statistics(data, column):
     """
-    Normalize data using min-max scaling
+    Calculate basic statistics for a column after outlier removal.
+    
+    Parameters:
+    data (np.ndarray): Input data array
+    column (int): Column index to analyze
+    
+    Returns:
+    dict: Dictionary containing statistical measures
     """
-    if column not in data.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
+    if data.size == 0:
+        return {}
     
-    min_val = data[column].min()
-    max_val = data[column].max()
-    
-    if max_val == min_val:
-        return data[column].apply(lambda x: 0.5)
-    
-    normalized = (data[column] - min_val) / (max_val - min_val)
-    return normalized
+    col_data = data[:, column]
+    stats = {
+        'mean': np.mean(col_data),
+        'median': np.median(col_data),
+        'std': np.std(col_data),
+        'min': np.min(col_data),
+        'max': np.max(col_data)
+    }
+    return stats
 
-def standardize_zscore(data, column):
+def clean_dataset(data, columns_to_clean=None):
     """
-    Standardize data using z-score normalization
-    """
-    if column not in data.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
+    Clean dataset by removing outliers from specified columns.
     
-    mean_val = data[column].mean()
-    std_val = data[column].std()
+    Parameters:
+    data (np.ndarray): Input data array
+    columns_to_clean (list): List of column indices to clean
     
-    if std_val == 0:
-        return data[column].apply(lambda x: 0)
-    
-    standardized = (data[column] - mean_val) / std_val
-    return standardized
-
-def clean_dataset(data, numeric_columns=None, outlier_factor=1.5, method='standardize'):
+    Returns:
+    np.ndarray: Cleaned data array
     """
-    Main cleaning function for datasets
-    """
-    if numeric_columns is None:
-        numeric_columns = data.select_dtypes(include=[np.number]).columns.tolist()
+    if columns_to_clean is None:
+        columns_to_clean = list(range(data.shape[1]))
     
     cleaned_data = data.copy()
-    
-    for column in numeric_columns:
-        if column in data.columns:
-            # Remove outliers
-            cleaned_data = remove_outliers_iqr(cleaned_data, column, outlier_factor)
-            
-            # Apply normalization/standardization
-            if method == 'normalize':
-                cleaned_data[column] = normalize_minmax(cleaned_data, column)
-            elif method == 'standardize':
-                cleaned_data[column] = standardize_zscore(cleaned_data, column)
+    for column in columns_to_clean:
+        if column < data.shape[1]:
+            cleaned_data = remove_outliers_iqr(cleaned_data, column)
     
     return cleaned_data
 
-def validate_data(data, required_columns, min_rows=10):
-    """
-    Validate dataset structure and content
-    """
-    missing_columns = [col for col in required_columns if col not in data.columns]
-    
-    if missing_columns:
-        raise ValueError(f"Missing required columns: {missing_columns}")
-    
-    if len(data) < min_rows:
-        raise ValueError(f"Dataset has only {len(data)} rows, minimum required is {min_rows}")
-    
-    if data.isnull().sum().sum() > 0:
-        print("Warning: Dataset contains missing values")
-    
-    return True
-
-def example_usage():
-    """
-    Example usage of the data cleaning utilities
-    """
-    # Create sample data
+if __name__ == "__main__":
+    # Example usage
     np.random.seed(42)
-    sample_data = pd.DataFrame({
-        'feature_a': np.random.normal(100, 15, 100),
-        'feature_b': np.random.exponential(50, 100),
-        'category': np.random.choice(['A', 'B', 'C'], 100)
-    })
-    
-    # Add some outliers
-    sample_data.loc[0, 'feature_a'] = 500
-    sample_data.loc[1, 'feature_b'] = 1000
+    sample_data = np.random.randn(100, 3) * 10 + 50
+    sample_data[0, 0] = 200  # Add an outlier
     
     print("Original data shape:", sample_data.shape)
-    print("Original data stats:")
-    print(sample_data[['feature_a', 'feature_b']].describe())
+    print("Original statistics:", calculate_statistics(sample_data, 0))
     
-    # Clean the data
-    cleaned = clean_dataset(
-        sample_data,
-        numeric_columns=['feature_a', 'feature_b'],
-        outlier_factor=1.5,
-        method='standardize'
-    )
-    
-    print("\nCleaned data shape:", cleaned.shape)
-    print("Cleaned data stats:")
-    print(cleaned[['feature_a', 'feature_b']].describe())
-    
-    # Validate the cleaned data
-    try:
-        validate_data(cleaned, ['feature_a', 'feature_b', 'category'], min_rows=50)
-        print("\nData validation passed")
-    except ValueError as e:
-        print(f"\nData validation failed: {e}")
-    
-    return cleaned
-
-if __name__ == "__main__":
-    cleaned_data = example_usage()
+    cleaned = clean_dataset(sample_data, [0])
+    print("Cleaned data shape:", cleaned.shape)
+    print("Cleaned statistics:", calculate_statistics(cleaned, 0))
