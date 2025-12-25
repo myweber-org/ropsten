@@ -270,4 +270,105 @@ def get_dataset_summary(df):
         'memory_usage_mb': df.memory_usage(deep=True).sum() / 1024 / 1024
     }
     
-    return summary
+    return summaryimport pandas as pd
+import numpy as np
+
+class DataCleaner:
+    def __init__(self, df):
+        self.df = df.copy()
+        self.original_shape = df.shape
+
+    def remove_outliers_iqr(self, columns=None, factor=1.5):
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
+
+        for col in columns:
+            if col in self.df.columns and pd.api.types.is_numeric_dtype(self.df[col]):
+                Q1 = self.df[col].quantile(0.25)
+                Q3 = self.df[col].quantile(0.75)
+                IQR = Q3 - Q1
+                lower_bound = Q1 - factor * IQR
+                upper_bound = Q3 + factor * IQR
+                self.df = self.df[(self.df[col] >= lower_bound) & (self.df[col] <= upper_bound)]
+
+        removed_count = self.original_shape[0] - self.df.shape[0]
+        print(f"Removed {removed_count} outliers")
+        return self
+
+    def normalize_minmax(self, columns=None):
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
+
+        for col in columns:
+            if col in self.df.columns and pd.api.types.is_numeric_dtype(self.df[col]):
+                min_val = self.df[col].min()
+                max_val = self.df[col].max()
+                if max_val > min_val:
+                    self.df[col] = (self.df[col] - min_val) / (max_val - min_val)
+                else:
+                    self.df[col] = 0
+
+        print("Applied min-max normalization")
+        return self
+
+    def fill_missing(self, strategy='mean', columns=None):
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
+
+        for col in columns:
+            if col in self.df.columns and self.df[col].isnull().any():
+                if strategy == 'mean':
+                    fill_value = self.df[col].mean()
+                elif strategy == 'median':
+                    fill_value = self.df[col].median()
+                elif strategy == 'mode':
+                    fill_value = self.df[col].mode()[0]
+                else:
+                    fill_value = 0
+
+                self.df[col].fillna(fill_value, inplace=True)
+
+        print(f"Filled missing values using {strategy} strategy")
+        return self
+
+    def get_cleaned_data(self):
+        return self.df
+
+def clean_dataset(file_path, output_path=None):
+    try:
+        df = pd.read_csv(file_path)
+        cleaner = DataCleaner(df)
+        cleaned_df = (cleaner
+                     .fill_missing(strategy='median')
+                     .remove_outliers_iqr()
+                     .normalize_minmax()
+                     .get_cleaned_data())
+
+        if output_path:
+            cleaned_df.to_csv(output_path, index=False)
+            print(f"Cleaned data saved to {output_path}")
+
+        return cleaned_df
+
+    except Exception as e:
+        print(f"Error cleaning dataset: {e}")
+        return None
+
+if __name__ == "__main__":
+    sample_data = pd.DataFrame({
+        'A': [1, 2, 3, 100, 5, 6, None, 8, 9, 10],
+        'B': [10, 20, 30, 40, 50, 60, 70, 80, 90, 1000],
+        'C': ['x', 'y', 'z', 'x', 'y', 'z', 'x', 'y', 'z', 'x']
+    })
+
+    cleaner = DataCleaner(sample_data)
+    result = (cleaner
+             .fill_missing(strategy='mean')
+             .remove_outliers_iqr(factor=1.5)
+             .normalize_minmax()
+             .get_cleaned_data())
+
+    print("Original shape:", sample_data.shape)
+    print("Cleaned shape:", result.shape)
+    print("\nCleaned data preview:")
+    print(result.head())
