@@ -543,4 +543,101 @@ def validate_dataframe(df):
     for check, message in required_checks:
         if not check(df):
             raise ValueError(message)
-    return True
+    return Trueimport pandas as pd
+import numpy as np
+
+def remove_outliers_iqr(df, column):
+    """
+    Remove outliers from a DataFrame column using the Interquartile Range (IQR) method.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    column (str): Column name to process
+    
+    Returns:
+    pd.DataFrame: DataFrame with outliers removed
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    
+    return filtered_df
+
+def calculate_basic_stats(df, column):
+    """
+    Calculate basic statistics for a DataFrame column.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    column (str): Column name to analyze
+    
+    Returns:
+    dict: Dictionary containing statistical measures
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    stats = {
+        'mean': df[column].mean(),
+        'median': df[column].median(),
+        'std': df[column].std(),
+        'min': df[column].min(),
+        'max': df[column].max(),
+        'count': df[column].count()
+    }
+    
+    return stats
+
+def process_numeric_data(df, numeric_columns):
+    """
+    Process multiple numeric columns by removing outliers and calculating statistics.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    numeric_columns (list): List of numeric column names to process
+    
+    Returns:
+    tuple: (cleaned_df, stats_dict)
+    """
+    cleaned_df = df.copy()
+    all_stats = {}
+    
+    for col in numeric_columns:
+        if col in df.columns and pd.api.types.is_numeric_dtype(df[col]):
+            cleaned_df = remove_outliers_iqr(cleaned_df, col)
+            all_stats[col] = calculate_basic_stats(cleaned_df, col)
+    
+    return cleaned_df, all_stats
+
+if __name__ == "__main__":
+    sample_data = {
+        'temperature': [22, 23, 24, 25, 26, 100, 27, 28, 29, 30, -10],
+        'humidity': [45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55],
+        'pressure': [1013, 1014, 1015, 1016, 1017, 2000, 1018, 1019, 1020, 1021, 900]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\n" + "="*50 + "\n")
+    
+    numeric_cols = ['temperature', 'humidity', 'pressure']
+    cleaned_df, stats = process_numeric_data(df, numeric_cols)
+    
+    print("Cleaned DataFrame:")
+    print(cleaned_df)
+    print("\n" + "="*50 + "\n")
+    
+    print("Statistical Summary:")
+    for col, col_stats in stats.items():
+        print(f"\n{col}:")
+        for stat_name, stat_value in col_stats.items():
+            print(f"  {stat_name}: {stat_value:.2f}")
