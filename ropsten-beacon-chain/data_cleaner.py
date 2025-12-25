@@ -1,35 +1,56 @@
 import pandas as pd
-import numpy as np
 
-def remove_outliers_iqr(df, column):
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
-    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+def remove_duplicates(df, subset=None, keep='first'):
+    """
+    Remove duplicate rows from a DataFrame.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame.
+        subset (list, optional): Column labels to consider for duplicates.
+        keep (str, optional): Which duplicates to keep.
+    
+    Returns:
+        pd.DataFrame: DataFrame with duplicates removed.
+    """
+    if df.empty:
+        return df
+    
+    cleaned_df = df.drop_duplicates(subset=subset, keep=keep)
+    return cleaned_df
 
-def normalize_minmax(df, column):
-    min_val = df[column].min()
-    max_val = df[column].max()
-    df[column + '_normalized'] = (df[column] - min_val) / (max_val - min_val)
+def clean_numeric_column(df, column):
+    """
+    Clean a numeric column by removing non-numeric characters.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame.
+        column (str): Column name to clean.
+    
+    Returns:
+        pd.DataFrame: DataFrame with cleaned column.
+    """
+    if column not in df.columns:
+        return df
+    
+    df[column] = pd.to_numeric(df[column].astype(str).str.replace(r'[^\d.-]', '', regex=True), errors='coerce')
     return df
 
-def clean_dataset(input_path, output_path):
-    df = pd.read_csv(input_path)
+def validate_email_column(df, column):
+    """
+    Validate email addresses in a column.
     
-    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    Args:
+        df (pd.DataFrame): Input DataFrame.
+        column (str): Column name containing email addresses.
     
-    for col in numeric_cols:
-        df = remove_outliers_iqr(df, col)
+    Returns:
+        pd.DataFrame: DataFrame with validation results.
+    """
+    import re
     
-    for col in numeric_cols:
-        df = normalize_minmax(df, col)
+    if column not in df.columns:
+        return df
     
-    df.to_csv(output_path, index=False)
-    print(f"Cleaned data saved to {output_path}")
-    print(f"Original shape: {pd.read_csv(input_path).shape}")
-    print(f"Cleaned shape: {df.shape}")
-
-if __name__ == "__main__":
-    clean_dataset('raw_data.csv', 'cleaned_data.csv')
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    df['email_valid'] = df[column].apply(lambda x: bool(re.match(pattern, str(x))) if pd.notnull(x) else False)
+    return df
