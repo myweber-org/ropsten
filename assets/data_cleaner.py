@@ -1,50 +1,88 @@
+
 import pandas as pd
 
-def clean_dataframe(df, drop_duplicates=True, fill_missing=False, fill_value=0):
+def remove_duplicates(df, subset=None, keep='first'):
     """
-    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    Remove duplicate rows from a DataFrame.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame.
+        subset (list, optional): Column labels to consider for duplicates.
+        keep (str, optional): Which duplicates to keep.
+    
+    Returns:
+        pd.DataFrame: DataFrame with duplicates removed.
     """
+    if df.empty:
+        return df
+    
+    cleaned_df = df.drop_duplicates(subset=subset, keep=keep)
+    
+    removed_count = len(df) - len(cleaned_df)
+    if removed_count > 0:
+        print(f"Removed {removed_count} duplicate rows.")
+    
+    return cleaned_df
+
+def clean_numeric_column(df, column_name, fill_method='mean'):
+    """
+    Clean a numeric column by handling missing values.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame.
+        column_name (str): Name of the column to clean.
+        fill_method (str): Method to fill missing values ('mean', 'median', 'zero').
+    
+    Returns:
+        pd.DataFrame: DataFrame with cleaned column.
+    """
+    if column_name not in df.columns:
+        raise ValueError(f"Column '{column_name}' not found in DataFrame.")
+    
+    if not pd.api.types.is_numeric_dtype(df[column_name]):
+        raise TypeError(f"Column '{column_name}' is not numeric.")
+    
     df_clean = df.copy()
     
-    if drop_duplicates:
-        df_clean = df_clean.drop_duplicates()
+    if fill_method == 'mean':
+        fill_value = df[column_name].mean()
+    elif fill_method == 'median':
+        fill_value = df[column_name].median()
+    elif fill_method == 'zero':
+        fill_value = 0
+    else:
+        raise ValueError("fill_method must be 'mean', 'median', or 'zero'")
     
-    if fill_missing:
-        df_clean = df_clean.fillna(fill_value)
+    missing_count = df[column_name].isna().sum()
+    if missing_count > 0:
+        df_clean[column_name] = df[column_name].fillna(fill_value)
+        print(f"Filled {missing_count} missing values in '{column_name}' with {fill_method}.")
     
     return df_clean
 
 def validate_dataframe(df, required_columns=None):
     """
-    Validate that the DataFrame contains required columns and has no infinite values.
+    Validate DataFrame structure and content.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate.
+        required_columns (list, optional): List of required column names.
+    
+    Returns:
+        bool: True if validation passes, False otherwise.
     """
+    if not isinstance(df, pd.DataFrame):
+        print("Error: Input is not a pandas DataFrame.")
+        return False
+    
+    if df.empty:
+        print("Warning: DataFrame is empty.")
+        return True
+    
     if required_columns:
         missing_columns = [col for col in required_columns if col not in df.columns]
         if missing_columns:
-            raise ValueError(f"Missing required columns: {missing_columns}")
-    
-    if df.isin([float('inf'), float('-inf')]).any().any():
-        raise ValueError("DataFrame contains infinite values")
+            print(f"Error: Missing required columns: {missing_columns}")
+            return False
     
     return True
-
-if __name__ == "__main__":
-    sample_data = {
-        'id': [1, 2, 2, 3, 4],
-        'value': [10.5, None, 15.2, 20.1, None],
-        'category': ['A', 'B', 'B', 'C', 'A']
-    }
-    
-    df = pd.DataFrame(sample_data)
-    print("Original DataFrame:")
-    print(df)
-    
-    cleaned_df = clean_dataframe(df, drop_duplicates=True, fill_missing=True, fill_value=0)
-    print("\nCleaned DataFrame:")
-    print(cleaned_df)
-    
-    try:
-        validate_dataframe(cleaned_df, required_columns=['id', 'value', 'category'])
-        print("\nData validation passed")
-    except ValueError as e:
-        print(f"\nData validation failed: {e}")
