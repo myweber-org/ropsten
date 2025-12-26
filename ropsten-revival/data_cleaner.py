@@ -398,4 +398,93 @@ if __name__ == "__main__":
     # Validate emails
     validated = validate_email_column(cleaned, 'email')
     print("\nDataFrame with email validation:")
-    print(validated)
+    print(validated)import pandas as pd
+
+def clean_dataset(df):
+    """
+    Clean a pandas DataFrame by removing null values and duplicates.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to be cleaned.
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame.
+    """
+    if df.empty:
+        return df
+    
+    cleaned_df = df.copy()
+    cleaned_df = cleaned_df.dropna()
+    cleaned_df = cleaned_df.drop_duplicates()
+    cleaned_df = cleaned_df.reset_index(drop=True)
+    
+    return cleaned_df
+
+def validate_data(df, required_columns):
+    """
+    Validate that the DataFrame contains all required columns.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate.
+        required_columns (list): List of column names that must be present.
+    
+    Returns:
+        bool: True if all required columns are present, False otherwise.
+    """
+    if not isinstance(df, pd.DataFrame):
+        return False
+    
+    missing_columns = [col for col in required_columns if col not in df.columns]
+    
+    if missing_columns:
+        print(f"Missing columns: {missing_columns}")
+        return False
+    
+    return True
+
+def process_data(file_path, required_columns=None):
+    """
+    Load and process data from a CSV file.
+    
+    Args:
+        file_path (str): Path to the CSV file.
+        required_columns (list, optional): List of required columns.
+    
+    Returns:
+        pd.DataFrame: Processed DataFrame or None if processing fails.
+    """
+    try:
+        df = pd.read_csv(file_path)
+        
+        if required_columns:
+            if not validate_data(df, required_columns):
+                return None
+        
+        cleaned_df = clean_dataset(df)
+        
+        print(f"Original rows: {len(df)}")
+        print(f"Cleaned rows: {len(cleaned_df)}")
+        print(f"Rows removed: {len(df) - len(cleaned_df)}")
+        
+        return cleaned_df
+        
+    except FileNotFoundError:
+        print(f"File not found: {file_path}")
+        return None
+    except Exception as e:
+        print(f"Error processing file: {e}")
+        return None
+
+if __name__ == "__main__":
+    sample_data = {
+        'name': ['Alice', 'Bob', 'Charlie', None, 'Alice'],
+        'age': [25, 30, 35, 40, 25],
+        'city': ['NYC', 'LA', 'Chicago', 'Boston', 'NYC']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\nCleaned DataFrame:")
+    cleaned = clean_dataset(df)
+    print(cleaned)
