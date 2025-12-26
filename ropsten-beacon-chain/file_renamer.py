@@ -1,34 +1,43 @@
 
 import os
-import re
 import sys
 
-def rename_files(directory, pattern, replacement):
+def rename_files_with_sequential_numbers(directory, prefix="file", extension=".txt"):
+    """
+    Rename all files in the specified directory with sequential numbering.
+    """
     try:
-        files = os.listdir(directory)
-        for filename in files:
+        files = [f for f in os.listdir(directory) if os.path.isfile(os.path.join(directory, f))]
+        files.sort()
+        
+        for index, filename in enumerate(files, start=1):
             old_path = os.path.join(directory, filename)
-            if os.path.isfile(old_path):
-                new_filename = re.sub(pattern, replacement, filename)
-                if new_filename != filename:
-                    new_path = os.path.join(directory, new_filename)
-                    os.rename(old_path, new_path)
-                    print(f"Renamed: {filename} -> {new_filename}")
+            new_filename = f"{prefix}_{index:03d}{extension}"
+            new_path = os.path.join(directory, new_filename)
+            
+            os.rename(old_path, new_path)
+            print(f"Renamed: {filename} -> {new_filename}")
+        
+        print(f"Successfully renamed {len(files)} files.")
+        return True
+        
+    except FileNotFoundError:
+        print(f"Error: Directory '{directory}' not found.")
+        return False
+    except PermissionError:
+        print(f"Error: Permission denied for directory '{directory}'.")
+        return False
     except Exception as e:
-        print(f"Error: {e}")
-        sys.exit(1)
+        print(f"Error: {str(e)}")
+        return False
 
 if __name__ == "__main__":
-    if len(sys.argv) != 4:
-        print("Usage: python file_renamer.py <directory> <pattern> <replacement>")
+    if len(sys.argv) < 2:
+        print("Usage: python file_renamer.py <directory_path> [prefix] [extension]")
         sys.exit(1)
     
-    target_dir = sys.argv[1]
-    regex_pattern = sys.argv[2]
-    replace_with = sys.argv[3]
+    dir_path = sys.argv[1]
+    prefix = sys.argv[2] if len(sys.argv) > 2 else "file"
+    extension = sys.argv[3] if len(sys.argv) > 3 else ".txt"
     
-    if not os.path.isdir(target_dir):
-        print(f"Error: Directory '{target_dir}' does not exist.")
-        sys.exit(1)
-    
-    rename_files(target_dir, regex_pattern, replace_with)
+    rename_files_with_sequential_numbers(dir_path, prefix, extension)
