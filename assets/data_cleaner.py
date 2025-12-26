@@ -2,110 +2,45 @@
 import pandas as pd
 import numpy as np
 
-def clean_dataset(df, drop_duplicates=True, fill_missing='mean'):
-    """
-    Clean a pandas DataFrame by removing duplicates and handling missing values.
-    
-    Args:
-        df (pd.DataFrame): Input DataFrame to clean
-        drop_duplicates (bool): Whether to drop duplicate rows
-        fill_missing (str): Method to fill missing values - 'mean', 'median', 'mode', or 'drop'
-    
-    Returns:
-        pd.DataFrame: Cleaned DataFrame
-    """
-    cleaned_df = df.copy()
-    
-    if drop_duplicates:
-        initial_rows = len(cleaned_df)
-        cleaned_df = cleaned_df.drop_duplicates()
-        removed = initial_rows - len(cleaned_df)
-        print(f"Removed {removed} duplicate rows")
-    
-    if fill_missing == 'drop':
-        cleaned_df = cleaned_df.dropna()
-        print("Removed rows with missing values")
-    elif fill_missing in ['mean', 'median']:
-        numeric_cols = cleaned_df.select_dtypes(include=[np.number]).columns
-        for col in numeric_cols:
-            if fill_missing == 'mean':
-                cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].mean())
-            else:
-                cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].median())
-        print(f"Filled missing numeric values with {fill_missing}")
-    elif fill_missing == 'mode':
-        for col in cleaned_df.columns:
-            cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].mode()[0] if not cleaned_df[col].mode().empty else 0)
-        print("Filled missing values with mode")
-    
-    return cleaned_df
+def remove_missing_rows(df, columns=None):
+    if columns is None:
+        columns = df.columns
+    return df.dropna(subset=columns)
 
-def validate_dataframe(df, required_columns=None, min_rows=1):
-    """
-    Validate DataFrame structure and content.
-    
-    Args:
-        df (pd.DataFrame): DataFrame to validate
-        required_columns (list): List of required column names
-        min_rows (int): Minimum number of rows required
-    
-    Returns:
-        tuple: (is_valid, error_message)
-    """
-    if df.empty:
-        return False, "DataFrame is empty"
-    
-    if len(df) < min_rows:
-        return False, f"DataFrame has fewer than {min_rows} rows"
-    
-    if required_columns:
-        missing_cols = [col for col in required_columns if col not in df.columns]
-        if missing_cols:
-            return False, f"Missing required columns: {missing_cols}"
-    
-    return True, "DataFrame is valid"
+def fill_missing_with_mean(df, columns=None):
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    df_filled = df.copy()
+    for col in columns:
+        if col in df.columns and df[col].dtype in [np.float64, np.int64]:
+            df_filled[col] = df[col].fillna(df[col].mean())
+    return df_filled
 
-def remove_outliers(df, column, method='iqr', threshold=1.5):
-    """
-    Remove outliers from a specific column using specified method.
-    
-    Args:
-        df (pd.DataFrame): Input DataFrame
-        column (str): Column name to check for outliers
-        method (str): 'iqr' for interquartile range or 'zscore' for standard deviations
-        threshold (float): Threshold value for outlier detection
-    
-    Returns:
-        pd.DataFrame: DataFrame with outliers removed
-    """
+def remove_outliers_iqr(df, column, multiplier=1.5):
     if column not in df.columns:
-        print(f"Column '{column}' not found in DataFrame")
         return df
-    
-    if method == 'iqr':
-        Q1 = df[column].quantile(0.25)
-        Q3 = df[column].quantile(0.75)
-        IQR = Q3 - Q1
-        lower_bound = Q1 - threshold * IQR
-        upper_bound = Q3 + threshold * IQR
-        filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
-    elif method == 'zscore':
-        from scipy import stats
-        z_scores = np.abs(stats.zscore(df[column].dropna()))
-        filtered_df = df[(z_scores < threshold) | (df[column].isna())]
-    else:
-        print(f"Unknown method: {method}. Returning original DataFrame.")
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - multiplier * IQR
+    upper_bound = Q3 + multiplier * IQR
+    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+
+def standardize_column(df, column):
+    if column not in df.columns:
         return df
-    
-    removed = len(df) - len(filtered_df)
-    print(f"Removed {removed} outliers from column '{column}'")
-    
-    return filtered_df
-def remove_duplicates_preserve_order(sequence):
-    seen = set()
-    result = []
-    for item in sequence:
-        if item not in seen:
-            seen.add(item)
-            result.append(item)
-    return result
+    df_standardized = df.copy()
+    mean_val = df[column].mean()
+    std_val = df[column].std()
+    if std_val > 0:
+        df_standardized[column] = (df[column] - mean_val) / std_val
+    return df_standardized
+
+def get_summary_stats(df):
+    summary = {
+        'total_rows': len(df),
+        'missing_values': df.isnull().sum().to_dict(),
+        'numeric_columns': df.select_dtypes(include=[np.number]).columns.tolist(),
+        'categorical_columns': df.select_dtypes(include=['object']).columns.tolist()
+    }
+    return summary
