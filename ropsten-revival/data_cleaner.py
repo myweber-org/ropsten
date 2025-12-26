@@ -1,107 +1,86 @@
 
-import pandas as pd
 import numpy as np
+import pandas as pd
+from scipy import stats
 
-def remove_outliers_iqr(df, column):
+def remove_outliers_iqr(dataframe, column, threshold=1.5):
     """
-    Remove outliers from a DataFrame column using the Interquartile Range method.
-    
-    Args:
-        df (pd.DataFrame): Input DataFrame
-        column (str): Column name to process
-    
-    Returns:
-        pd.DataFrame: DataFrame with outliers removed
+    Remove outliers from specified column using IQR method
     """
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
+    if column not in dataframe.columns:
+        raise ValueError(f"Column '{column}' not found in dataframe")
     
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
+    q1 = dataframe[column].quantile(0.25)
+    q3 = dataframe[column].quantile(0.75)
+    iqr = q3 - q1
     
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
+    lower_bound = q1 - threshold * iqr
+    upper_bound = q3 + threshold * iqr
     
-    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    filtered_df = dataframe[(dataframe[column] >= lower_bound) & 
+                           (dataframe[column] <= upper_bound)]
     
-    return filtered_df.reset_index(drop=True)
+    return filtered_df
 
-def calculate_basic_stats(df, column):
+def normalize_column(dataframe, column, method='minmax'):
     """
-    Calculate basic statistics for a DataFrame column.
-    
-    Args:
-        df (pd.DataFrame): Input DataFrame
-        column (str): Column name to analyze
-    
-    Returns:
-        dict: Dictionary containing statistical measures
+    Normalize column using specified method
     """
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
+    if column not in dataframe.columns:
+        raise ValueError(f"Column '{column}' not found in dataframe")
     
-    stats = {
-        'mean': df[column].mean(),
-        'median': df[column].median(),
-        'std': df[column].std(),
-        'min': df[column].min(),
-        'max': df[column].max(),
-        'count': df[column].count(),
-        'missing': df[column].isnull().sum()
-    }
+    if method == 'minmax':
+        min_val = dataframe[column].min()
+        max_val = dataframe[column].max()
+        if max_val == min_val:
+            return dataframe[column].apply(lambda x: 0.5)
+        normalized = (dataframe[column] - min_val) / (max_val - min_val)
     
-    return stats
+    elif method == 'zscore':
+        mean_val = dataframe[column].mean()
+        std_val = dataframe[column].std()
+        if std_val == 0:
+            return dataframe[column].apply(lambda x: 0)
+        normalized = (dataframe[column] - mean_val) / std_val
+    
+    elif method == 'robust':
+        median_val = dataframe[column].median()
+        iqr_val = stats.iqr(dataframe[column])
+        if iqr_val == 0:
+            return dataframe[column].apply(lambda x: 0)
+        normalized = (dataframe[column] - median_val) / iqr_val
+    
+    else:
+        raise ValueError(f"Unknown normalization method: {method}")
+    
+    return normalized
 
-def validate_dataframe(df, required_columns=None):
+def clean_dataset(dataframe, numeric_columns=None, outlier_threshold=1.5, normalize_method='minmax'):
     """
-    Validate DataFrame structure and content.
-    
-    Args:
-        df (pd.DataFrame): DataFrame to validate
-        required_columns (list): List of required column names
-    
-    Returns:
-        tuple: (is_valid, message)
+    Comprehensive data cleaning pipeline
     """
-    if not isinstance(df, pd.DataFrame):
-        return False, "Input is not a pandas DataFrame"
+    if numeric_columns is None:
+        numeric_columns = dataframe.select_dtypes(include=[np.number]).columns.tolist()
     
-    if df.empty:
-        return False, "DataFrame is empty"
+    cleaned_df = dataframe.copy()
+    
+    for column in numeric_columns:
+        if column in cleaned_df.columns:
+            cleaned_df = remove_outliers_iqr(cleaned_df, column, outlier_threshold)
+            cleaned_df[f"{column}_normalized"] = normalize_column(cleaned_df, column, normalize_method)
+    
+    return cleaned_df
+
+def validate_dataframe(dataframe, required_columns=None, min_rows=1):
+    """
+    Validate dataframe structure and content
+    """
+    if len(dataframe) < min_rows:
+        raise ValueError(f"Dataframe must have at least {min_rows} rows")
     
     if required_columns:
-        missing_columns = [col for col in required_columns if col not in df.columns]
+        missing_columns = [col for col in required_columns if col not in dataframe.columns]
         if missing_columns:
-            return False, f"Missing required columns: {missing_columns}"
+            raise ValueError(f"Missing required columns: {missing_columns}")
     
-    return True, "DataFrame validation passed"
-
-def example_usage():
-    """
-    Demonstrate usage of the data cleaning functions.
-    """
-    np.random.seed(42)
-    data = {
-        'id': range(100),
-        'value': np.random.normal(100, 15, 100)
-    }
-    
-    df = pd.DataFrame(data)
-    
-    df.loc[10, 'value'] = 500
-    df.loc[20, 'value'] = -100
-    
-    print("Original DataFrame shape:", df.shape)
-    print("Original statistics:", calculate_basic_stats(df, 'value'))
-    
-    cleaned_df = remove_outliers_iqr(df, 'value')
-    
-    print("\nCleaned DataFrame shape:", cleaned_df.shape)
-    print("Cleaned statistics:", calculate_basic_stats(cleaned_df, 'value'))
-    
-    is_valid, message = validate_dataframe(cleaned_df, ['id', 'value'])
-    print(f"\nDataFrame validation: {message}")
-
-if __name__ == "__main__":
-    example_usage()
+    return True
