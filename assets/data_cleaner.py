@@ -1,118 +1,91 @@
-
+import pandas as pd
 import numpy as np
 
-def remove_outliers_iqr(data, column):
+def remove_outliers_iqr(df, column):
     """
-    Remove outliers from a specified column in a dataset using the IQR method.
+    Remove outliers from a DataFrame column using the IQR method.
     
     Parameters:
-    data (numpy.ndarray): The dataset.
-    column (int): Index of the column to process.
+    df (pd.DataFrame): Input DataFrame
+    column (str): Column name to process
     
     Returns:
-    numpy.ndarray: Data with outliers removed from the specified column.
+    pd.DataFrame: DataFrame with outliers removed
     """
-    if not isinstance(data, np.ndarray):
-        raise TypeError("Input data must be a numpy array")
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
     
-    if column >= data.shape[1] or column < 0:
-        raise IndexError("Column index out of bounds")
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
     
-    col_data = data[:, column]
-    q1 = np.percentile(col_data, 25)
-    q3 = np.percentile(col_data, 75)
-    iqr = q3 - q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
     
-    lower_bound = q1 - 1.5 * iqr
-    upper_bound = q3 + 1.5 * iqr
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
     
-    mask = (col_data >= lower_bound) & (col_data <= upper_bound)
-    return data[mask]import numpy as np
-import pandas as pd
+    return filtered_df
 
-class DataCleaner:
-    def __init__(self, df):
-        self.df = df.copy()
-        self.original_stats = {}
-        
-    def remove_outliers_iqr(self, column, lower_quantile=0.25, upper_quantile=0.75):
-        Q1 = self.df[column].quantile(lower_quantile)
-        Q3 = self.df[column].quantile(upper_quantile)
-        IQR = Q3 - Q1
-        lower_bound = Q1 - 1.5 * IQR
-        upper_bound = Q3 + 1.5 * IQR
-        
-        self.original_stats[column] = {
-            'original_count': len(self.df),
-            'outliers_removed': ((self.df[column] < lower_bound) | (self.df[column] > upper_bound)).sum()
-        }
-        
-        self.df = self.df[(self.df[column] >= lower_bound) & (self.df[column] <= upper_bound)]
-        return self
-        
-    def normalize_column(self, column, method='minmax'):
-        if method == 'minmax':
-            min_val = self.df[column].min()
-            max_val = self.df[column].max()
-            if max_val != min_val:
-                self.df[column] = (self.df[column] - min_val) / (max_val - min_val)
-        elif method == 'zscore':
-            mean_val = self.df[column].mean()
-            std_val = self.df[column].std()
-            if std_val > 0:
-                self.df[column] = (self.df[column] - mean_val) / std_val
-        return self
-        
-    def fill_missing(self, column, strategy='mean'):
-        if strategy == 'mean':
-            fill_value = self.df[column].mean()
-        elif strategy == 'median':
-            fill_value = self.df[column].median()
-        elif strategy == 'mode':
-            fill_value = self.df[column].mode()[0]
-        else:
-            fill_value = 0
-            
-        self.df[column].fillna(fill_value, inplace=True)
-        return self
-        
-    def get_cleaned_data(self):
-        return self.df.copy()
-        
-    def get_cleaning_report(self):
-        report = {
-            'final_shape': self.df.shape,
-            'original_stats': self.original_stats,
-            'remaining_columns': list(self.df.columns)
-        }
-        return report
-
-def example_usage():
-    np.random.seed(42)
-    data = {
-        'feature1': np.random.normal(100, 15, 1000),
-        'feature2': np.random.exponential(50, 1000),
-        'category': np.random.choice(['A', 'B', 'C'], 1000)
-    }
+def clean_dataset(df, numeric_columns=None):
+    """
+    Clean dataset by removing outliers from specified numeric columns.
     
-    df = pd.DataFrame(data)
-    df.loc[np.random.choice(1000, 50), 'feature1'] = np.nan
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    numeric_columns (list): List of numeric column names to clean
     
-    cleaner = DataCleaner(df)
-    cleaned_df = (cleaner
-                 .remove_outliers_iqr('feature1')
-                 .remove_outliers_iqr('feature2')
-                 .fill_missing('feature1', strategy='mean')
-                 .normalize_column('feature1', method='minmax')
-                 .normalize_column('feature2', method='zscore')
-                 .get_cleaned_data())
+    Returns:
+    pd.DataFrame: Cleaned DataFrame
+    """
+    if numeric_columns is None:
+        numeric_columns = df.select_dtypes(include=[np.number]).columns.tolist()
     
-    report = cleaner.get_cleaning_report()
-    print(f"Original shape: {df.shape}")
-    print(f"Cleaned shape: {cleaned_df.shape}")
-    print(f"Outliers removed: {report['original_stats']}")
+    cleaned_df = df.copy()
+    
+    for column in numeric_columns:
+        if column in cleaned_df.columns and pd.api.types.is_numeric_dtype(cleaned_df[column]):
+            original_count = len(cleaned_df)
+            cleaned_df = remove_outliers_iqr(cleaned_df, column)
+            removed_count = original_count - len(cleaned_df)
+            print(f"Removed {removed_count} outliers from column '{column}'")
     
     return cleaned_df
 
+def save_cleaned_data(df, input_path, output_suffix="_cleaned"):
+    """
+    Save cleaned DataFrame to a new CSV file.
+    
+    Parameters:
+    df (pd.DataFrame): Cleaned DataFrame
+    input_path (str): Original file path
+    output_suffix (str): Suffix to add to output filename
+    """
+    if input_path.endswith('.csv'):
+        output_path = input_path.replace('.csv', f'{output_suffix}.csv')
+    else:
+        output_path = f"{input_path}{output_suffix}.csv"
+    
+    df.to_csv(output_path, index=False)
+    print(f"Cleaned data saved to: {output_path}")
+    
+    return output_path
+
 if __name__ == "__main__":
-    result = example_usage()
+    # Example usage
+    sample_data = {
+        'id': range(1, 101),
+        'value': np.concatenate([
+            np.random.normal(100, 10, 90),
+            np.random.normal(300, 50, 10)  # Outliers
+        ]),
+        'category': np.random.choice(['A', 'B', 'C'], 100)
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print(f"Original dataset shape: {df.shape}")
+    
+    cleaned_df = clean_dataset(df, numeric_columns=['value'])
+    print(f"Cleaned dataset shape: {cleaned_df.shape}")
+    
+    # Save to file (commented out for example)
+    # save_cleaned_data(cleaned_df, 'raw_data.csv')
