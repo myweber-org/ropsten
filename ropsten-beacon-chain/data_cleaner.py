@@ -185,4 +185,65 @@ def calculate_summary_statistics(data, column):
         'count': data[column].count()
     }
     
-    return stats
+    return statsimport pandas as pd
+
+def clean_dataset(df, drop_duplicates=True, fill_missing=False, fill_value=0):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    
+    Args:
+        df: pandas DataFrame to clean
+        drop_duplicates: Whether to drop duplicate rows
+        fill_missing: Whether to fill missing values
+        fill_value: Value to use for filling missing data
+    
+    Returns:
+        Cleaned pandas DataFrame
+    """
+    cleaned_df = df.copy()
+    
+    if drop_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates()
+    
+    if fill_missing:
+        cleaned_df = cleaned_df.fillna(fill_value)
+    
+    return cleaned_df
+
+def remove_outliers(df, column, threshold=3):
+    """
+    Remove outliers from a DataFrame column using z-score method.
+    
+    Args:
+        df: pandas DataFrame
+        column: Column name to check for outliers
+        threshold: Z-score threshold for outlier detection
+    
+    Returns:
+        DataFrame with outliers removed
+    """
+    from scipy import stats
+    import numpy as np
+    
+    z_scores = np.abs(stats.zscore(df[column].dropna()))
+    mask = z_scores < threshold
+    return df[mask]
+
+def normalize_column(df, column):
+    """
+    Normalize a column to range [0, 1].
+    
+    Args:
+        df: pandas DataFrame
+        column: Column name to normalize
+    
+    Returns:
+        DataFrame with normalized column
+    """
+    min_val = df[column].min()
+    max_val = df[column].max()
+    
+    if max_val > min_val:
+        df[column + '_normalized'] = (df[column] - min_val) / (max_val - min_val)
+    
+    return df
