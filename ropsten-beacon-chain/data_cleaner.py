@@ -300,4 +300,104 @@ if __name__ == "__main__":
     cleaned = remove_duplicates(sample_data, subset=['id', 'name'])
     
     print("\nCleaned data:")
-    print(cleaned)
+    print(cleaned)import numpy as np
+import pandas as pd
+
+def detect_outliers_iqr(data, column, threshold=1.5):
+    """
+    Detect outliers using IQR method.
+    """
+    q1 = data[column].quantile(0.25)
+    q3 = data[column].quantile(0.75)
+    iqr = q3 - q1
+    lower_bound = q1 - threshold * iqr
+    upper_bound = q3 + threshold * iqr
+    outliers = data[(data[column] < lower_bound) | (data[column] > upper_bound)]
+    return outliers
+
+def remove_outliers(data, column, threshold=1.5):
+    """
+    Remove outliers from a column using IQR method.
+    """
+    q1 = data[column].quantile(0.25)
+    q3 = data[column].quantile(0.75)
+    iqr = q3 - q1
+    lower_bound = q1 - threshold * iqr
+    upper_bound = q3 + threshold * iqr
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    return filtered_data
+
+def normalize_minmax(data, column):
+    """
+    Normalize column values to range [0, 1] using min-max scaling.
+    """
+    min_val = data[column].min()
+    max_val = data[column].max()
+    if max_val - min_val == 0:
+        return data[column].apply(lambda x: 0.5)
+    normalized = (data[column] - min_val) / (max_val - min_val)
+    return normalized
+
+def standardize_zscore(data, column):
+    """
+    Standardize column values using z-score normalization.
+    """
+    mean_val = data[column].mean()
+    std_val = data[column].std()
+    if std_val == 0:
+        return data[column].apply(lambda x: 0)
+    standardized = (data[column] - mean_val) / std_val
+    return standardized
+
+def clean_dataset(df, numeric_columns, outlier_threshold=1.5, normalization_method='minmax'):
+    """
+    Clean dataset by removing outliers and normalizing numeric columns.
+    """
+    cleaned_df = df.copy()
+    
+    for col in numeric_columns:
+        if col in cleaned_df.columns:
+            cleaned_df = remove_outliers(cleaned_df, col, outlier_threshold)
+            
+            if normalization_method == 'minmax':
+                cleaned_df[col] = normalize_minmax(cleaned_df, col)
+            elif normalization_method == 'zscore':
+                cleaned_df[col] = standardize_zscore(cleaned_df, col)
+    
+    return cleaned_df
+
+def summarize_cleaning(df, numeric_columns, outlier_threshold=1.5):
+    """
+    Generate summary statistics before and after cleaning.
+    """
+    summary = {}
+    
+    for col in numeric_columns:
+        if col in df.columns:
+            original_stats = {
+                'count': df[col].count(),
+                'mean': df[col].mean(),
+                'std': df[col].std(),
+                'min': df[col].min(),
+                'max': df[col].max()
+            }
+            
+            outliers = detect_outliers_iqr(df, col, outlier_threshold)
+            outlier_count = len(outliers)
+            
+            cleaned = remove_outliers(df, col, outlier_threshold)
+            cleaned_stats = {
+                'count': cleaned[col].count(),
+                'mean': cleaned[col].mean(),
+                'std': cleaned[col].std(),
+                'min': cleaned[col].min(),
+                'max': cleaned[col].max()
+            }
+            
+            summary[col] = {
+                'original': original_stats,
+                'outliers_detected': outlier_count,
+                'cleaned': cleaned_stats
+            }
+    
+    return pd.DataFrame(summary).T
