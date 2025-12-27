@@ -114,4 +114,78 @@ def example_usage():
     return cleaned_df
 
 if __name__ == "__main__":
-    result_df = example_usage()
+    result_df = example_usage()import pandas as pd
+import numpy as np
+from typing import Optional
+
+class DataCleaner:
+    def __init__(self, df: pd.DataFrame):
+        self.df = df.copy()
+        self.original_shape = df.shape
+        
+    def remove_duplicates(self, subset: Optional[list] = None) -> 'DataCleaner':
+        self.df = self.df.drop_duplicates(subset=subset)
+        return self
+        
+    def fill_missing_numeric(self, strategy: str = 'mean', fill_value: Optional[float] = None) -> 'DataCleaner':
+        numeric_cols = self.df.select_dtypes(include=[np.number]).columns
+        
+        if strategy == 'mean' and fill_value is None:
+            self.df[numeric_cols] = self.df[numeric_cols].fillna(self.df[numeric_cols].mean())
+        elif strategy == 'median' and fill_value is None:
+            self.df[numeric_cols] = self.df[numeric_cols].fillna(self.df[numeric_cols].median())
+        elif fill_value is not None:
+            self.df[numeric_cols] = self.df[numeric_cols].fillna(fill_value)
+            
+        return self
+        
+    def fill_missing_categorical(self, fill_value: str = 'Unknown') -> 'DataCleaner':
+        categorical_cols = self.df.select_dtypes(include=['object', 'category']).columns
+        self.df[categorical_cols] = self.df[categorical_cols].fillna(fill_value)
+        return self
+        
+    def remove_outliers_iqr(self, column: str, multiplier: float = 1.5) -> 'DataCleaner':
+        if column not in self.df.columns:
+            return self
+            
+        Q1 = self.df[column].quantile(0.25)
+        Q3 = self.df[column].quantile(0.75)
+        IQR = Q3 - Q1
+        
+        lower_bound = Q1 - multiplier * IQR
+        upper_bound = Q3 + multiplier * IQR
+        
+        self.df = self.df[(self.df[column] >= lower_bound) & (self.df[column] <= upper_bound)]
+        return self
+        
+    def standardize_column_names(self) -> 'DataCleaner':
+        self.df.columns = [col.lower().replace(' ', '_') for col in self.df.columns]
+        return self
+        
+    def get_cleaned_data(self) -> pd.DataFrame:
+        return self.df
+        
+    def get_cleaning_report(self) -> dict:
+        cleaned_shape = self.df.shape
+        return {
+            'original_rows': self.original_shape[0],
+            'original_columns': self.original_shape[1],
+            'cleaned_rows': cleaned_shape[0],
+            'cleaned_columns': cleaned_shape[1],
+            'rows_removed': self.original_shape[0] - cleaned_shape[0],
+            'missing_values_remaining': self.df.isnull().sum().sum()
+        }
+
+def load_and_clean_csv(filepath: str) -> pd.DataFrame:
+    df = pd.read_csv(filepath)
+    cleaner = DataCleaner(df)
+    
+    cleaner.standardize_column_names() \
+           .remove_duplicates() \
+           .fill_missing_numeric(strategy='median') \
+           .fill_missing_categorical()
+    
+    report = cleaner.get_cleaning_report()
+    print(f"Data cleaning completed. Removed {report['rows_removed']} duplicate rows.")
+    
+    return cleaner.get_cleaned_data()
