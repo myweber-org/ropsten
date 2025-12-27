@@ -213,4 +213,91 @@ if __name__ == "__main__":
     test_df.to_csv('test_data.csv', index=False)
     
     cleaned_df = clean_csv_data('test_data.csv', fill_strategy='mean', drop_threshold=0.6)
-    save_cleaned_data(cleaned_df, 'cleaned_test_data.csv')
+    save_cleaned_data(cleaned_df, 'cleaned_test_data.csv')import pandas as pd
+
+def remove_duplicates(df, subset=None, keep='first'):
+    """
+    Remove duplicate rows from a DataFrame.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame.
+        subset (list, optional): Column labels to consider for duplicates.
+        keep (str, optional): Which duplicates to keep.
+    
+    Returns:
+        pd.DataFrame: DataFrame with duplicates removed.
+    """
+    if df.empty:
+        return df
+    
+    cleaned_df = df.drop_duplicates(subset=subset, keep=keep)
+    
+    removed_count = len(df) - len(cleaned_df)
+    if removed_count > 0:
+        print(f"Removed {removed_count} duplicate rows.")
+    
+    return cleaned_df
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Basic validation of DataFrame structure.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate.
+        required_columns (list, optional): Columns that must be present.
+    
+    Returns:
+        bool: True if validation passes.
+    """
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError("Input must be a pandas DataFrame")
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            raise ValueError(f"Missing required columns: {missing_cols}")
+    
+    return True
+
+def clean_dataset(file_path, output_path=None):
+    """
+    Load, clean, and save a dataset.
+    
+    Args:
+        file_path (str): Path to input CSV file.
+        output_path (str, optional): Path for cleaned output.
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame.
+    """
+    try:
+        df = pd.read_csv(file_path)
+        
+        validate_dataframe(df)
+        
+        cleaned_df = remove_duplicates(df)
+        
+        if output_path:
+            cleaned_df.to_csv(output_path, index=False)
+            print(f"Cleaned data saved to: {output_path}")
+        
+        return cleaned_df
+        
+    except Exception as e:
+        print(f"Error cleaning dataset: {e}")
+        raise
+
+if __name__ == "__main__":
+    sample_data = pd.DataFrame({
+        'id': [1, 2, 2, 3, 4],
+        'name': ['Alice', 'Bob', 'Bob', 'Charlie', 'David'],
+        'value': [10, 20, 20, 30, 40]
+    })
+    
+    print("Original data:")
+    print(sample_data)
+    
+    cleaned = remove_duplicates(sample_data, subset=['id', 'name'])
+    
+    print("\nCleaned data:")
+    print(cleaned)
