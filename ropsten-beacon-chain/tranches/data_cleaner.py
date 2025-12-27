@@ -202,4 +202,91 @@ def clean_dataset(data, outlier_columns=None, normalize_columns=None,
             if col in cleaned_data.columns:
                 cleaned_data[f'{col}_standardized'] = standardize_zscore(cleaned_data, col)
     
-    return cleaned_data
+    return cleaned_dataimport pandas as pd
+import numpy as np
+from typing import Optional
+
+def clean_csv_data(
+    input_path: str,
+    output_path: str,
+    missing_strategy: str = 'mean',
+    numeric_columns: Optional[list] = None
+) -> pd.DataFrame:
+    """
+    Clean CSV data by handling missing values and converting data types.
+    
+    Args:
+        input_path: Path to input CSV file
+        output_path: Path to save cleaned CSV file
+        missing_strategy: Strategy for handling missing values ('mean', 'median', 'drop', 'zero')
+        numeric_columns: List of column names to treat as numeric
+    
+    Returns:
+        Cleaned DataFrame
+    """
+    
+    df = pd.read_csv(input_path)
+    
+    if numeric_columns is None:
+        numeric_columns = df.select_dtypes(include=[np.number]).columns.tolist()
+    
+    for col in numeric_columns:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+            
+            if missing_strategy == 'mean':
+                df[col].fillna(df[col].mean(), inplace=True)
+            elif missing_strategy == 'median':
+                df[col].fillna(df[col].median(), inplace=True)
+            elif missing_strategy == 'zero':
+                df[col].fillna(0, inplace=True)
+            elif missing_strategy == 'drop':
+                df.dropna(subset=[col], inplace=True)
+    
+    df.to_csv(output_path, index=False)
+    print(f"Cleaned data saved to {output_path}")
+    print(f"Original shape: {df.shape}, Missing values handled: {df.isnull().sum().sum()}")
+    
+    return df
+
+def validate_dataframe(df: pd.DataFrame) -> dict:
+    """
+    Validate DataFrame structure and content.
+    
+    Args:
+        df: DataFrame to validate
+    
+    Returns:
+        Dictionary with validation results
+    """
+    validation_results = {
+        'total_rows': len(df),
+        'total_columns': len(df.columns),
+        'missing_values': df.isnull().sum().sum(),
+        'duplicate_rows': df.duplicated().sum(),
+        'column_types': df.dtypes.to_dict(),
+        'numeric_columns': df.select_dtypes(include=[np.number]).columns.tolist(),
+        'categorical_columns': df.select_dtypes(include=['object']).columns.tolist()
+    }
+    
+    return validation_results
+
+if __name__ == "__main__":
+    sample_data = {
+        'id': [1, 2, 3, 4, 5],
+        'value': [10.5, None, 15.2, 20.1, None],
+        'category': ['A', 'B', 'A', 'C', 'B']
+    }
+    
+    df_sample = pd.DataFrame(sample_data)
+    df_sample.to_csv('sample_data.csv', index=False)
+    
+    cleaned_df = clean_csv_data(
+        input_path='sample_data.csv',
+        output_path='cleaned_data.csv',
+        missing_strategy='mean',
+        numeric_columns=['value']
+    )
+    
+    validation = validate_dataframe(cleaned_df)
+    print("Validation results:", validation)
