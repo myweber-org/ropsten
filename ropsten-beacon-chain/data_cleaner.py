@@ -1,146 +1,93 @@
-import pandas as pd
 
-def clean_dataset(df, drop_duplicates=True, fill_missing='mean'):
+import pandas as pd
+import numpy as np
+
+def remove_duplicates(df, subset=None, keep='first'):
     """
-    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    Remove duplicate rows from a DataFrame.
     
-    Args:
-        df (pd.DataFrame): Input DataFrame to clean.
-        drop_duplicates (bool): Whether to drop duplicate rows. Default is True.
-        fill_missing (str): Strategy to fill missing values. 
-                           Options: 'mean', 'median', 'mode', or 'drop'. 
-                           Default is 'mean'.
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    subset (list, optional): Column labels to consider for duplicates
+    keep (str): Which duplicates to keep - 'first', 'last', or False
     
     Returns:
-        pd.DataFrame: Cleaned DataFrame.
+    pd.DataFrame: DataFrame with duplicates removed
     """
-    cleaned_df = df.copy()
+    if df.empty:
+        return df
     
-    # Remove duplicate rows
-    if drop_duplicates:
-        initial_rows = len(cleaned_df)
-        cleaned_df = cleaned_df.drop_duplicates()
-        removed = initial_rows - len(cleaned_df)
-        print(f"Removed {removed} duplicate rows.")
+    cleaned_df = df.drop_duplicates(subset=subset, keep=keep)
     
-    # Handle missing values
-    if fill_missing == 'drop':
-        cleaned_df = cleaned_df.dropna()
-        print("Dropped rows with missing values.")
-    elif fill_missing in ['mean', 'median', 'mode']:
-        numeric_cols = cleaned_df.select_dtypes(include=['number']).columns
-        
-        for col in numeric_cols:
-            if cleaned_df[col].isnull().any():
-                if fill_missing == 'mean':
-                    fill_value = cleaned_df[col].mean()
-                elif fill_missing == 'median':
-                    fill_value = cleaned_df[col].median()
-                elif fill_missing == 'mode':
-                    fill_value = cleaned_df[col].mode()[0]
-                
-                cleaned_df[col] = cleaned_df[col].fillna(fill_value)
-                print(f"Filled missing values in column '{col}' with {fill_missing}: {fill_value:.2f}")
+    removed_count = len(df) - len(cleaned_df)
+    if removed_count > 0:
+        print(f"Removed {removed_count} duplicate rows")
     
-    # Report final statistics
-    print(f"Original shape: {df.shape}")
-    print(f"Cleaned shape: {cleaned_df.shape}")
-    print(f"Missing values after cleaning: {cleaned_df.isnull().sum().sum()}")
+    return cleaned_df
+
+def clean_missing_values(df, strategy='drop', fill_value=None):
+    """
+    Handle missing values in DataFrame.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    strategy (str): 'drop' to remove rows, 'fill' to fill values
+    fill_value: Value to fill missing values with
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame
+    """
+    if strategy == 'drop':
+        cleaned_df = df.dropna()
+        print(f"Removed rows with missing values")
+    elif strategy == 'fill':
+        cleaned_df = df.fillna(fill_value)
+        print(f"Filled missing values with {fill_value}")
+    else:
+        raise ValueError("Strategy must be 'drop' or 'fill'")
     
     return cleaned_df
 
 def validate_dataframe(df, required_columns=None):
     """
-    Validate a DataFrame for basic integrity checks.
+    Validate DataFrame structure and content.
     
-    Args:
-        df (pd.DataFrame): DataFrame to validate.
-        required_columns (list): List of column names that must be present.
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate
+    required_columns (list): List of required column names
     
     Returns:
-        bool: True if validation passes, False otherwise.
+    bool: True if validation passes
     """
     if not isinstance(df, pd.DataFrame):
-        print("Error: Input is not a pandas DataFrame.")
-        return False
-    
-    if df.empty:
-        print("Warning: DataFrame is empty.")
-        return False
+        raise TypeError("Input must be a pandas DataFrame")
     
     if required_columns:
-        missing_cols = [col for col in required_columns if col not in df.columns]
-        if missing_cols:
-            print(f"Error: Missing required columns: {missing_cols}")
-            return False
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            raise ValueError(f"Missing required columns: {missing_columns}")
     
     return True
 
-# Example usage
-if __name__ == "__main__":
-    # Create sample data with duplicates and missing values
-    sample_data = {
-        'id': [1, 2, 2, 3, 4, 5],
-        'value': [10.5, 20.3, 20.3, None, 40.1, 50.0],
-        'category': ['A', 'B', 'B', 'C', None, 'A']
-    }
-    
-    df = pd.DataFrame(sample_data)
-    print("Original DataFrame:")
-    print(df)
-    print("\n" + "="*50 + "\n")
-    
-    # Clean the data
-    cleaned = clean_dataset(df, drop_duplicates=True, fill_missing='mean')
-    
-    print("\nCleaned DataFrame:")
-    print(cleaned)
-import pandas as pd
-import sys
-
-def remove_duplicates(input_file, output_file=None, subset=None, keep='first'):
+def process_dataframe(df, remove_dups=True, handle_missing=True):
     """
-    Remove duplicate rows from a CSV file.
+    Complete data cleaning pipeline.
     
-    Args:
-        input_file (str): Path to input CSV file
-        output_file (str, optional): Path to output CSV file. If None, overwrites input file
-        subset (list, optional): Columns to consider for identifying duplicates
-        keep (str): Which duplicates to keep - 'first', 'last', or False to drop all
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    remove_dups (bool): Whether to remove duplicates
+    handle_missing (bool): Whether to handle missing values
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame
     """
-    try:
-        df = pd.read_csv(input_file)
-        
-        if subset:
-            df_cleaned = df.drop_duplicates(subset=subset, keep=keep)
-        else:
-            df_cleaned = df.drop_duplicates(keep=keep)
-        
-        if output_file is None:
-            output_file = input_file
-        
-        df_cleaned.to_csv(output_file, index=False)
-        print(f"Removed {len(df) - len(df_cleaned)} duplicate rows")
-        print(f"Cleaned data saved to: {output_file}")
-        
-        return df_cleaned
-        
-    except FileNotFoundError:
-        print(f"Error: File '{input_file}' not found")
-        sys.exit(1)
-    except pd.errors.EmptyDataError:
-        print(f"Error: File '{input_file}' is empty")
-        sys.exit(1)
-    except Exception as e:
-        print(f"Error processing file: {str(e)}")
-        sys.exit(1)
-
-if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python data_cleaner.py <input_file> [output_file]")
-        sys.exit(1)
+    validate_dataframe(df)
     
-    input_file = sys.argv[1]
-    output_file = sys.argv[2] if len(sys.argv) > 2 else None
+    if remove_dups:
+        df = remove_duplicates(df)
     
-    remove_duplicates(input_file, output_file)
+    if handle_missing:
+        df = clean_missing_values(df, strategy='fill', fill_value=0)
+    
+    print(f"Data cleaning complete. Final shape: {df.shape}")
+    return df
