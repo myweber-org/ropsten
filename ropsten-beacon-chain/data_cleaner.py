@@ -1,78 +1,77 @@
-import numpy as np
 
-def remove_outliers_iqr(data, column):
+import pandas as pd
+
+def clean_dataset(df, drop_duplicates=True, fill_missing='mean'):
     """
-    Remove outliers from a specified column using the Interquartile Range method.
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
     
     Parameters:
-    data (list or np.array): The dataset containing the column to clean.
-    column (int): Index of the column to process.
+    df (pd.DataFrame): Input DataFrame to clean.
+    drop_duplicates (bool): Whether to drop duplicate rows.
+    fill_missing (str): Method to fill missing values ('mean', 'median', 'mode', or 'drop').
     
     Returns:
-    np.array: Data with outliers removed from the specified column.
+    pd.DataFrame: Cleaned DataFrame.
     """
-    if not isinstance(data, np.ndarray):
-        data = np.array(data)
+    cleaned_df = df.copy()
     
-    column_data = data[:, column].astype(float)
+    if drop_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates()
     
-    Q1 = np.percentile(column_data, 25)
-    Q3 = np.percentile(column_data, 75)
-    IQR = Q3 - Q1
+    if fill_missing == 'drop':
+        cleaned_df = cleaned_df.dropna()
+    elif fill_missing in ['mean', 'median']:
+        numeric_cols = cleaned_df.select_dtypes(include=['number']).columns
+        for col in numeric_cols:
+            if fill_missing == 'mean':
+                cleaned_df[col].fillna(cleaned_df[col].mean(), inplace=True)
+            elif fill_missing == 'median':
+                cleaned_df[col].fillna(cleaned_df[col].median(), inplace=True)
+    elif fill_missing == 'mode':
+        for col in cleaned_df.columns:
+            cleaned_df[col].fillna(cleaned_df[col].mode()[0] if not cleaned_df[col].mode().empty else None, inplace=True)
     
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
-    
-    mask = (column_data >= lower_bound) & (column_data <= upper_bound)
-    
-    return data[mask]
+    return cleaned_df
 
-def calculate_statistics(data, column):
+def validate_dataset(df, check_duplicates=True, check_missing=True):
     """
-    Calculate basic statistics for a column after outlier removal.
+    Validate a DataFrame by checking for duplicates and missing values.
     
     Parameters:
-    data (np.array): The cleaned dataset.
-    column (int): Index of the column to analyze.
+    df (pd.DataFrame): DataFrame to validate.
+    check_duplicates (bool): Whether to check for duplicate rows.
+    check_missing (bool): Whether to check for missing values.
     
     Returns:
-    dict: Dictionary containing mean, median, and standard deviation.
+    dict: Dictionary containing validation results.
     """
-    column_data = data[:, column].astype(float)
+    validation_results = {}
     
-    stats = {
-        'mean': np.mean(column_data),
-        'median': np.median(column_data),
-        'std_dev': np.std(column_data),
-        'count': len(column_data)
-    }
+    if check_duplicates:
+        duplicate_count = df.duplicated().sum()
+        validation_results['duplicates'] = duplicate_count
     
-    return stats
+    if check_missing:
+        missing_counts = df.isnull().sum()
+        validation_results['missing_values'] = missing_counts.to_dict()
+    
+    return validation_results
 
 if __name__ == "__main__":
-    sample_data = np.array([
-        [1, 150.5],
-        [2, 165.3],
-        [3, 172.8],
-        [4, 158.1],
-        [5, 210.7],
-        [6, 155.9],
-        [7, 300.2],
-        [8, 162.4],
-        [9, 168.7],
-        [10, 152.0]
-    ])
+    sample_data = {
+        'A': [1, 2, 2, 4, None],
+        'B': [5, None, 7, 8, 9],
+        'C': ['x', 'y', 'y', 'z', None]
+    }
     
-    print("Original data:")
-    print(sample_data)
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
     
-    cleaned_data = remove_outliers_iqr(sample_data, column=1)
+    validation = validate_dataset(df)
+    print("\nValidation Results:")
+    print(validation)
     
-    print("\nCleaned data:")
-    print(cleaned_data)
-    
-    stats = calculate_statistics(cleaned_data, column=1)
-    
-    print("\nStatistics for cleaned column:")
-    for key, value in stats.items():
-        print(f"{key}: {value:.2f}")
+    cleaned = clean_dataset(df, fill_missing='mean')
+    print("\nCleaned DataFrame:")
+    print(cleaned)
