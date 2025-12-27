@@ -74,4 +74,66 @@ if __name__ == "__main__":
     
     cleaned = clean_dataset(df, fill_missing='mean')
     print("\nCleaned DataFrame:")
-    print(cleaned)
+    print(cleaned)import csv
+import os
+from typing import List, Dict, Optional
+
+def read_csv(filepath: str) -> List[Dict[str, str]]:
+    """Read a CSV file and return a list of dictionaries."""
+    data = []
+    try:
+        with open(filepath, 'r', newline='', encoding='utf-8') as csvfile:
+            reader = csv.DictReader(csvfile)
+            for row in reader:
+                data.append(row)
+    except FileNotFoundError:
+        print(f"Error: File '{filepath}' not found.")
+    except Exception as e:
+        print(f"Error reading CSV: {e}")
+    return data
+
+def clean_numeric(value: str) -> Optional[float]:
+    """Clean and convert a string to float, removing non-numeric characters."""
+    if not value:
+        return None
+    cleaned = ''.join(ch for ch in value if ch.isdigit() or ch == '.')
+    try:
+        return float(cleaned) if cleaned else None
+    except ValueError:
+        return None
+
+def remove_duplicates(data: List[Dict], key: str) -> List[Dict]:
+    """Remove duplicate rows based on a specified key."""
+    seen = set()
+    unique_data = []
+    for row in data:
+        if key in row and row[key] not in seen:
+            seen.add(row[key])
+            unique_data.append(row)
+    return unique_data
+
+def write_csv(data: List[Dict], filepath: str) -> bool:
+    """Write data to a CSV file."""
+    if not data:
+        print("No data to write.")
+        return False
+    try:
+        with open(filepath, 'w', newline='', encoding='utf-8') as csvfile:
+            fieldnames = data[0].keys()
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(data)
+        return True
+    except Exception as e:
+        print(f"Error writing CSV: {e}")
+        return False
+
+def filter_by_threshold(data: List[Dict], column: str, threshold: float) -> List[Dict]:
+    """Filter rows where the numeric value in a column exceeds a threshold."""
+    filtered = []
+    for row in data:
+        if column in row:
+            numeric_val = clean_numeric(row[column])
+            if numeric_val is not None and numeric_val > threshold:
+                filtered.append(row)
+    return filtered
