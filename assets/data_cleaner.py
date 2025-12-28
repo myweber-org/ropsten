@@ -106,4 +106,87 @@ if __name__ == "__main__":
     
     print("\nCleaned dataset shape:", cleaned_df.shape)
     print("\nCleaned summary statistics for 'value':")
-    print(calculate_summary_stats(cleaned_df, 'value'))
+    print(calculate_summary_stats(cleaned_df, 'value'))import pandas as pd
+import numpy as np
+
+def load_data(filepath):
+    """Load dataset from CSV file."""
+    try:
+        df = pd.read_csv(filepath)
+        print(f"Data loaded successfully. Shape: {df.shape}")
+        return df
+    except FileNotFoundError:
+        print(f"Error: File '{filepath}' not found.")
+        return None
+    except Exception as e:
+        print(f"Error loading data: {e}")
+        return None
+
+def remove_outliers(df, column, threshold=3):
+    """Remove outliers using z-score method."""
+    if column not in df.columns:
+        print(f"Column '{column}' not found in dataframe.")
+        return df
+    
+    z_scores = np.abs((df[column] - df[column].mean()) / df[column].std())
+    filtered_df = df[z_scores < threshold]
+    removed_count = len(df) - len(filtered_df)
+    print(f"Removed {removed_count} outliers from column '{column}'.")
+    return filtered_df
+
+def normalize_column(df, column):
+    """Normalize column values to range [0, 1]."""
+    if column not in df.columns:
+        print(f"Column '{column}' not found in dataframe.")
+        return df
+    
+    min_val = df[column].min()
+    max_val = df[column].max()
+    
+    if max_val == min_val:
+        print(f"Column '{column}' has constant values. Skipping normalization.")
+        return df
+    
+    df[column] = (df[column] - min_val) / (max_val - min_val)
+    print(f"Normalized column '{column}' to range [0, 1].")
+    return df
+
+def clean_dataset(df, numeric_columns):
+    """Apply cleaning operations to dataset."""
+    if df is None or df.empty:
+        print("Dataframe is empty or None.")
+        return df
+    
+    cleaned_df = df.copy()
+    
+    for column in numeric_columns:
+        if column in cleaned_df.columns:
+            cleaned_df = remove_outliers(cleaned_df, column)
+            cleaned_df = normalize_column(cleaned_df, column)
+    
+    print(f"Data cleaning complete. Original shape: {df.shape}, Cleaned shape: {cleaned_df.shape}")
+    return cleaned_df
+
+def save_cleaned_data(df, output_path):
+    """Save cleaned dataframe to CSV."""
+    try:
+        df.to_csv(output_path, index=False)
+        print(f"Cleaned data saved to '{output_path}'.")
+    except Exception as e:
+        print(f"Error saving data: {e}")
+
+def main():
+    """Main execution function."""
+    input_file = "raw_data.csv"
+    output_file = "cleaned_data.csv"
+    
+    numeric_cols = ["age", "income", "score"]
+    
+    raw_data = load_data(input_file)
+    
+    if raw_data is not None:
+        cleaned_data = clean_dataset(raw_data, numeric_cols)
+        save_cleaned_data(cleaned_data, output_file)
+
+if __name__ == "__main__":
+    main()
