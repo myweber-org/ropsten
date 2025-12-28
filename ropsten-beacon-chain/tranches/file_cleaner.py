@@ -86,4 +86,62 @@ def main():
         print("No old temporary files found")
 
 if __name__ == "__main__":
-    main()
+    main()import os
+import shutil
+import tempfile
+from pathlib import Path
+
+def clean_temp_files(directory: str, extensions: tuple = ('.tmp', '.temp', '.log'), max_age_days: int = 7):
+    """
+    Remove temporary files with specified extensions older than a given number of days.
+    
+    Args:
+        directory: Path to the directory to clean.
+        extensions: Tuple of file extensions to consider as temporary.
+        max_age_days: Maximum age of files in days before they are removed.
+    """
+    dir_path = Path(directory)
+    if not dir_path.exists() or not dir_path.is_dir():
+        raise ValueError(f"Invalid directory: {directory}")
+
+    current_time = os.path.getctime if hasattr(os.path, 'getctime') else os.path.getmtime
+    cutoff_time = current_time - (max_age_days * 24 * 60 * 60)
+
+    removed_count = 0
+    total_size = 0
+
+    for item in dir_path.rglob('*'):
+        if item.is_file() and item.suffix.lower() in extensions:
+            try:
+                file_time = os.path.getmtime(item)
+                if file_time < cutoff_time:
+                    file_size = item.stat().st_size
+                    item.unlink()
+                    removed_count += 1
+                    total_size += file_size
+                    print(f"Removed: {item.name} ({file_size} bytes)")
+            except (OSError, PermissionError) as e:
+                print(f"Error removing {item}: {e}")
+
+    print(f"Cleaning complete. Removed {removed_count} files, freed {total_size} bytes.")
+
+def create_test_environment():
+    """Create a test directory with temporary files for demonstration."""
+    test_dir = tempfile.mkdtemp(prefix='clean_test_')
+    print(f"Created test directory: {test_dir}")
+
+    extensions = ['.tmp', '.temp', '.log', '.bak']
+    for i in range(10):
+        ext = extensions[i % len(extensions)]
+        test_file = Path(test_dir) / f"test_file_{i}{ext}"
+        test_file.write_text(f"Temporary content {i}")
+    
+    return test_dir
+
+if __name__ == "__main__":
+    try:
+        test_env = create_test_environment()
+        clean_temp_files(test_env, extensions=('.tmp', '.temp', '.log'), max_age_days=0)
+        shutil.rmtree(test_env)
+    except Exception as e:
+        print(f"An error occurred: {e}")
