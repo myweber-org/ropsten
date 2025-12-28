@@ -1,205 +1,59 @@
 
 import numpy as np
-import pandas as pd
-from scipy import stats
 
-class DataCleaner:
-    def __init__(self, df):
-        self.df = df.copy()
-        self.original_shape = df.shape
-        
-    def remove_outliers_iqr(self, columns=None, threshold=1.5):
-        if columns is None:
-            columns = self.df.select_dtypes(include=[np.number]).columns
-        
-        df_clean = self.df.copy()
-        for col in columns:
-            if col in self.df.columns and pd.api.types.is_numeric_dtype(self.df[col]):
-                Q1 = self.df[col].quantile(0.25)
-                Q3 = self.df[col].quantile(0.75)
-                IQR = Q3 - Q1
-                lower_bound = Q1 - threshold * IQR
-                upper_bound = Q3 + threshold * IQR
-                
-                mask = (self.df[col] >= lower_bound) & (self.df[col] <= upper_bound)
-                df_clean = df_clean[mask]
-        
-        removed_count = self.original_shape[0] - df_clean.shape[0]
-        self.df = df_clean.reset_index(drop=True)
-        return removed_count
+def remove_outliers_iqr(data, column):
+    """
+    Remove outliers from a specified column using the IQR method.
     
-    def normalize_minmax(self, columns=None):
-        if columns is None:
-            columns = self.df.select_dtypes(include=[np.number]).columns
-        
-        df_normalized = self.df.copy()
-        for col in columns:
-            if col in self.df.columns and pd.api.types.is_numeric_dtype(self.df[col]):
-                min_val = self.df[col].min()
-                max_val = self.df[col].max()
-                if max_val > min_val:
-                    df_normalized[col] = (self.df[col] - min_val) / (max_val - min_val)
-        
-        self.df = df_normalized
-        return self.df
+    Args:
+        data (pd.DataFrame): The input DataFrame.
+        column (str): The column name to process.
     
-    def standardize_zscore(self, columns=None):
-        if columns is None:
-            columns = self.df.select_dtypes(include=[np.number]).columns
-        
-        df_standardized = self.df.copy()
-        for col in columns:
-            if col in self.df.columns and pd.api.types.is_numeric_dtype(self.df[col]):
-                mean_val = self.df[col].mean()
-                std_val = self.df[col].std()
-                if std_val > 0:
-                    df_standardized[col] = (self.df[col] - mean_val) / std_val
-        
-        self.df = df_standardized
-        return self.df
+    Returns:
+        pd.DataFrame: DataFrame with outliers removed from the specified column.
+    """
+    Q1 = data[column].quantile(0.25)
+    Q3 = data[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
     
-    def fill_missing_median(self, columns=None):
-        if columns is None:
-            columns = self.df.select_dtypes(include=[np.number]).columns
-        
-        df_filled = self.df.copy()
-        for col in columns:
-            if col in self.df.columns and pd.api.types.is_numeric_dtype(self.df[col]):
-                median_val = self.df[col].median()
-                df_filled[col] = self.df[col].fillna(median_val)
-        
-        self.df = df_filled
-        return self.df
-    
-    def get_summary(self):
-        summary = {
-            'original_rows': self.original_shape[0],
-            'current_rows': self.df.shape[0],
-            'columns': self.df.shape[1],
-            'missing_values': self.df.isnull().sum().sum(),
-            'numeric_columns': list(self.df.select_dtypes(include=[np.number]).columns),
-            'categorical_columns': list(self.df.select_dtypes(include=['object']).columns)
-        }
-        return summary
-    
-    def get_cleaned_data(self):
-        return self.df.copy()
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    return filtered_data
 
-def example_usage():
-    np.random.seed(42)
-    data = {
-        'feature_a': np.random.normal(100, 15, 100),
-        'feature_b': np.random.exponential(50, 100),
-        'category': np.random.choice(['A', 'B', 'C'], 100)
+def calculate_basic_stats(data, column):
+    """
+    Calculate basic statistics for a column after outlier removal.
+    
+    Args:
+        data (pd.DataFrame): The input DataFrame.
+        column (str): The column name to analyze.
+    
+    Returns:
+        dict: Dictionary containing mean, median, and standard deviation.
+    """
+    stats = {
+        'mean': data[column].mean(),
+        'median': data[column].median(),
+        'std': data[column].std()
     }
-    
-    data['feature_a'][:5] = np.nan
-    data['feature_a'][10:15] = [500, 600, 700, 800, 900]
-    
-    df = pd.DataFrame(data)
-    cleaner = DataCleaner(df)
-    
-    print("Initial summary:", cleaner.get_summary())
-    
-    removed = cleaner.remove_outliers_iqr(['feature_a', 'feature_b'])
-    print(f"Removed {removed} outliers")
-    
-    cleaner.fill_missing_median()
-    cleaner.normalize_minmax(['feature_a', 'feature_b'])
-    
-    print("Final summary:", cleaner.get_summary())
-    print("Cleaned data shape:", cleaner.get_cleaned_data().shape)
-    
-    return cleaner.get_cleaned_data()
+    return stats
 
 if __name__ == "__main__":
-    cleaned_df = example_usage()
-import pandas as pd
-
-def remove_duplicates(df, subset=None, keep='first'):
-    """
-    Remove duplicate rows from a DataFrame.
+    import pandas as pd
     
-    Args:
-        df (pd.DataFrame): Input DataFrame
-        subset (list, optional): Columns to consider for duplicates
-        keep (str, optional): Which duplicates to keep ('first', 'last', False)
+    sample_data = pd.DataFrame({
+        'values': [10, 12, 12, 13, 14, 15, 16, 17, 18, 100]
+    })
     
-    Returns:
-        pd.DataFrame: DataFrame with duplicates removed
-    """
-    if df.empty:
-        return df
+    print("Original data:")
+    print(sample_data)
     
-    cleaned_df = df.drop_duplicates(subset=subset, keep=keep)
+    cleaned_data = remove_outliers_iqr(sample_data, 'values')
+    print("\nData after removing outliers:")
+    print(cleaned_data)
     
-    removed_count = len(df) - len(cleaned_df)
-    if removed_count > 0:
-        print(f"Removed {removed_count} duplicate rows")
-    
-    return cleaned_df
-
-def clean_numeric_columns(df, columns):
-    """
-    Clean numeric columns by converting to appropriate types.
-    
-    Args:
-        df (pd.DataFrame): Input DataFrame
-        columns (list): List of column names to clean
-    
-    Returns:
-        pd.DataFrame: DataFrame with cleaned numeric columns
-    """
-    cleaned_df = df.copy()
-    
-    for col in columns:
-        if col in cleaned_df.columns:
-            cleaned_df[col] = pd.to_numeric(cleaned_df[col], errors='coerce')
-    
-    return cleaned_df
-
-def validate_dataframe(df, required_columns=None):
-    """
-    Validate DataFrame structure and content.
-    
-    Args:
-        df (pd.DataFrame): DataFrame to validate
-        required_columns (list, optional): Required columns
-    
-    Returns:
-        bool: True if validation passes, False otherwise
-    """
-    if df.empty:
-        print("Warning: DataFrame is empty")
-        return False
-    
-    if required_columns:
-        missing_columns = [col for col in required_columns if col not in df.columns]
-        if missing_columns:
-            print(f"Missing required columns: {missing_columns}")
-            return False
-    
-    return True
-
-def get_data_summary(df):
-    """
-    Generate summary statistics for DataFrame.
-    
-    Args:
-        df (pd.DataFrame): Input DataFrame
-    
-    Returns:
-        dict: Summary statistics
-    """
-    summary = {
-        'total_rows': len(df),
-        'total_columns': len(df.columns),
-        'missing_values': df.isnull().sum().to_dict(),
-        'data_types': df.dtypes.to_dict()
-    }
-    
-    numeric_cols = df.select_dtypes(include=['number']).columns
-    if len(numeric_cols) > 0:
-        summary['numeric_stats'] = df[numeric_cols].describe().to_dict()
-    
-    return summary
+    stats = calculate_basic_stats(cleaned_data, 'values')
+    print("\nBasic statistics:")
+    for key, value in stats.items():
+        print(f"{key}: {value:.2f}")
