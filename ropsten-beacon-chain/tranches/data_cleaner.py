@@ -1,74 +1,94 @@
-
 import pandas as pd
-import numpy as np
 
-def remove_missing_rows(df, columns=None):
+def clean_dataframe(df, drop_duplicates=True, fill_missing=False, fill_value=0):
     """
-    Remove rows with missing values from DataFrame.
-    If columns specified, only check those columns.
-    """
-    if columns:
-        return df.dropna(subset=columns)
-    return df.dropna()
-
-def fill_missing_with_mean(df, columns):
-    """
-    Fill missing values in specified columns with column mean.
-    """
-    df_filled = df.copy()
-    for col in columns:
-        if col in df_filled.columns:
-            df_filled[col] = df_filled[col].fillna(df_filled[col].mean())
-    return df_filled
-
-def detect_outliers_iqr(df, column):
-    """
-    Detect outliers using IQR method for a specific column.
-    Returns boolean Series where True indicates outlier.
-    """
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
-    return (df[column] < lower_bound) | (df[column] > upper_bound)
-
-def remove_outliers(df, column):
-    """
-    Remove rows where specified column contains outliers (IQR method).
-    """
-    outliers = detect_outliers_iqr(df, column)
-    return df[~outliers]
-
-def standardize_column(df, column):
-    """
-    Standardize a column to have mean=0 and std=1.
-    """
-    df_standardized = df.copy()
-    if column in df_standardized.columns:
-        mean_val = df_standardized[column].mean()
-        std_val = df_standardized[column].std()
-        if std_val > 0:
-            df_standardized[column] = (df_standardized[column] - mean_val) / std_val
-    return df_standardized
-
-def clean_dataset(df, missing_strategy='remove', outlier_columns=None):
-    """
-    Apply comprehensive cleaning pipeline to DataFrame.
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean.
+        drop_duplicates (bool): Whether to drop duplicate rows. Default is True.
+        fill_missing (bool): Whether to fill missing values. Default is False.
+        fill_value: Value to use for filling missing values. Default is 0.
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame.
     """
     cleaned_df = df.copy()
     
-    # Handle missing values
-    if missing_strategy == 'remove':
-        cleaned_df = remove_missing_rows(cleaned_df)
-    elif missing_strategy == 'mean':
-        numeric_cols = cleaned_df.select_dtypes(include=[np.number]).columns
-        cleaned_df = fill_missing_with_mean(cleaned_df, numeric_cols)
+    if drop_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates()
     
-    # Handle outliers
-    if outlier_columns:
-        for col in outlier_columns:
-            if col in cleaned_df.columns:
-                cleaned_df = remove_outliers(cleaned_df, col)
+    if fill_missing:
+        cleaned_df = cleaned_df.fillna(fill_value)
     
     return cleaned_df
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate a DataFrame by checking for required columns and data types.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate.
+        required_columns (list): List of required column names.
+    
+    Returns:
+        tuple: (is_valid, error_message)
+    """
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            return False, f"Missing required columns: {missing_columns}"
+    
+    return True, "DataFrame is valid"
+
+def process_data_file(file_path, output_path=None):
+    """
+    Process a data file by cleaning and validating it.
+    
+    Args:
+        file_path (str): Path to the input data file.
+        output_path (str): Path to save the cleaned data. If None, returns DataFrame.
+    
+    Returns:
+        pd.DataFrame or None: Cleaned DataFrame if output_path is None.
+    """
+    try:
+        if file_path.endswith('.csv'):
+            df = pd.read_csv(file_path)
+        elif file_path.endswith('.xlsx'):
+            df = pd.read_excel(file_path)
+        else:
+            raise ValueError("Unsupported file format. Use .csv or .xlsx")
+        
+        cleaned_df = clean_dataframe(df, drop_duplicates=True, fill_missing=True)
+        
+        is_valid, message = validate_dataframe(cleaned_df)
+        if not is_valid:
+            raise ValueError(f"Data validation failed: {message}")
+        
+        if output_path:
+            if output_path.endswith('.csv'):
+                cleaned_df.to_csv(output_path, index=False)
+            elif output_path.endswith('.xlsx'):
+                cleaned_df.to_excel(output_path, index=False)
+            return None
+        else:
+            return cleaned_df
+            
+    except Exception as e:
+        print(f"Error processing file: {e}")
+        raise
+
+if __name__ == "__main__":
+    sample_data = {
+        'id': [1, 2, 2, 3, 4],
+        'name': ['Alice', 'Bob', 'Bob', None, 'Charlie'],
+        'score': [85, 92, 92, 78, None]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\nCleaned DataFrame:")
+    cleaned = clean_dataframe(df, drop_duplicates=True, fill_missing=True)
+    print(cleaned)
