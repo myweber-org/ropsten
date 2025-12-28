@@ -1,44 +1,31 @@
 
+import pandas as pd
 import numpy as np
 
-def remove_outliers_iqr(data, column):
-    """
-    Remove outliers from a pandas DataFrame column using the IQR method.
-    
-    Parameters:
-    data (pd.DataFrame): Input DataFrame
-    column (str): Column name to process
-    
-    Returns:
-    pd.DataFrame: DataFrame with outliers removed
-    """
-    Q1 = data[column].quantile(0.25)
-    Q3 = data[column].quantile(0.75)
-    IQR = Q3 - Q1
-    
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
-    
-    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
-    return filtered_data
+def remove_outliers(df, column, threshold=3):
+    mean = df[column].mean()
+    std = df[column].std()
+    z_scores = np.abs((df[column] - mean) / std)
+    return df[z_scores < threshold]
 
-def calculate_statistics(data, column):
-    """
-    Calculate basic statistics for a DataFrame column.
+def normalize_column(df, column):
+    min_val = df[column].min()
+    max_val = df[column].max()
+    df[column + '_normalized'] = (df[column] - min_val) / (max_val - min_val)
+    return df
+
+def clean_dataset(file_path):
+    df = pd.read_csv(file_path)
     
-    Parameters:
-    data (pd.DataFrame): Input DataFrame
-    column (str): Column name to analyze
+    numeric_columns = df.select_dtypes(include=[np.number]).columns
     
-    Returns:
-    dict: Dictionary containing statistical measures
-    """
-    stats = {
-        'mean': np.mean(data[column]),
-        'median': np.median(data[column]),
-        'std': np.std(data[column]),
-        'min': np.min(data[column]),
-        'max': np.max(data[column]),
-        'count': len(data[column])
-    }
-    return stats
+    for col in numeric_columns:
+        df = remove_outliers(df, col)
+        df = normalize_column(df, col)
+    
+    return df
+
+if __name__ == "__main__":
+    cleaned_df = clean_dataset('sample_data.csv')
+    cleaned_df.to_csv('cleaned_data.csv', index=False)
+    print("Data cleaning completed. Cleaned data saved to 'cleaned_data.csv'")
