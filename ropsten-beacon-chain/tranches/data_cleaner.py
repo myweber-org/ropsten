@@ -193,3 +193,115 @@ def clean_dataset(file_path):
 
 if __name__ == "__main__":
     clean_dataset('raw_data.csv')
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df, drop_duplicates=True, fill_missing='mean'):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame to clean.
+    drop_duplicates (bool): Whether to drop duplicate rows. Default is True.
+    fill_missing (str): Method to fill missing values. Options: 'mean', 'median', 'mode', or 'drop'. Default is 'mean'.
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame.
+    """
+    cleaned_df = df.copy()
+    
+    if drop_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates()
+    
+    if fill_missing == 'drop':
+        cleaned_df = cleaned_df.dropna()
+    else:
+        for column in cleaned_df.select_dtypes(include=[np.number]).columns:
+            if cleaned_df[column].isnull().any():
+                if fill_missing == 'mean':
+                    cleaned_df[column].fillna(cleaned_df[column].mean(), inplace=True)
+                elif fill_missing == 'median':
+                    cleaned_df[column].fillna(cleaned_df[column].median(), inplace=True)
+                elif fill_missing == 'mode':
+                    cleaned_df[column].fillna(cleaned_df[column].mode()[0], inplace=True)
+    
+    return cleaned_df
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate a DataFrame for basic integrity checks.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate.
+    required_columns (list): List of column names that must be present.
+    
+    Returns:
+    tuple: (bool, str) indicating validation result and message.
+    """
+    if not isinstance(df, pd.DataFrame):
+        return False, "Input is not a pandas DataFrame"
+    
+    if df.empty:
+        return False, "DataFrame is empty"
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            return False, f"Missing required columns: {missing_columns}"
+    
+    return True, "DataFrame validation passed"
+
+def remove_outliers(df, column, method='iqr', threshold=1.5):
+    """
+    Remove outliers from a specific column in a DataFrame.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame.
+    column (str): Column name to process.
+    method (str): Method for outlier detection. Options: 'iqr' or 'zscore'. Default is 'iqr'.
+    threshold (float): Threshold for outlier detection. Default is 1.5 for IQR.
+    
+    Returns:
+    pd.DataFrame: DataFrame with outliers removed.
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    data = df[column].copy()
+    
+    if method == 'iqr':
+        Q1 = data.quantile(0.25)
+        Q3 = data.quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - threshold * IQR
+        upper_bound = Q3 + threshold * IQR
+        mask = (data >= lower_bound) & (data <= upper_bound)
+    elif method == 'zscore':
+        z_scores = np.abs((data - data.mean()) / data.std())
+        mask = z_scores < threshold
+    else:
+        raise ValueError("Method must be 'iqr' or 'zscore'")
+    
+    return df[mask]
+
+if __name__ == "__main__":
+    sample_data = {
+        'A': [1, 2, 2, 4, 5, np.nan, 7, 8, 9, 10],
+        'B': [10, 20, 20, 40, 50, 60, 70, 80, 90, 100],
+        'C': [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    
+    cleaned = clean_dataset(df, fill_missing='median')
+    print("\nCleaned DataFrame:")
+    print(cleaned)
+    
+    is_valid, message = validate_dataframe(cleaned, required_columns=['A', 'B', 'C'])
+    print(f"\nValidation: {is_valid} - {message}")
+    
+    no_outliers = remove_outliers(cleaned, 'B', method='iqr')
+    print("\nDataFrame without outliers in column B:")
+    print(no_outliers)
