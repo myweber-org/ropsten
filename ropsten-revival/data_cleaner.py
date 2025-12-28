@@ -176,3 +176,95 @@ def clean_csv_file(input_path: str, output_path: str, **kwargs) -> Dict:
     except Exception as e:
         print(f"Error cleaning file: {e}")
         return {}
+import pandas as pd
+import numpy as np
+from datetime import datetime
+
+def clean_dataframe(df):
+    """
+    Clean a pandas DataFrame by removing duplicates,
+    standardizing column names, and handling missing values.
+    """
+    # Create a copy to avoid modifying the original
+    df_clean = df.copy()
+    
+    # Standardize column names: lowercase and replace spaces with underscores
+    df_clean.columns = [col.strip().lower().replace(' ', '_') for col in df_clean.columns]
+    
+    # Remove duplicate rows
+    df_clean = df_clean.drop_duplicates()
+    
+    # Fill missing numeric values with column median
+    numeric_cols = df_clean.select_dtypes(include=[np.number]).columns
+    for col in numeric_cols:
+        df_clean[col] = df_clean[col].fillna(df_clean[col].median())
+    
+    # Fill missing categorical values with 'unknown'
+    categorical_cols = df_clean.select_dtypes(include=['object']).columns
+    for col in categorical_cols:
+        df_clean[col] = df_clean[col].fillna('unknown')
+    
+    # Add cleaning timestamp
+    df_clean['cleaning_timestamp'] = datetime.now().isoformat()
+    
+    return df_clean
+
+def validate_dataframe(df):
+    """
+    Validate that DataFrame meets basic quality requirements.
+    """
+    if df.empty:
+        raise ValueError("DataFrame is empty")
+    
+    # Check for required columns
+    required_cols = ['id', 'timestamp']
+    missing_cols = [col for col in required_cols if col not in df.columns]
+    
+    if missing_cols:
+        raise ValueError(f"Missing required columns: {missing_cols}")
+    
+    # Check data types
+    if 'timestamp' in df.columns:
+        try:
+            pd.to_datetime(df['timestamp'])
+        except:
+            raise ValueError("Timestamp column contains invalid dates")
+    
+    return True
+
+def process_file(input_path, output_path=None):
+    """
+    Read, clean, and save a CSV file.
+    """
+    # Read input file
+    df = pd.read_csv(input_path)
+    
+    # Clean the data
+    df_clean = clean_dataframe(df)
+    
+    # Validate the cleaned data
+    validate_dataframe(df_clean)
+    
+    # Save to output path or return DataFrame
+    if output_path:
+        df_clean.to_csv(output_path, index=False)
+        print(f"Cleaned data saved to: {output_path}")
+        return output_path
+    else:
+        return df_clean
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = pd.DataFrame({
+        'ID': [1, 2, 2, 3, 4],
+        'Name': ['Alice', 'Bob', 'Bob', 'Charlie', None],
+        'Age': [25, 30, 30, None, 35],
+        'Timestamp': ['2023-01-01', '2023-01-02', '2023-01-02', '2023-01-03', '2023-01-04']
+    })
+    
+    cleaned = clean_dataframe(sample_data)
+    print(f"Original shape: {sample_data.shape}")
+    print(f"Cleaned shape: {cleaned.shape}")
+    print(f"Duplicates removed: {len(sample_data) - len(cleaned)}")
+    print("\nCleaned DataFrame:")
+    print(cleaned)
