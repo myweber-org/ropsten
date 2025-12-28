@@ -368,4 +368,65 @@ def validate_dataframe(df, required_columns=None):
         if missing_columns:
             return False, f"Missing required columns: {missing_columns}"
     
-    return True, "DataFrame is valid"
+    return True, "DataFrame is valid"import pandas as pd
+
+def clean_dataset(df, remove_duplicates=True):
+    """
+    Clean a pandas DataFrame by removing null values and optionally duplicates.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame to clean.
+    remove_duplicates (bool): If True, remove duplicate rows.
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame.
+    """
+    cleaned_df = df.dropna()
+    
+    if remove_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates()
+    
+    return cleaned_df
+
+def validate_data(df, required_columns):
+    """
+    Validate that DataFrame contains required columns and has no null values.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate.
+    required_columns (list): List of required column names.
+    
+    Returns:
+    bool: True if validation passes, False otherwise.
+    """
+    missing_columns = [col for col in required_columns if col not in df.columns]
+    
+    if missing_columns:
+        print(f"Missing columns: {missing_columns}")
+        return False
+    
+    if df[required_columns].isnull().any().any():
+        print("Null values found in required columns")
+        return False
+    
+    return True
+
+def get_data_summary(df):
+    """
+    Generate a summary of the DataFrame including shape and null counts.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame.
+    
+    Returns:
+    dict: Dictionary containing summary statistics.
+    """
+    summary = {
+        'rows': df.shape[0],
+        'columns': df.shape[1],
+        'null_count': df.isnull().sum().sum(),
+        'duplicate_rows': df.duplicated().sum(),
+        'column_types': df.dtypes.to_dict()
+    }
+    
+    return summary
