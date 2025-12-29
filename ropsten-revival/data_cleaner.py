@@ -149,3 +149,126 @@ if __name__ == "__main__":
     print(f"Original data: {sample_data}")
     print(f"Without duplicates: {remove_duplicates(sample_data)}")
     print(f"Threshold >= 2: {clean_data_with_threshold(sample_data, threshold=2)}")
+import pandas as pd
+import numpy as np
+from pathlib import Path
+
+class DataCleaner:
+    def __init__(self, file_path):
+        self.file_path = Path(file_path)
+        self.df = None
+        
+    def load_data(self):
+        try:
+            self.df = pd.read_csv(self.file_path)
+            print(f"Loaded data from {self.file_path}")
+            return True
+        except FileNotFoundError:
+            print(f"File not found: {self.file_path}")
+            return False
+            
+    def handle_missing_values(self, strategy='mean', columns=None):
+        if self.df is None:
+            print("No data loaded. Call load_data() first.")
+            return
+            
+        if columns is None:
+            columns = self.df.columns
+            
+        for column in columns:
+            if column in self.df.columns:
+                if self.df[column].isnull().any():
+                    if strategy == 'mean':
+                        fill_value = self.df[column].mean()
+                    elif strategy == 'median':
+                        fill_value = self.df[column].median()
+                    elif strategy == 'mode':
+                        fill_value = self.df[column].mode()[0]
+                    else:
+                        fill_value = strategy
+                    
+                    self.df[column].fillna(fill_value, inplace=True)
+                    print(f"Filled missing values in {column} using {strategy}")
+                    
+    def remove_duplicates(self):
+        if self.df is None:
+            print("No data loaded. Call load_data() first.")
+            return
+            
+        initial_count = len(self.df)
+        self.df.drop_duplicates(inplace=True)
+        removed = initial_count - len(self.df)
+        print(f"Removed {removed} duplicate rows")
+        
+    def normalize_column(self, column_name):
+        if self.df is None:
+            print("No data loaded. Call load_data() first.")
+            return
+            
+        if column_name in self.df.columns:
+            col_min = self.df[column_name].min()
+            col_max = self.df[column_name].max()
+            
+            if col_max != col_min:
+                self.df[column_name] = (self.df[column_name] - col_min) / (col_max - col_min)
+                print(f"Normalized column {column_name}")
+            else:
+                print(f"Cannot normalize {column_name}: all values are identical")
+                
+    def save_cleaned_data(self, output_path=None):
+        if self.df is None:
+            print("No data loaded. Call load_data() first.")
+            return
+            
+        if output_path is None:
+            output_path = self.file_path.parent / f"cleaned_{self.file_path.name}"
+            
+        self.df.to_csv(output_path, index=False)
+        print(f"Saved cleaned data to {output_path}")
+        return output_path
+        
+    def get_summary(self):
+        if self.df is None:
+            return "No data loaded"
+            
+        summary = {
+            'rows': len(self.df),
+            'columns': len(self.df.columns),
+            'missing_values': self.df.isnull().sum().sum(),
+            'duplicates': len(self.df) - len(self.df.drop_duplicates()),
+            'data_types': self.df.dtypes.to_dict()
+        }
+        return summary
+
+def clean_csv_file(input_file, output_file=None):
+    cleaner = DataCleaner(input_file)
+    
+    if cleaner.load_data():
+        print("Starting data cleaning process...")
+        print(f"Initial summary: {cleaner.get_summary()}")
+        
+        cleaner.handle_missing_values(strategy='mean')
+        cleaner.remove_duplicates()
+        
+        numeric_columns = cleaner.df.select_dtypes(include=[np.number]).columns
+        for col in numeric_columns:
+            cleaner.normalize_column(col)
+            
+        output_path = cleaner.save_cleaned_data(output_file)
+        print(f"Final summary: {cleaner.get_summary()}")
+        print(f"Cleaning complete. Output saved to: {output_path}")
+        
+        return True
+    return False
+
+if __name__ == "__main__":
+    sample_data = {
+        'A': [1, 2, np.nan, 4, 5, 5],
+        'B': [10, 20, 30, np.nan, 50, 50],
+        'C': ['x', 'y', 'z', 'x', 'y', 'z']
+    }
+    
+    test_df = pd.DataFrame(sample_data)
+    test_df.to_csv('test_data.csv', index=False)
+    
+    clean_csv_file('test_data.csv', 'cleaned_test_data.csv')
