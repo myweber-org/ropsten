@@ -1,66 +1,106 @@
 import pandas as pd
-
-def clean_dataset(df, drop_duplicates=True, fill_missing='mean'):
-    """
-    Clean a pandas DataFrame by removing duplicates and handling missing values.
-    
-    Parameters:
-    df (pd.DataFrame): Input DataFrame to clean.
-    drop_duplicates (bool): If True, remove duplicate rows.
-    fill_missing (str): Method to fill missing values. Options: 'mean', 'median', 'mode', or 'drop'.
-    
-    Returns:
-    pd.DataFrame: Cleaned DataFrame.
-    """
-    cleaned_df = df.copy()
-    
-    if drop_duplicates:
-        cleaned_df = cleaned_df.drop_duplicates()
-    
-    if fill_missing == 'drop':
-        cleaned_df = cleaned_df.dropna()
-    elif fill_missing in ['mean', 'median']:
-        numeric_cols = cleaned_df.select_dtypes(include=['number']).columns
-        for col in numeric_cols:
-            if fill_missing == 'mean':
-                cleaned_df[col].fillna(cleaned_df[col].mean(), inplace=True)
-            elif fill_missing == 'median':
-                cleaned_df[col].fillna(cleaned_df[col].median(), inplace=True)
-    elif fill_missing == 'mode':
-        for col in cleaned_df.columns:
-            cleaned_df[col].fillna(cleaned_df[col].mode()[0] if not cleaned_df[col].mode().empty else None, inplace=True)
-    
-    return cleaned_df
-import pandas as pd
 import numpy as np
 
-def remove_outliers(df, column, threshold=3):
-    mean = df[column].mean()
-    std = df[column].std()
-    z_scores = np.abs((df[column] - mean) / std)
-    return df[z_scores < threshold]
+def clean_csv_data(file_path, output_path=None, missing_strategy='mean'):
+    """
+    Clean CSV data by handling missing values and removing duplicates.
+    
+    Parameters:
+    file_path (str): Path to input CSV file
+    output_path (str): Path for cleaned output file (optional)
+    missing_strategy (str): Strategy for handling missing values ('mean', 'median', 'drop')
+    
+    Returns:
+    pandas.DataFrame: Cleaned dataframe
+    """
+    
+    try:
+        df = pd.read_csv(file_path)
+        print(f"Loaded data with shape: {df.shape}")
+        
+        original_rows = len(df)
+        
+        df = df.drop_duplicates()
+        print(f"Removed {original_rows - len(df)} duplicate rows")
+        
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        
+        if missing_strategy == 'mean':
+            for col in numeric_cols:
+                if df[col].isnull().any():
+                    mean_val = df[col].mean()
+                    df[col].fillna(mean_val, inplace=True)
+                    print(f"Filled missing values in {col} with mean: {mean_val:.2f}")
+        
+        elif missing_strategy == 'median':
+            for col in numeric_cols:
+                if df[col].isnull().any():
+                    median_val = df[col].median()
+                    df[col].fillna(median_val, inplace=True)
+                    print(f"Filled missing values in {col} with median: {median_val:.2f}")
+        
+        elif missing_strategy == 'drop':
+            df = df.dropna()
+            print(f"Dropped rows with missing values")
+        
+        else:
+            print(f"Unknown strategy: {missing_strategy}. Using 'mean' as default.")
+            for col in numeric_cols:
+                if df[col].isnull().any():
+                    mean_val = df[col].mean()
+                    df[col].fillna(mean_val, inplace=True)
+        
+        if output_path:
+            df.to_csv(output_path, index=False)
+            print(f"Cleaned data saved to: {output_path}")
+        
+        print(f"Final data shape: {df.shape}")
+        return df
+        
+    except FileNotFoundError:
+        print(f"Error: File not found at {file_path}")
+        return None
+    except Exception as e:
+        print(f"Error during data cleaning: {str(e)}")
+        return None
 
-def normalize_column(df, column):
-    min_val = df[column].min()
-    max_val = df[column].max()
-    df[column] = (df[column] - min_val) / (max_val - min_val)
-    return df
-
-def clean_dataset(file_path, output_path):
-    df = pd.read_csv(file_path)
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate dataframe structure and content.
     
-    numeric_columns = df.select_dtypes(include=[np.number]).columns
+    Parameters:
+    df (pandas.DataFrame): Dataframe to validate
+    required_columns (list): List of required column names
     
-    for col in numeric_columns:
-        df = remove_outliers(df, col)
-        df = normalize_column(df, col)
+    Returns:
+    bool: True if validation passes, False otherwise
+    """
     
-    df.to_csv(output_path, index=False)
-    return df
+    if df is None or df.empty:
+        print("Dataframe is empty or None")
+        return False
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            print(f"Missing required columns: {missing_cols}")
+            return False
+    
+    print(f"Data validation passed. Shape: {df.shape}, Columns: {list(df.columns)}")
+    return True
 
 if __name__ == "__main__":
-    input_file = "raw_data.csv"
-    output_file = "cleaned_data.csv"
-    cleaned_df = clean_dataset(input_file, output_file)
-    print(f"Data cleaning completed. Cleaned data saved to {output_file}")
-    print(f"Original shape: {pd.read_csv(input_file).shape}, Cleaned shape: {cleaned_df.shape}")
+    sample_data = {
+        'id': [1, 2, 3, 4, 5, 6],
+        'value': [10.5, None, 15.2, 10.5, None, 18.7],
+        'category': ['A', 'B', 'A', 'A', 'B', 'C']
+    }
+    
+    test_df = pd.DataFrame(sample_data)
+    test_df.to_csv('test_data.csv', index=False)
+    
+    cleaned_df = clean_csv_data('test_data.csv', 'cleaned_data.csv', 'mean')
+    
+    if cleaned_df is not None:
+        validation_result = validate_dataframe(cleaned_df, ['id', 'value', 'category'])
+        print(f"Validation result: {validation_result}")
