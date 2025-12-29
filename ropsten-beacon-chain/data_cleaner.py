@@ -405,3 +405,11 @@ def remove_duplicates(df, subset=None, keep='first'):
     pd.DataFrame: DataFrame with duplicates removed
     """
     return df.drop_duplicates(subset=subset, keep=keep)
+def remove_duplicates_preserve_order(sequence):
+    seen = set()
+    result = []
+    for item in sequence:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
