@@ -1,82 +1,55 @@
 
-import numpy as np
 import pandas as pd
 
-def remove_outliers_iqr(df, column):
+def clean_dataframe(df, column_to_deduplicate, columns_to_normalize=None):
     """
-    Remove outliers from a DataFrame column using the Interquartile Range method.
-    
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    column (str): Column name to clean
-    
-    Returns:
-    pd.DataFrame: DataFrame with outliers removed
+    Clean a pandas DataFrame by removing duplicates from a specified column
+    and normalizing string columns to lowercase and stripping whitespace.
     """
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
+    # Remove duplicates based on the specified column
+    df_cleaned = df.drop_duplicates(subset=[column_to_deduplicate], keep='first')
     
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
+    # Normalize specified string columns
+    if columns_to_normalize:
+        for col in columns_to_normalize:
+            if col in df_cleaned.columns and df_cleaned[col].dtype == 'object':
+                df_cleaned[col] = df_cleaned[col].astype(str).str.lower().str.strip()
     
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
+    # Reset index after cleaning
+    df_cleaned = df_cleaned.reset_index(drop=True)
     
-    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
-    
-    return filtered_df.reset_index(drop=True)
+    return df_cleaned
 
-def calculate_summary_statistics(df, column):
+def validate_dataframe(df, required_columns):
     """
-    Calculate summary statistics for a column after outlier removal.
-    
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    column (str): Column name to analyze
-    
-    Returns:
-    dict: Dictionary containing summary statistics
+    Validate that the DataFrame contains all required columns.
+    Returns a boolean and a list of missing columns.
     """
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
-    
-    stats = {
-        'mean': df[column].mean(),
-        'median': df[column].median(),
-        'std': df[column].std(),
-        'min': df[column].min(),
-        'max': df[column].max(),
-        'count': df[column].count()
-    }
-    
-    return stats
-
-def example_usage():
-    """
-    Example demonstrating how to use the data cleaning functions.
-    """
-    np.random.seed(42)
-    
-    data = {
-        'id': range(1, 101),
-        'value': np.concatenate([
-            np.random.normal(100, 10, 90),
-            np.random.normal(300, 50, 10)
-        ])
-    }
-    
-    df = pd.DataFrame(data)
-    
-    print("Original DataFrame shape:", df.shape)
-    print("Original statistics:", calculate_summary_statistics(df, 'value'))
-    
-    cleaned_df = remove_outliers_iqr(df, 'value')
-    
-    print("\nCleaned DataFrame shape:", cleaned_df.shape)
-    print("Cleaned statistics:", calculate_summary_statistics(cleaned_df, 'value'))
-    
-    return cleaned_df
+    missing_columns = [col for col in required_columns if col not in df.columns]
+    return len(missing_columns) == 0, missing_columns
 
 if __name__ == "__main__":
-    cleaned_data = example_usage()
+    # Example usage
+    sample_data = {
+        'user_id': [1, 2, 3, 2, 4],
+        'name': ['Alice', 'Bob', 'Charlie', 'bob', 'David'],
+        'email': ['alice@example.com', 'bob@example.com', 'charlie@example.com', 'bob@example.com', 'david@example.com']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print()
+    
+    # Clean the data
+    cleaned_df = clean_dataframe(df, 'user_id', columns_to_normalize=['name', 'email'])
+    print("Cleaned DataFrame:")
+    print(cleaned_df)
+    print()
+    
+    # Validate the cleaned data
+    required_cols = ['user_id', 'name', 'email']
+    is_valid, missing = validate_dataframe(cleaned_df, required_cols)
+    print(f"Data validation passed: {is_valid}")
+    if not is_valid:
+        print(f"Missing columns: {missing}")
