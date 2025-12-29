@@ -192,3 +192,102 @@ if __name__ == "__main__":
     
     is_valid = validate_data(cleaned, required_columns=['A', 'B', 'C'], min_rows=3)
     print(f"\nData valid: {is_valid}")
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df, drop_duplicates=True, fill_missing=True, strategy='mean'):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean
+        drop_duplicates (bool): Whether to drop duplicate rows
+        fill_missing (bool): Whether to fill missing values
+        strategy (str): Strategy for filling missing values ('mean', 'median', 'mode', or 'constant')
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame
+    """
+    cleaned_df = df.copy()
+    
+    if drop_duplicates:
+        initial_rows = len(cleaned_df)
+        cleaned_df = cleaned_df.drop_duplicates()
+        removed_rows = initial_rows - len(cleaned_df)
+        print(f"Removed {removed_rows} duplicate rows")
+    
+    if fill_missing and cleaned_df.isnull().any().any():
+        numeric_cols = cleaned_df.select_dtypes(include=[np.number]).columns
+        
+        for col in numeric_cols:
+            if cleaned_df[col].isnull().any():
+                if strategy == 'mean':
+                    fill_value = cleaned_df[col].mean()
+                elif strategy == 'median':
+                    fill_value = cleaned_df[col].median()
+                elif strategy == 'mode':
+                    fill_value = cleaned_df[col].mode()[0]
+                elif strategy == 'constant':
+                    fill_value = 0
+                else:
+                    raise ValueError(f"Unknown strategy: {strategy}")
+                
+                missing_count = cleaned_df[col].isnull().sum()
+                cleaned_df[col] = cleaned_df[col].fillna(fill_value)
+                print(f"Filled {missing_count} missing values in column '{col}' with {strategy} value: {fill_value}")
+    
+    categorical_cols = cleaned_df.select_dtypes(include=['object']).columns
+    for col in categorical_cols:
+        if cleaned_df[col].isnull().any():
+            missing_count = cleaned_df[col].isnull().sum()
+            cleaned_df[col] = cleaned_df[col].fillna('Unknown')
+            print(f"Filled {missing_count} missing values in categorical column '{col}' with 'Unknown'")
+    
+    print(f"Data cleaning complete. Final shape: {cleaned_df.shape}")
+    return cleaned_df
+
+def validate_dataset(df, required_columns=None, min_rows=1):
+    """
+    Validate dataset structure and content.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate
+        required_columns (list): List of required column names
+        min_rows (int): Minimum number of rows required
+    
+    Returns:
+        bool: True if validation passes, False otherwise
+    """
+    if len(df) < min_rows:
+        print(f"Validation failed: Dataset has only {len(df)} rows, minimum required is {min_rows}")
+        return False
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            print(f"Validation failed: Missing required columns: {missing_columns}")
+            return False
+    
+    print("Dataset validation passed")
+    return True
+
+if __name__ == "__main__":
+    sample_data = {
+        'id': [1, 2, 2, 3, 4, 5],
+        'value': [10.5, 20.3, 20.3, np.nan, 40.1, 50.0],
+        'category': ['A', 'B', 'B', 'C', np.nan, 'A'],
+        'score': [100, 200, 200, 300, 400, np.nan]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original dataset:")
+    print(df)
+    print("\n" + "="*50 + "\n")
+    
+    cleaned_df = clean_dataset(df, drop_duplicates=True, fill_missing=True, strategy='mean')
+    
+    print("\nCleaned dataset:")
+    print(cleaned_df)
+    
+    is_valid = validate_dataset(cleaned_df, required_columns=['id', 'value', 'category'], min_rows=3)
+    print(f"\nDataset is valid: {is_valid}")
