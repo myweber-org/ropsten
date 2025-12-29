@@ -6,12 +6,12 @@ def remove_outliers_iqr(df, column):
     """
     Remove outliers from a DataFrame column using the Interquartile Range method.
     
-    Args:
-        df (pd.DataFrame): Input DataFrame
-        column (str): Column name to process
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    column (str): Column name to clean
     
     Returns:
-        pd.DataFrame: DataFrame with outliers removed
+    pd.DataFrame: DataFrame with outliers removed
     """
     if column not in df.columns:
         raise ValueError(f"Column '{column}' not found in DataFrame")
@@ -25,45 +25,45 @@ def remove_outliers_iqr(df, column):
     
     filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
     
-    return filtered_df
+    return filtered_df.reset_index(drop=True)
 
 def clean_dataset(df, numeric_columns=None):
     """
-    Clean dataset by removing outliers from all numeric columns.
+    Clean a dataset by removing outliers from all numeric columns.
     
-    Args:
-        df (pd.DataFrame): Input DataFrame
-        numeric_columns (list): List of numeric column names. If None, uses all numeric columns.
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    numeric_columns (list): List of numeric column names to clean
     
     Returns:
-        pd.DataFrame: Cleaned DataFrame
+    pd.DataFrame: Cleaned DataFrame
     """
     if numeric_columns is None:
         numeric_columns = df.select_dtypes(include=[np.number]).columns.tolist()
     
     cleaned_df = df.copy()
     
-    for col in numeric_columns:
-        if col in df.columns:
-            original_count = len(cleaned_df)
-            cleaned_df = remove_outliers_iqr(cleaned_df, col)
-            removed_count = original_count - len(cleaned_df)
-            print(f"Removed {removed_count} outliers from column '{col}'")
+    for column in numeric_columns:
+        if column in df.columns and pd.api.types.is_numeric_dtype(df[column]):
+            try:
+                cleaned_df = remove_outliers_iqr(cleaned_df, column)
+            except Exception as e:
+                print(f"Warning: Could not clean column '{column}': {e}")
     
     return cleaned_df
 
 if __name__ == "__main__":
     sample_data = {
-        'temperature': [22, 23, 24, 25, 26, 27, 28, 29, 30, 100],
-        'humidity': [45, 46, 47, 48, 49, 50, 51, 52, 53, 200],
-        'category': ['A', 'B', 'A', 'B', 'A', 'B', 'A', 'B', 'A', 'B']
+        'A': np.random.normal(100, 15, 1000),
+        'B': np.random.exponential(50, 1000),
+        'C': np.random.uniform(0, 200, 1000)
     }
     
     df = pd.DataFrame(sample_data)
-    print("Original DataFrame:")
-    print(df)
-    print("\nCleaning dataset...")
+    df.loc[0, 'A'] = 1000
+    df.loc[1, 'B'] = 500
     
-    cleaned_df = clean_dataset(df, ['temperature', 'humidity'])
-    print("\nCleaned DataFrame:")
-    print(cleaned_df)
+    print(f"Original shape: {df.shape}")
+    cleaned = clean_dataset(df)
+    print(f"Cleaned shape: {cleaned.shape}")
+    print(f"Rows removed: {len(df) - len(cleaned)}")
