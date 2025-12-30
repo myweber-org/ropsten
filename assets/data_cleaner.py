@@ -98,3 +98,53 @@ def clean_dataframe(df: pd.DataFrame,
                 df_clean = normalize_column(df_clean, col)
     
     return df_clean
+import pandas as pd
+
+def clean_dataset(df, subset=None, fill_method='mean'):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+
+    Args:
+        df (pd.DataFrame): The input DataFrame to clean.
+        subset (list, optional): Column labels to consider for identifying duplicates.
+                                 If None, all columns are used.
+        fill_method (str, optional): Method to fill missing values.
+                                     Options: 'mean', 'median', 'mode', or a constant value.
+                                     Default is 'mean'.
+
+    Returns:
+        pd.DataFrame: The cleaned DataFrame.
+    """
+    # Create a copy to avoid modifying the original DataFrame
+    cleaned_df = df.copy()
+
+    # Remove duplicate rows
+    cleaned_df = cleaned_df.drop_duplicates(subset=subset, keep='first')
+
+    # Handle missing values
+    if fill_method == 'mean':
+        cleaned_df = cleaned_df.fillna(cleaned_df.mean(numeric_only=True))
+    elif fill_method == 'median':
+        cleaned_df = cleaned_df.fillna(cleaned_df.median(numeric_only=True))
+    elif fill_method == 'mode':
+        # For mode, we take the first mode if multiple exist
+        cleaned_df = cleaned_df.fillna(cleaned_df.mode().iloc[0])
+    else:
+        # Assume fill_method is a constant value
+        cleaned_df = cleaned_df.fillna(fill_method)
+
+    return cleaned_df
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'A': [1, 2, 2, 4, None],
+        'B': [5, None, 7, 8, 9],
+        'C': ['x', 'y', 'y', 'z', 'x']
+    }
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\nCleaned DataFrame (fill with mean):")
+    cleaned = clean_dataset(df, subset=['A', 'B'], fill_method='mean')
+    print(cleaned)
