@@ -1,71 +1,86 @@
 
 import pandas as pd
+import numpy as np
 
-def clean_dataset(df, drop_duplicates=True, fill_missing=True, fill_value=0):
+def clean_dataset(df, drop_duplicates=True, fill_missing='mean'):
     """
     Clean a pandas DataFrame by removing duplicates and handling missing values.
     
     Parameters:
-    df (pd.DataFrame): Input DataFrame to clean
-    drop_duplicates (bool): Whether to drop duplicate rows
-    fill_missing (bool): Whether to fill missing values
-    fill_value: Value to use for filling missing data
+    df (pd.DataFrame): Input DataFrame to clean.
+    drop_duplicates (bool): Whether to remove duplicate rows.
+    fill_missing (str): Method to fill missing values ('mean', 'median', 'mode', or 'drop').
     
     Returns:
-    pd.DataFrame: Cleaned DataFrame
+    pd.DataFrame: Cleaned DataFrame.
     """
     cleaned_df = df.copy()
     
     if drop_duplicates:
         cleaned_df = cleaned_df.drop_duplicates()
+        print(f"Removed {len(df) - len(cleaned_df)} duplicate rows.")
     
-    if fill_missing:
-        cleaned_df = cleaned_df.fillna(fill_value)
+    if fill_missing == 'drop':
+        initial_rows = len(cleaned_df)
+        cleaned_df = cleaned_df.dropna()
+        print(f"Removed {initial_rows - len(cleaned_df)} rows with missing values.")
+    elif fill_missing in ['mean', 'median', 'mode']:
+        for column in cleaned_df.select_dtypes(include=[np.number]).columns:
+            if cleaned_df[column].isnull().any():
+                if fill_missing == 'mean':
+                    fill_value = cleaned_df[column].mean()
+                elif fill_missing == 'median':
+                    fill_value = cleaned_df[column].median()
+                else:  # mode
+                    fill_value = cleaned_df[column].mode()[0]
+                
+                cleaned_df[column].fillna(fill_value, inplace=True)
+                print(f"Filled missing values in column '{column}' with {fill_missing}: {fill_value}")
     
+    print(f"Data cleaning complete. Original shape: {df.shape}, Cleaned shape: {cleaned_df.shape}")
     return cleaned_df
 
-def validate_data(df, required_columns=None):
+def validate_data(df, required_columns=None, min_rows=1):
     """
     Validate DataFrame structure and content.
     
     Parameters:
-    df (pd.DataFrame): DataFrame to validate
-    required_columns (list): List of required column names
+    df (pd.DataFrame): DataFrame to validate.
+    required_columns (list): List of column names that must be present.
+    min_rows (int): Minimum number of rows required.
     
     Returns:
-    tuple: (is_valid, error_message)
+    bool: True if validation passes, False otherwise.
     """
+    if not isinstance(df, pd.DataFrame):
+        print("Error: Input is not a pandas DataFrame.")
+        return False
+    
+    if len(df) < min_rows:
+        print(f"Error: DataFrame has fewer than {min_rows} rows.")
+        return False
+    
     if required_columns:
         missing_columns = [col for col in required_columns if col not in df.columns]
         if missing_columns:
-            return False, f"Missing required columns: {missing_columns}"
+            print(f"Error: Missing required columns: {missing_columns}")
+            return False
     
-    if df.empty:
-        return False, "DataFrame is empty"
-    
-    return True, "Data validation passed"
+    print("Data validation passed.")
+    return True
 
-def normalize_column(df, column_name):
-    """
-    Normalize a column to have values between 0 and 1.
+if __name__ == "__main__":
+    sample_data = {
+        'A': [1, 2, 2, 4, None],
+        'B': [5, None, 7, 8, 9],
+        'C': [10, 11, 12, None, 14]
+    }
     
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    column_name (str): Name of column to normalize
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
     
-    Returns:
-    pd.DataFrame: DataFrame with normalized column
-    """
-    if column_name not in df.columns:
-        raise ValueError(f"Column '{column_name}' not found in DataFrame")
-    
-    df_copy = df.copy()
-    col_min = df_copy[column_name].min()
-    col_max = df_copy[column_name].max()
-    
-    if col_max == col_min:
-        df_copy[column_name] = 0.5
-    else:
-        df_copy[column_name] = (df_copy[column_name] - col_min) / (col_max - col_min)
-    
-    return df_copy
+    if validate_data(df, required_columns=['A', 'B', 'C'], min_rows=3):
+        cleaned = clean_dataset(df, drop_duplicates=True, fill_missing='mean')
+        print("\nCleaned DataFrame:")
+        print(cleaned)
