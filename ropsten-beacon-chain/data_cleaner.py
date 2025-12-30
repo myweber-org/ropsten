@@ -495,4 +495,11 @@ def validate_dataframe(data, required_columns=None, min_rows=1):
         if missing_columns:
             raise ValueError(f"Missing required columns: {missing_columns}")
     
-    return True
+    return Truedef remove_duplicates(input_list):
+    seen = set()
+    result = []
+    for item in input_list:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
