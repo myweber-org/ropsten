@@ -53,3 +53,11 @@ if __name__ == "__main__":
     print(f"Data validation passed: {is_valid}")
     if not is_valid:
         print(f"Missing columns: {missing}")
+def remove_duplicates(sequence):
+    seen = set()
+    result = []
+    for item in sequence:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
