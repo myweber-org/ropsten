@@ -356,3 +356,11 @@ def clean_dataset(df: pd.DataFrame,
                 cleaner.remove_outliers_iqr(col)
     
     return cleaner.get_cleaned_data()
+def remove_duplicates(seq):
+    seen = set()
+    result = []
+    for item in seq:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
