@@ -295,3 +295,180 @@ def validate_data(df, required_columns=None):
         return False, "DataFrame is empty"
     
     return True, "Data validation passed"
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+def detect_outliers_iqr(data, column, threshold=1.5):
+    """
+    Detect outliers using Interquartile Range method.
+    
+    Args:
+        data: pandas DataFrame
+        column: column name to analyze
+        threshold: IQR multiplier (default 1.5)
+    
+    Returns:
+        Boolean mask of outliers
+    """
+    q1 = data[column].quantile(0.25)
+    q3 = data[column].quantile(0.75)
+    iqr = q3 - q1
+    lower_bound = q1 - threshold * iqr
+    upper_bound = q3 + threshold * iqr
+    
+    return (data[column] < lower_bound) | (data[column] > upper_bound)
+
+def remove_outliers_zscore(data, column, threshold=3):
+    """
+    Remove outliers using Z-score method.
+    
+    Args:
+        data: pandas DataFrame
+        column: column name to analyze
+        threshold: Z-score threshold (default 3)
+    
+    Returns:
+        DataFrame with outliers removed
+    """
+    z_scores = np.abs(stats.zscore(data[column].dropna()))
+    mask = z_scores < threshold
+    return data[mask]
+
+def normalize_minmax(data, column):
+    """
+    Normalize data using Min-Max scaling.
+    
+    Args:
+        data: pandas DataFrame
+        column: column name to normalize
+    
+    Returns:
+        Normalized Series
+    """
+    min_val = data[column].min()
+    max_val = data[column].max()
+    
+    if max_val == min_val:
+        return data[column]
+    
+    return (data[column] - min_val) / (max_val - min_val)
+
+def standardize_zscore(data, column):
+    """
+    Standardize data using Z-score normalization.
+    
+    Args:
+        data: pandas DataFrame
+        column: column name to standardize
+    
+    Returns:
+        Standardized Series
+    """
+    mean_val = data[column].mean()
+    std_val = data[column].std()
+    
+    if std_val == 0:
+        return data[column]
+    
+    return (data[column] - mean_val) / std_val
+
+def clean_dataset(df, numeric_columns=None, outlier_method='iqr', normalize=False):
+    """
+    Main data cleaning pipeline.
+    
+    Args:
+        df: Input DataFrame
+        numeric_columns: List of numeric columns to process
+        outlier_method: 'iqr' or 'zscore'
+        normalize: Whether to normalize data
+    
+    Returns:
+        Cleaned DataFrame
+    """
+    if numeric_columns is None:
+        numeric_columns = df.select_dtypes(include=[np.number]).columns.tolist()
+    
+    df_clean = df.copy()
+    
+    for col in numeric_columns:
+        if col not in df_clean.columns:
+            continue
+            
+        # Handle missing values
+        df_clean[col] = df_clean[col].fillna(df_clean[col].median())
+        
+        # Remove outliers
+        if outlier_method == 'iqr':
+            outliers = detect_outliers_iqr(df_clean, col)
+            df_clean = df_clean[~outliers]
+        elif outlier_method == 'zscore':
+            df_clean = remove_outliers_zscore(df_clean, col)
+        
+        # Normalize if requested
+        if normalize:
+            df_clean[f'{col}_normalized'] = normalize_minmax(df_clean, col)
+            df_clean[f'{col}_standardized'] = standardize_zscore(df_clean, col)
+    
+    return df_clean.reset_index(drop=True)
+
+def get_summary_statistics(df):
+    """
+    Generate comprehensive summary statistics.
+    
+    Args:
+        df: Input DataFrame
+    
+    Returns:
+        Dictionary of summary statistics
+    """
+    summary = {
+        'shape': df.shape,
+        'missing_values': df.isnull().sum().to_dict(),
+        'data_types': df.dtypes.astype(str).to_dict(),
+        'numeric_stats': {}
+    }
+    
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    
+    for col in numeric_cols:
+        summary['numeric_stats'][col] = {
+            'mean': df[col].mean(),
+            'median': df[col].median(),
+            'std': df[col].std(),
+            'min': df[col].min(),
+            'max': df[col].max(),
+            'skewness': df[col].skew(),
+            'kurtosis': df[col].kurtosis()
+        }
+    
+    return summary
+
+# Example usage
+if __name__ == "__main__":
+    # Create sample data
+    np.random.seed(42)
+    sample_data = pd.DataFrame({
+        'feature_a': np.random.normal(100, 15, 1000),
+        'feature_b': np.random.exponential(50, 1000),
+        'category': np.random.choice(['A', 'B', 'C'], 1000)
+    })
+    
+    # Add some outliers
+    sample_data.loc[1000:1005, 'feature_a'] = [500, -200, 300, 400, 600, 700]
+    
+    print("Original data shape:", sample_data.shape)
+    
+    # Clean the data
+    cleaned_data = clean_dataset(
+        sample_data, 
+        numeric_columns=['feature_a', 'feature_b'],
+        outlier_method='iqr',
+        normalize=True
+    )
+    
+    print("Cleaned data shape:", cleaned_data.shape)
+    
+    # Get summary statistics
+    stats_summary = get_summary_statistics(cleaned_data)
+    print("\nSummary statistics generated for", len(stats_summary['numeric_stats']), "numeric features")
