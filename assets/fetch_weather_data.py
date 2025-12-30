@@ -1,15 +1,11 @@
 
 import requests
-import json
-from datetime import datetime
+import sys
 
-def get_weather(api_key, city_name):
-    """
-    Fetch current weather data for a given city.
-    """
+def get_weather(api_key, city):
     base_url = "http://api.openweathermap.org/data/2.5/weather"
     params = {
-        'q': city_name,
+        'q': city,
         'appid': api_key,
         'units': 'metric'
     }
@@ -23,63 +19,45 @@ def get_weather(api_key, city_name):
             print(f"Error: {data.get('message', 'Unknown error')}")
             return None
             
-        weather_info = {
+        return {
             'city': data['name'],
             'country': data['sys']['country'],
-            'temperature': data['main']['temp'],
+            'temp': data['main']['temp'],
             'feels_like': data['main']['feels_like'],
             'humidity': data['main']['humidity'],
-            'pressure': data['main']['pressure'],
-            'weather': data['weather'][0]['description'],
-            'wind_speed': data['wind']['speed'],
-            'wind_deg': data['wind']['deg'],
-            'visibility': data.get('visibility', 'N/A'),
-            'cloudiness': data['clouds']['all'],
-            'sunrise': datetime.fromtimestamp(data['sys']['sunrise']).strftime('%H:%M:%S'),
-            'sunset': datetime.fromtimestamp(data['sys']['sunset']).strftime('%H:%M:%S'),
-            'timestamp': datetime.fromtimestamp(data['dt']).strftime('%Y-%m-%d %H:%M:%S')
+            'description': data['weather'][0]['description'],
+            'wind_speed': data['wind']['speed']
         }
         
-        return weather_info
-        
     except requests.exceptions.RequestException as e:
-        print(f"Network error occurred: {e}")
+        print(f"Network error: {e}")
         return None
-    except json.JSONDecodeError as e:
-        print(f"Error parsing JSON response: {e}")
-        return None
-    except KeyError as e:
-        print(f"Unexpected data structure: missing key {e}")
+    except (KeyError, ValueError) as e:
+        print(f"Data parsing error: {e}")
         return None
 
 def display_weather(weather_data):
-    """
-    Display weather information in a readable format.
-    """
     if not weather_data:
-        print("No weather data to display.")
         return
         
-    print("\n" + "="*50)
-    print(f"Weather in {weather_data['city']}, {weather_data['country']}")
-    print(f"Last updated: {weather_data['timestamp']}")
-    print("="*50)
-    print(f"Temperature: {weather_data['temperature']}°C")
+    print(f"Weather in {weather_data['city']}, {weather_data['country']}:")
+    print(f"Temperature: {weather_data['temp']}°C")
     print(f"Feels like: {weather_data['feels_like']}°C")
-    print(f"Weather: {weather_data['weather'].title()}")
     print(f"Humidity: {weather_data['humidity']}%")
-    print(f"Pressure: {weather_data['pressure']} hPa")
-    print(f"Wind: {weather_data['wind_speed']} m/s at {weather_data['wind_deg']}°")
-    print(f"Visibility: {weather_data['visibility']} meters")
-    print(f"Cloudiness: {weather_data['cloudiness']}%")
-    print(f"Sunrise: {weather_data['sunrise']}")
-    print(f"Sunset: {weather_data['sunset']}")
-    print("="*50)
+    print(f"Conditions: {weather_data['description'].title()}")
+    print(f"Wind Speed: {weather_data['wind_speed']} m/s")
+
+def main():
+    if len(sys.argv) < 3:
+        print("Usage: python fetch_weather_data.py <api_key> <city>")
+        print("Example: python fetch_weather_data.py abc123 London")
+        sys.exit(1)
+    
+    api_key = sys.argv[1]
+    city = ' '.join(sys.argv[2:])
+    
+    weather_data = get_weather(api_key, city)
+    display_weather(weather_data)
 
 if __name__ == "__main__":
-    # Replace with your actual OpenWeatherMap API key
-    API_KEY = "your_api_key_here"
-    CITY = "London"
-    
-    weather = get_weather(API_KEY, CITY)
-    display_weather(weather)
+    main()
