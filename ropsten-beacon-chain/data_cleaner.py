@@ -1,59 +1,101 @@
 
-def remove_duplicates_preserve_order(iterable):
-    seen = set()
-    result = []
-    for item in iterable:
-        if item not in seen:
-            seen.add(item)
-            result.append(item)
-    return result
-import csv
-import sys
-from collections import OrderedDict
+import numpy as np
+import pandas as pd
 
-def remove_duplicates(input_file, output_file, key_column):
+def remove_outliers_iqr(df, column):
     """
-    Remove duplicate rows from a CSV file based on a specified key column.
-    Keeps the first occurrence of each duplicate.
-    """
-    seen = OrderedDict()
+    Remove outliers from a DataFrame column using the Interquartile Range method.
     
-    try:
-        with open(input_file, 'r', newline='', encoding='utf-8') as infile:
-            reader = csv.DictReader(infile)
-            fieldnames = reader.fieldnames
-            
-            if key_column not in fieldnames:
-                raise ValueError(f"Key column '{key_column}' not found in CSV headers")
-            
-            for row in reader:
-                key = row[key_column]
-                if key not in seen:
-                    seen[key] = row
-            
-        with open(output_file, 'w', newline='', encoding='utf-8') as outfile:
-            writer = csv.DictWriter(outfile, fieldnames=fieldnames)
-            writer.writeheader()
-            writer.writerows(seen.values())
-            
-        print(f"Processed {len(seen)} unique records. Output saved to {output_file}")
-        return True
-        
-    except FileNotFoundError:
-        print(f"Error: Input file '{input_file}' not found")
-        return False
-    except Exception as e:
-        print(f"Error processing file: {str(e)}")
-        return False
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    column (str): Column name to clean
+    
+    Returns:
+    pd.DataFrame: DataFrame with outliers removed
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    
+    return filtered_df.reset_index(drop=True)
+
+def calculate_summary_stats(df, column):
+    """
+    Calculate summary statistics for a column after outlier removal.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    column (str): Column name to analyze
+    
+    Returns:
+    dict: Dictionary containing summary statistics
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    stats = {
+        'mean': df[column].mean(),
+        'median': df[column].median(),
+        'std': df[column].std(),
+        'min': df[column].min(),
+        'max': df[column].max(),
+        'count': df[column].count(),
+        'q1': df[column].quantile(0.25),
+        'q3': df[column].quantile(0.75)
+    }
+    
+    return stats
+
+def clean_dataset(df, columns_to_clean=None):
+    """
+    Clean multiple columns in a DataFrame by removing outliers.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    columns_to_clean (list): List of column names to clean. If None, clean all numeric columns.
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame
+    """
+    if columns_to_clean is None:
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        columns_to_clean = list(numeric_cols)
+    
+    cleaned_df = df.copy()
+    
+    for column in columns_to_clean:
+        if column in cleaned_df.columns and pd.api.types.is_numeric_dtype(cleaned_df[column]):
+            original_count = len(cleaned_df)
+            cleaned_df = remove_outliers_iqr(cleaned_df, column)
+            removed_count = original_count - len(cleaned_df)
+            print(f"Removed {removed_count} outliers from column '{column}'")
+    
+    return cleaned_df
 
 if __name__ == "__main__":
-    if len(sys.argv) != 4:
-        print("Usage: python data_cleaner.py <input.csv> <output.csv> <key_column>")
-        sys.exit(1)
+    sample_data = {
+        'A': np.random.normal(100, 15, 1000),
+        'B': np.random.exponential(50, 1000),
+        'C': np.random.uniform(0, 200, 1000)
+    }
     
-    input_file = sys.argv[1]
-    output_file = sys.argv[2]
-    key_column = sys.argv[3]
+    sample_df = pd.DataFrame(sample_data)
+    sample_df.loc[::100, 'A'] = 500
     
-    success = remove_duplicates(input_file, output_file, key_column)
-    sys.exit(0 if success else 1)
+    print("Original dataset shape:", sample_df.shape)
+    print("\nOriginal summary statistics:")
+    print(calculate_summary_stats(sample_df, 'A'))
+    
+    cleaned_df = clean_dataset(sample_df, ['A', 'B'])
+    
+    print("\nCleaned dataset shape:", cleaned_df.shape)
+    print("\nCleaned summary statistics for column A:")
+    print(calculate_summary_stats(cleaned_df, 'A'))
