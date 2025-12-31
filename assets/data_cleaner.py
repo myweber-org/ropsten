@@ -1,56 +1,36 @@
+
 import pandas as pd
+import numpy as np
+from scipy import stats
 
-def clean_dataset(df, drop_duplicates=True):
-    """
-    Clean a pandas DataFrame by removing null values and optionally duplicates.
+def load_and_clean_data(filepath):
+    df = pd.read_csv(filepath)
     
-    Args:
-        df (pd.DataFrame): Input DataFrame to clean.
-        drop_duplicates (bool): Whether to drop duplicate rows. Default is True.
+    # Remove duplicate rows
+    df = df.drop_duplicates()
     
-    Returns:
-        pd.DataFrame: Cleaned DataFrame.
-    """
-    cleaned_df = df.dropna()
+    # Handle missing values
+    for column in df.select_dtypes(include=[np.number]).columns:
+        df[column] = df[column].fillna(df[column].median())
     
-    if drop_duplicates:
-        cleaned_df = cleaned_df.drop_duplicates()
+    # Remove outliers using z-score method
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    z_scores = np.abs(stats.zscore(df[numeric_cols]))
+    df = df[(z_scores < 3).all(axis=1)]
     
-    return cleaned_df
+    # Normalize numeric columns
+    for column in numeric_cols:
+        df[column] = (df[column] - df[column].min()) / (df[column].max() - df[column].min())
+    
+    return df
 
-def validate_data(df, required_columns):
-    """
-    Validate that the DataFrame contains all required columns.
-    
-    Args:
-        df (pd.DataFrame): DataFrame to validate.
-        required_columns (list): List of column names that must be present.
-    
-    Returns:
-        bool: True if all required columns are present, False otherwise.
-    """
-    missing_columns = [col for col in required_columns if col not in df.columns]
-    
-    if missing_columns:
-        print(f"Missing columns: {missing_columns}")
-        return False
-    
-    return True
+def save_cleaned_data(df, output_path):
+    df.to_csv(output_path, index=False)
+    print(f"Cleaned data saved to {output_path}")
 
 if __name__ == "__main__":
-    sample_data = {
-        'A': [1, 2, None, 4, 1],
-        'B': [5, 6, 7, None, 5],
-        'C': ['x', 'y', 'z', 'x', 'x']
-    }
+    input_file = "raw_data.csv"
+    output_file = "cleaned_data.csv"
     
-    df = pd.DataFrame(sample_data)
-    print("Original DataFrame:")
-    print(df)
-    
-    cleaned = clean_dataset(df)
-    print("\nCleaned DataFrame:")
-    print(cleaned)
-    
-    is_valid = validate_data(cleaned, ['A', 'B', 'C'])
-    print(f"\nData validation passed: {is_valid}")
+    cleaned_df = load_and_clean_data(input_file)
+    save_cleaned_data(cleaned_df, output_file)
