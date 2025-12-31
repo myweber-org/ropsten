@@ -27,7 +27,7 @@ def remove_outliers_iqr(df, column):
     
     return filtered_df.reset_index(drop=True)
 
-def calculate_summary_stats(df, column):
+def calculate_summary_statistics(df, column):
     """
     Calculate summary statistics for a column after outlier removal.
     
@@ -47,55 +47,51 @@ def calculate_summary_stats(df, column):
         'std': df[column].std(),
         'min': df[column].min(),
         'max': df[column].max(),
-        'count': df[column].count(),
-        'q1': df[column].quantile(0.25),
-        'q3': df[column].quantile(0.75)
+        'count': len(df[column])
     }
     
     return stats
 
-def clean_dataset(df, columns_to_clean=None):
+def clean_dataset(df, numeric_columns=None):
     """
-    Clean multiple columns in a DataFrame by removing outliers.
+    Clean entire dataset by removing outliers from all numeric columns.
     
     Parameters:
     df (pd.DataFrame): Input DataFrame
-    columns_to_clean (list): List of column names to clean. If None, clean all numeric columns.
+    numeric_columns (list): List of numeric column names to clean
     
     Returns:
     pd.DataFrame: Cleaned DataFrame
     """
-    if columns_to_clean is None:
-        numeric_cols = df.select_dtypes(include=[np.number]).columns
-        columns_to_clean = list(numeric_cols)
+    if numeric_columns is None:
+        numeric_columns = df.select_dtypes(include=[np.number]).columns.tolist()
     
     cleaned_df = df.copy()
     
-    for column in columns_to_clean:
-        if column in cleaned_df.columns and pd.api.types.is_numeric_dtype(cleaned_df[column]):
-            original_count = len(cleaned_df)
-            cleaned_df = remove_outliers_iqr(cleaned_df, column)
-            removed_count = original_count - len(cleaned_df)
-            print(f"Removed {removed_count} outliers from column '{column}'")
+    for column in numeric_columns:
+        if column in df.columns:
+            try:
+                cleaned_df = remove_outliers_iqr(cleaned_df, column)
+            except Exception as e:
+                print(f"Warning: Could not clean column '{column}': {e}")
     
     return cleaned_df
 
 if __name__ == "__main__":
     sample_data = {
-        'A': np.random.normal(100, 15, 1000),
-        'B': np.random.exponential(50, 1000),
-        'C': np.random.uniform(0, 200, 1000)
+        'temperature': [22, 23, 24, 25, 26, 100, 27, 28, 29, -10],
+        'humidity': [45, 46, 47, 48, 49, 50, 200, 51, 52, -5],
+        'location': ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']
     }
     
-    sample_df = pd.DataFrame(sample_data)
-    sample_df.loc[::100, 'A'] = 500
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\nSummary statistics for temperature:")
+    print(calculate_summary_statistics(df, 'temperature'))
     
-    print("Original dataset shape:", sample_df.shape)
-    print("\nOriginal summary statistics:")
-    print(calculate_summary_stats(sample_df, 'A'))
-    
-    cleaned_df = clean_dataset(sample_df, ['A', 'B'])
-    
-    print("\nCleaned dataset shape:", cleaned_df.shape)
-    print("\nCleaned summary statistics for column A:")
-    print(calculate_summary_stats(cleaned_df, 'A'))
+    cleaned_df = clean_dataset(df, ['temperature', 'humidity'])
+    print("\nCleaned DataFrame:")
+    print(cleaned_df)
+    print("\nSummary statistics after cleaning:")
+    print(calculate_summary_statistics(cleaned_df, 'temperature'))
