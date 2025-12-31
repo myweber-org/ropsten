@@ -309,3 +309,99 @@ if __name__ == "__main__":
     print(f"Original dataset shape: {df.shape}")
     cleaned_df = clean_dataset(df)
     print(f"Cleaned dataset shape: {cleaned_df.shape}")
+import pandas as pd
+import numpy as np
+from typing import Optional
+
+def clean_csv_data(
+    input_path: str,
+    output_path: str,
+    missing_strategy: str = 'drop',
+    fill_value: Optional[float] = None
+) -> pd.DataFrame:
+    """
+    Clean CSV data by handling missing values and standardizing columns.
+    
+    Args:
+        input_path: Path to input CSV file
+        output_path: Path to save cleaned CSV file
+        missing_strategy: Strategy for handling missing values ('drop', 'fill', 'interpolate')
+        fill_value: Value to fill missing data with when using 'fill' strategy
+    
+    Returns:
+        Cleaned DataFrame
+    """
+    
+    df = pd.read_csv(input_path)
+    
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    
+    if missing_strategy == 'drop':
+        df_cleaned = df.dropna(subset=numeric_cols)
+    elif missing_strategy == 'fill':
+        if fill_value is None:
+            fill_value = df[numeric_cols].mean()
+        df_cleaned = df.fillna({col: fill_value for col in numeric_cols})
+    elif missing_strategy == 'interpolate':
+        df_cleaned = df.interpolate(method='linear', limit_direction='forward')
+    else:
+        raise ValueError(f"Unknown missing strategy: {missing_strategy}")
+    
+    df_cleaned = df_cleaned.apply(lambda x: x.str.strip() if x.dtype == 'object' else x)
+    
+    df_cleaned.to_csv(output_path, index=False)
+    
+    return df_cleaned
+
+def remove_outliers_iqr(
+    df: pd.DataFrame,
+    column: str,
+    multiplier: float = 1.5
+) -> pd.DataFrame:
+    """
+    Remove outliers from a DataFrame column using IQR method.
+    
+    Args:
+        df: Input DataFrame
+        column: Column name to process
+        multiplier: IQR multiplier for outlier detection
+    
+    Returns:
+        DataFrame with outliers removed
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - multiplier * IQR
+    upper_bound = Q3 + multiplier * IQR
+    
+    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+
+def standardize_columns(
+    df: pd.DataFrame,
+    columns: list
+) -> pd.DataFrame:
+    """
+    Standardize specified columns to have zero mean and unit variance.
+    
+    Args:
+        df: Input DataFrame
+        columns: List of column names to standardize
+    
+    Returns:
+        DataFrame with standardized columns
+    """
+    df_standardized = df.copy()
+    
+    for col in columns:
+        if col in df.columns:
+            mean = df[col].mean()
+            std = df[col].std()
+            if std > 0:
+                df_standardized[col] = (df[col] - mean) / std
+    
+    return df_standardized
