@@ -382,3 +382,88 @@ def get_data_summary(data):
         }
     
     return summary
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df, drop_duplicates=True, fill_missing='mean'):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    """
+    original_shape = df.shape
+    
+    if drop_duplicates:
+        df = df.drop_duplicates()
+        print(f"Removed {original_shape[0] - df.shape[0]} duplicate rows")
+    
+    if fill_missing:
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        for col in numeric_cols:
+            if df[col].isnull().any():
+                if fill_missing == 'mean':
+                    fill_value = df[col].mean()
+                elif fill_missing == 'median':
+                    fill_value = df[col].median()
+                elif fill_missing == 'zero':
+                    fill_value = 0
+                else:
+                    fill_value = fill_missing
+                
+                df[col] = df[col].fillna(fill_value)
+                print(f"Filled missing values in column '{col}' with {fill_value}")
+    
+    categorical_cols = df.select_dtypes(include=['object']).columns
+    for col in categorical_cols:
+        if df[col].isnull().any():
+            df[col] = df[col].fillna('Unknown')
+            print(f"Filled missing values in column '{col}' with 'Unknown'")
+    
+    print(f"Dataset cleaned. Original shape: {original_shape}, New shape: {df.shape}")
+    return df
+
+def validate_dataset(df, required_columns=None):
+    """
+    Validate dataset for required columns and data integrity.
+    """
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            raise ValueError(f"Missing required columns: {missing_cols}")
+    
+    if df.empty:
+        raise ValueError("Dataset is empty")
+    
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    for col in numeric_cols:
+        if df[col].isnull().any():
+            print(f"Warning: Column '{col}' still contains missing values")
+    
+    return True
+
+def main():
+    """
+    Example usage of the data cleaning functions.
+    """
+    sample_data = {
+        'id': [1, 2, 2, 3, 4, 5],
+        'value': [10.5, np.nan, 15.0, 20.0, np.nan, 30.0],
+        'category': ['A', 'B', 'B', None, 'C', 'A'],
+        'score': [85, 90, 90, 95, None, 100]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original dataset:")
+    print(df)
+    print("\n" + "="*50 + "\n")
+    
+    cleaned_df = clean_dataset(df, drop_duplicates=True, fill_missing='mean')
+    print("\nCleaned dataset:")
+    print(cleaned_df)
+    
+    try:
+        validate_dataset(cleaned_df, required_columns=['id', 'value', 'category'])
+        print("\nDataset validation passed")
+    except ValueError as e:
+        print(f"\nDataset validation failed: {e}")
+
+if __name__ == "__main__":
+    main()
