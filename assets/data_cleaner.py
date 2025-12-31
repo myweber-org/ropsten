@@ -578,4 +578,84 @@ def remove_outliers_iqr(df, column, multiplier=1.5):
     if removed_count > 0:
         print(f"Removed {removed_count} outliers from column '{column}' using IQR method.")
     
-    return filtered_df
+    return filtered_dfimport numpy as np
+
+def remove_outliers_iqr(data, column):
+    """
+    Remove outliers from a specified column using the Interquartile Range method.
+    
+    Args:
+        data (np.ndarray): Input data array
+        column (int): Column index to process
+    
+    Returns:
+        np.ndarray: Data with outliers removed
+    """
+    if data.size == 0:
+        return data
+    
+    column_data = data[:, column]
+    
+    Q1 = np.percentile(column_data, 25)
+    Q3 = np.percentile(column_data, 75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    mask = (column_data >= lower_bound) & (column_data <= upper_bound)
+    
+    return data[mask]
+
+def calculate_statistics(data):
+    """
+    Calculate basic statistics for the data.
+    
+    Args:
+        data (np.ndarray): Input data array
+    
+    Returns:
+        dict: Dictionary containing mean, median, and standard deviation
+    """
+    if data.size == 0:
+        return {'mean': 0, 'median': 0, 'std': 0}
+    
+    stats = {
+        'mean': np.mean(data, axis=0),
+        'median': np.median(data, axis=0),
+        'std': np.std(data, axis=0)
+    }
+    
+    return stats
+
+def clean_dataset(data, columns_to_clean=None):
+    """
+    Clean dataset by removing outliers from specified columns.
+    
+    Args:
+        data (np.ndarray): Input data array
+        columns_to_clean (list): List of column indices to clean
+    
+    Returns:
+        np.ndarray: Cleaned data array
+    """
+    if columns_to_clean is None:
+        columns_to_clean = list(range(data.shape[1]))
+    
+    cleaned_data = data.copy()
+    
+    for column in columns_to_clean:
+        if column < data.shape[1]:
+            cleaned_data = remove_outliers_iqr(cleaned_data, column)
+    
+    return cleaned_data
+
+if __name__ == "__main__":
+    sample_data = np.random.randn(100, 3) * 10 + 50
+    print("Original data shape:", sample_data.shape)
+    
+    cleaned = clean_dataset(sample_data, [0, 1, 2])
+    print("Cleaned data shape:", cleaned.shape)
+    
+    stats = calculate_statistics(cleaned)
+    print("Statistics:", stats)
