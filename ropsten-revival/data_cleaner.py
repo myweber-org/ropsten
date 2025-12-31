@@ -162,4 +162,106 @@ def clean_dataset(df, outlier_method='iqr', normalize_method='minmax'):
         elif normalize_method == 'zscore':
             cleaner.normalize_zscore(col)
     
-    return cleaner.get_cleaned_data()
+    return cleaner.get_cleaned_data()import numpy as np
+import pandas as pd
+from scipy import stats
+
+class DataCleaner:
+    def __init__(self, df):
+        self.df = df.copy()
+        self.original_shape = df.shape
+        
+    def remove_outliers_iqr(self, columns=None, threshold=1.5):
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
+            
+        df_clean = self.df.copy()
+        for col in columns:
+            if col in self.df.columns:
+                Q1 = self.df[col].quantile(0.25)
+                Q3 = self.df[col].quantile(0.75)
+                IQR = Q3 - Q1
+                lower_bound = Q1 - threshold * IQR
+                upper_bound = Q3 + threshold * IQR
+                mask = (self.df[col] >= lower_bound) & (self.df[col] <= upper_bound)
+                df_clean = df_clean[mask]
+        return df_clean
+    
+    def normalize_minmax(self, columns=None):
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
+            
+        df_normalized = self.df.copy()
+        for col in columns:
+            if col in self.df.columns:
+                min_val = self.df[col].min()
+                max_val = self.df[col].max()
+                if max_val > min_val:
+                    df_normalized[col] = (self.df[col] - min_val) / (max_val - min_val)
+        return df_normalized
+    
+    def standardize_zscore(self, columns=None, threshold=3):
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
+            
+        df_standardized = self.df.copy()
+        for col in columns:
+            if col in self.df.columns:
+                mean_val = self.df[col].mean()
+                std_val = self.df[col].std()
+                if std_val > 0:
+                    z_scores = np.abs((self.df[col] - mean_val) / std_val)
+                    df_standardized = df_standardized[z_scores < threshold]
+                    df_standardized[col] = (df_standardized[col] - mean_val) / std_val
+        return df_standardized
+    
+    def fill_missing_median(self, columns=None):
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
+            
+        df_filled = self.df.copy()
+        for col in columns:
+            if col in self.df.columns and self.df[col].isnull().any():
+                median_val = self.df[col].median()
+                df_filled[col] = self.df[col].fillna(median_val)
+        return df_filled
+    
+    def get_summary(self):
+        summary = {
+            'original_rows': self.original_shape[0],
+            'original_columns': self.original_shape[1],
+            'missing_values': self.df.isnull().sum().sum(),
+            'numeric_columns': list(self.df.select_dtypes(include=[np.number]).columns),
+            'categorical_columns': list(self.df.select_dtypes(include=['object']).columns)
+        }
+        return summary
+
+def create_sample_data():
+    np.random.seed(42)
+    data = {
+        'feature_a': np.random.normal(100, 15, 100),
+        'feature_b': np.random.exponential(50, 100),
+        'feature_c': np.random.randint(1, 100, 100),
+        'category': np.random.choice(['A', 'B', 'C'], 100)
+    }
+    data['feature_a'][[10, 25, 50]] = [500, -200, 1000]
+    data['feature_b'][[15, 30]] = [np.nan, np.nan]
+    return pd.DataFrame(data)
+
+if __name__ == "__main__":
+    sample_df = create_sample_data()
+    cleaner = DataCleaner(sample_df)
+    
+    print("Data Summary:")
+    summary = cleaner.get_summary()
+    for key, value in summary.items():
+        print(f"{key}: {value}")
+    
+    cleaned_df = cleaner.remove_outliers_iqr(['feature_a', 'feature_b'])
+    normalized_df = cleaner.normalize_minmax(['feature_a', 'feature_c'])
+    standardized_df = cleaner.standardize_zscore(['feature_a'])
+    filled_df = cleaner.fill_missing_median(['feature_b'])
+    
+    print(f"\nOriginal shape: {sample_df.shape}")
+    print(f"Cleaned shape: {cleaned_df.shape}")
+    print(f"Normalized features range: {normalized_df[['feature_a', 'feature_c']].min().min():.3f} to {normalized_df[['feature_a', 'feature_c']].max().max():.3f}")
