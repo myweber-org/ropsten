@@ -60,3 +60,17 @@ def clean_dataset(df: pd.DataFrame,
         cleaner.normalize_numeric(normalize_cols)
     
     return cleaner.get_cleaned_data()
+def remove_duplicates_preserve_order(input_list):
+    seen = set()
+    result = []
+    for item in input_list:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
+
+def clean_data(data_sequence):
+    if not isinstance(data_sequence, list):
+        raise TypeError("Input must be a list")
+    cleaned = remove_duplicates_preserve_order(data_sequence)
+    return cleaned
