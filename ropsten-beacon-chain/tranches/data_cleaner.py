@@ -62,4 +62,75 @@ def remove_outliers(df, column, threshold=3):
     z_scores = np.abs(stats.zscore(df[column].dropna()))
     outlier_indices = np.where(z_scores > threshold)[0]
     
-    return df.drop(df.index[outlier_indices])
+    return df.drop(df.index[outlier_indices])import pandas as pd
+import numpy as np
+
+def clean_dataset(df, drop_duplicates=True, fill_missing='mean'):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    """
+    original_shape = df.shape
+    
+    if drop_duplicates:
+        df = df.drop_duplicates()
+        print(f"Removed {original_shape[0] - df.shape[0]} duplicate rows.")
+    
+    missing_before = df.isnull().sum().sum()
+    
+    if fill_missing and missing_before > 0:
+        if fill_missing == 'mean':
+            numeric_cols = df.select_dtypes(include=[np.number]).columns
+            df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].mean())
+        elif fill_missing == 'median':
+            numeric_cols = df.select_dtypes(include=[np.number]).columns
+            df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].median())
+        elif fill_missing == 'mode':
+            for col in df.columns:
+                if df[col].dtype == 'object':
+                    df[col] = df[col].fillna(df[col].mode()[0] if not df[col].mode().empty else 'Unknown')
+        elif fill_missing == 'drop':
+            df = df.dropna()
+    
+    missing_after = df.isnull().sum().sum()
+    print(f"Missing values handled: {missing_before} -> {missing_after}")
+    print(f"Final dataset shape: {df.shape}")
+    
+    return df
+
+def validate_data(df, required_columns=None, min_rows=1):
+    """
+    Validate the dataset structure and content.
+    """
+    if df.empty:
+        raise ValueError("DataFrame is empty.")
+    
+    if len(df) < min_rows:
+        raise ValueError(f"Dataset has fewer than {min_rows} rows.")
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            raise ValueError(f"Missing required columns: {missing_cols}")
+    
+    print("Data validation passed.")
+    return True
+
+if __name__ == "__main__":
+    sample_data = {
+        'id': [1, 2, 2, 3, 4, 5],
+        'value': [10.5, 20.3, 20.3, None, 40.1, None],
+        'category': ['A', 'B', 'B', 'C', None, 'A']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original dataset:")
+    print(df)
+    print("\n" + "="*50 + "\n")
+    
+    cleaned_df = clean_dataset(df, drop_duplicates=True, fill_missing='mean')
+    
+    try:
+        validate_data(cleaned_df, required_columns=['id', 'value'], min_rows=3)
+        print("\nDataset is ready for analysis.")
+    except ValueError as e:
+        print(f"Validation error: {e}")
