@@ -216,4 +216,169 @@ def save_cleaned_data(df, output_path, format='csv'):
     else:
         raise ValueError(f"Unsupported format: {format}")
     
-    print(f"Data saved to {output_path}")
+    print(f"Data saved to {output_path}")import numpy as np
+import pandas as pd
+
+def detect_outliers_iqr(data, column, threshold=1.5):
+    """
+    Detect outliers using the Interquartile Range method.
+    
+    Args:
+        data: pandas DataFrame
+        column: column name to check for outliers
+        threshold: multiplier for IQR (default 1.5)
+    
+    Returns:
+        Boolean mask indicating outliers
+    """
+    q1 = data[column].quantile(0.25)
+    q3 = data[column].quantile(0.75)
+    iqr = q3 - q1
+    lower_bound = q1 - threshold * iqr
+    upper_bound = q3 + threshold * iqr
+    
+    return (data[column] < lower_bound) | (data[column] > upper_bound)
+
+def remove_outliers(data, columns=None, threshold=1.5):
+    """
+    Remove outliers from specified columns.
+    
+    Args:
+        data: pandas DataFrame
+        columns: list of column names or None for all numeric columns
+        threshold: IQR threshold multiplier
+    
+    Returns:
+        DataFrame with outliers removed
+    """
+    if columns is None:
+        columns = data.select_dtypes(include=[np.number]).columns
+    
+    outlier_mask = pd.Series(False, index=data.index)
+    
+    for col in columns:
+        if col in data.columns:
+            outlier_mask |= detect_outliers_iqr(data, col, threshold)
+    
+    return data[~outlier_mask].copy()
+
+def normalize_minmax(data, columns=None):
+    """
+    Normalize data using min-max scaling to [0, 1] range.
+    
+    Args:
+        data: pandas DataFrame
+        columns: list of column names or None for all numeric columns
+    
+    Returns:
+        Normalized DataFrame
+    """
+    normalized_data = data.copy()
+    
+    if columns is None:
+        columns = normalized_data.select_dtypes(include=[np.number]).columns
+    
+    for col in columns:
+        if col in normalized_data.columns:
+            col_min = normalized_data[col].min()
+            col_max = normalized_data[col].max()
+            
+            if col_max != col_min:
+                normalized_data[col] = (normalized_data[col] - col_min) / (col_max - col_min)
+            else:
+                normalized_data[col] = 0
+    
+    return normalized_data
+
+def standardize_zscore(data, columns=None):
+    """
+    Standardize data using z-score normalization.
+    
+    Args:
+        data: pandas DataFrame
+        columns: list of column names or None for all numeric columns
+    
+    Returns:
+        Standardized DataFrame
+    """
+    standardized_data = data.copy()
+    
+    if columns is None:
+        columns = standardized_data.select_dtypes(include=[np.number]).columns
+    
+    for col in columns:
+        if col in standardized_data.columns:
+            col_mean = standardized_data[col].mean()
+            col_std = standardized_data[col].std()
+            
+            if col_std != 0:
+                standardized_data[col] = (standardized_data[col] - col_mean) / col_std
+            else:
+                standardized_data[col] = 0
+    
+    return standardized_data
+
+def clean_missing_values(data, strategy='mean', columns=None):
+    """
+    Handle missing values in the dataset.
+    
+    Args:
+        data: pandas DataFrame
+        strategy: 'mean', 'median', 'mode', or 'drop'
+        columns: list of column names or None for all columns
+    
+    Returns:
+        DataFrame with missing values handled
+    """
+    cleaned_data = data.copy()
+    
+    if columns is None:
+        columns = cleaned_data.columns
+    
+    for col in columns:
+        if col not in cleaned_data.columns:
+            continue
+            
+        if cleaned_data[col].isnull().any():
+            if strategy == 'drop':
+                cleaned_data = cleaned_data.dropna(subset=[col])
+            elif strategy == 'mean':
+                cleaned_data[col].fillna(cleaned_data[col].mean(), inplace=True)
+            elif strategy == 'median':
+                cleaned_data[col].fillna(cleaned_data[col].median(), inplace=True)
+            elif strategy == 'mode':
+                cleaned_data[col].fillna(cleaned_data[col].mode()[0], inplace=True)
+    
+    return cleaned_data
+
+def get_data_summary(data):
+    """
+    Generate a summary of the dataset including missing values and basic statistics.
+    
+    Args:
+        data: pandas DataFrame
+    
+    Returns:
+        Dictionary containing data summary
+    """
+    summary = {
+        'shape': data.shape,
+        'dtypes': data.dtypes.to_dict(),
+        'missing_values': data.isnull().sum().to_dict(),
+        'missing_percentage': (data.isnull().sum() / len(data) * 100).to_dict(),
+        'numeric_stats': {}
+    }
+    
+    numeric_cols = data.select_dtypes(include=[np.number]).columns
+    for col in numeric_cols:
+        summary['numeric_stats'][col] = {
+            'mean': data[col].mean(),
+            'std': data[col].std(),
+            'min': data[col].min(),
+            '25%': data[col].quantile(0.25),
+            '50%': data[col].median(),
+            '75%': data[col].quantile(0.75),
+            'max': data[col].max()
+        }
+    
+    return summary
