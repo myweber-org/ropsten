@@ -600,4 +600,53 @@ def save_cleaned_data(df, output_path):
         output_path (str): Path for the output CSV file.
     """
     df.to_csv(output_path, index=False)
-    print(f"Cleaned data saved to: {output_path}")
+    print(f"Cleaned data saved to: {output_path}")import pandas as pd
+import numpy as np
+from scipy import stats
+
+def detect_outliers_iqr(data, column):
+    Q1 = data[column].quantile(0.25)
+    Q3 = data[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    outliers = data[(data[column] < lower_bound) | (data[column] > upper_bound)]
+    return outliers
+
+def remove_outliers(data, column):
+    Q1 = data[column].quantile(0.25)
+    Q3 = data[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    return filtered_data
+
+def normalize_minmax(data, column):
+    min_val = data[column].min()
+    max_val = data[column].max()
+    normalized = (data[column] - min_val) / (max_val - min_val)
+    return normalized
+
+def standardize_zscore(data, column):
+    mean_val = data[column].mean()
+    std_val = data[column].std()
+    standardized = (data[column] - mean_val) / std_val
+    return standardized
+
+def handle_missing_mean(data, column):
+    mean_val = data[column].mean()
+    filled_data = data[column].fillna(mean_val)
+    return filled_data
+
+def handle_missing_median(data, column):
+    median_val = data[column].median()
+    filled_data = data[column].fillna(median_val)
+    return filled_data
+
+def validate_dataframe(df):
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError("Input must be a pandas DataFrame")
+    if df.empty:
+        raise ValueError("DataFrame is empty")
+    return True
