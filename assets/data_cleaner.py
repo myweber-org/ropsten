@@ -1,69 +1,101 @@
 
 import numpy as np
+import pandas as pd
 
-def remove_outliers_iqr(data, column):
+def remove_outliers_iqr(df, column):
     """
-    Remove outliers from a pandas DataFrame column using the IQR method.
+    Remove outliers from a DataFrame column using the Interquartile Range method.
     
-    Parameters:
-    data (pd.DataFrame): Input DataFrame
-    column (str): Column name to process
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        column (str): Column name to process
     
     Returns:
-    pd.DataFrame: DataFrame with outliers removed
+        pd.DataFrame: DataFrame with outliers removed
     """
-    Q1 = data[column].quantile(0.25)
-    Q3 = data[column].quantile(0.75)
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
     IQR = Q3 - Q1
     
     lower_bound = Q1 - 1.5 * IQR
     upper_bound = Q3 + 1.5 * IQR
     
-    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
-    return filtered_data
-
-def calculate_statistics(data, column):
-    """
-    Calculate basic statistics for a column after outlier removal.
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
     
-    Parameters:
-    data (pd.DataFrame): Input DataFrame
-    column (str): Column name to analyze
+    return filtered_df.reset_index(drop=True)
+
+def calculate_statistics(df, column):
+    """
+    Calculate basic statistics for a column.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        column (str): Column name to analyze
     
     Returns:
-    dict: Dictionary containing statistical measures
+        dict: Dictionary containing statistics
     """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
     stats = {
-        'mean': np.mean(data[column]),
-        'median': np.median(data[column]),
-        'std': np.std(data[column]),
-        'min': np.min(data[column]),
-        'max': np.max(data[column]),
-        'count': len(data[column])
+        'mean': df[column].mean(),
+        'median': df[column].median(),
+        'std': df[column].std(),
+        'min': df[column].min(),
+        'max': df[column].max(),
+        'count': len(df[column])
     }
+    
     return stats
 
-def clean_dataset(data, columns_to_clean):
+def validate_dataframe(df):
     """
-    Clean multiple columns in a dataset by removing outliers.
+    Validate DataFrame for common data quality issues.
     
-    Parameters:
-    data (pd.DataFrame): Input DataFrame
-    columns_to_clean (list): List of column names to clean
+    Args:
+        df (pd.DataFrame): DataFrame to validate
     
     Returns:
-    pd.DataFrame: Cleaned DataFrame
-    dict: Dictionary of statistics for each cleaned column
+        dict: Validation results
     """
-    cleaned_data = data.copy()
-    statistics = {}
+    validation_results = {
+        'has_nulls': df.isnull().any().any(),
+        'null_counts': df.isnull().sum().to_dict(),
+        'duplicate_rows': df.duplicated().sum(),
+        'data_types': df.dtypes.to_dict(),
+        'shape': df.shape
+    }
     
-    for column in columns_to_clean:
-        if column in cleaned_data.columns:
-            original_count = len(cleaned_data)
-            cleaned_data = remove_outliers_iqr(cleaned_data, column)
-            removed_count = original_count - len(cleaned_data)
-            statistics[column] = calculate_statistics(cleaned_data, column)
-            statistics[column]['outliers_removed'] = removed_count
+    return validation_results
+
+def example_usage():
+    """
+    Example usage of the data cleaning functions.
+    """
+    np.random.seed(42)
+    data = {
+        'id': range(100),
+        'value': np.random.normal(100, 15, 100)
+    }
     
-    return cleaned_data, statistics
+    df = pd.DataFrame(data)
+    
+    print("Original DataFrame:")
+    print(f"Shape: {df.shape}")
+    print(f"Statistics: {calculate_statistics(df, 'value')}")
+    
+    cleaned_df = remove_outliers_iqr(df, 'value')
+    
+    print("\nCleaned DataFrame:")
+    print(f"Shape: {cleaned_df.shape}")
+    print(f"Statistics: {calculate_statistics(cleaned_df, 'value')}")
+    
+    print("\nValidation Results:")
+    print(validate_dataframe(cleaned_df))
+
+if __name__ == "__main__":
+    example_usage()
