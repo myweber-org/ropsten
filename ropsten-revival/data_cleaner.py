@@ -89,3 +89,34 @@ def get_data_summary(df):
     }
     
     return summary
+import pandas as pd
+import re
+
+def clean_dataframe(df, column_name):
+    """
+    Clean a specific column in a pandas DataFrame by removing duplicates,
+    stripping whitespace, and converting to lowercase.
+    """
+    if column_name not in df.columns:
+        raise ValueError(f"Column '{column_name}' not found in DataFrame")
+
+    df[column_name] = df[column_name].astype(str)
+    df[column_name] = df[column_name].str.strip()
+    df[column_name] = df[column_name].str.lower()
+    df.drop_duplicates(subset=[column_name], inplace=True)
+    df.reset_index(drop=True, inplace=True)
+    return df
+
+def remove_special_characters(text):
+    """
+    Remove special characters from a string, keeping only alphanumeric and spaces.
+    """
+    return re.sub(r'[^a-zA-Z0-9\s]', '', text)
+
+def normalize_column(df, column_name):
+    """
+    Apply cleaning and special character removal to a column.
+    """
+    df = clean_dataframe(df, column_name)
+    df[column_name] = df[column_name].apply(remove_special_characters)
+    return df
