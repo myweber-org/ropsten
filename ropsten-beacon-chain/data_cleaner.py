@@ -57,3 +57,54 @@ def clean_dataset(input_file, output_file, method='iqr', normalize='minmax'):
 
 if __name__ == "__main__":
     cleaned_df = clean_dataset('raw_data.csv', 'cleaned_data.csv')
+import pandas as pd
+import numpy as np
+
+def remove_missing_rows(df, columns=None):
+    if columns is None:
+        columns = df.columns
+    return df.dropna(subset=columns)
+
+def fill_missing_with_mean(df, columns=None):
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    df_filled = df.copy()
+    for col in columns:
+        if col in df.columns and df[col].dtype in [np.float64, np.int64]:
+            df_filled[col] = df[col].fillna(df[col].mean())
+    return df_filled
+
+def detect_outliers_iqr(df, column):
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    outliers = df[(df[column] < lower_bound) | (df[column] > upper_bound)]
+    return outliers
+
+def cap_outliers(df, column, method='iqr'):
+    df_capped = df.copy()
+    if method == 'iqr':
+        Q1 = df[column].quantile(0.25)
+        Q3 = df[column].quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - 1.5 * IQR
+        upper_bound = Q3 + 1.5 * IQR
+        df_capped[column] = np.where(df_capped[column] < lower_bound, lower_bound, df_capped[column])
+        df_capped[column] = np.where(df_capped[column] > upper_bound, upper_bound, df_capped[column])
+    return df_capped
+
+def standardize_column(df, column):
+    df_standardized = df.copy()
+    mean = df[column].mean()
+    std = df[column].std()
+    df_standardized[column] = (df[column] - mean) / std
+    return df_standardized
+
+def normalize_column(df, column):
+    df_normalized = df.copy()
+    min_val = df[column].min()
+    max_val = df[column].max()
+    df_normalized[column] = (df[column] - min_val) / (max_val - min_val)
+    return df_normalized
