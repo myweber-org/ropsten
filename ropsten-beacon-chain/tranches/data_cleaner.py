@@ -99,4 +99,78 @@ def get_data_summary(df):
         'missing': df.isnull().sum()
     })
     
-    return summary
+    return summaryimport pandas as pd
+import numpy as np
+
+def clean_dataframe(df, drop_duplicates=True, fill_missing='mean'):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    """
+    cleaned_df = df.copy()
+    
+    if drop_duplicates:
+        initial_rows = cleaned_df.shape[0]
+        cleaned_df = cleaned_df.drop_duplicates()
+        removed = initial_rows - cleaned_df.shape[0]
+        print(f"Removed {removed} duplicate rows.")
+    
+    if fill_missing:
+        numeric_cols = cleaned_df.select_dtypes(include=[np.number]).columns
+        
+        if fill_missing == 'mean':
+            cleaned_df[numeric_cols] = cleaned_df[numeric_cols].fillna(cleaned_df[numeric_cols].mean())
+        elif fill_missing == 'median':
+            cleaned_df[numeric_cols] = cleaned_df[numeric_cols].fillna(cleaned_df[numeric_cols].median())
+        elif fill_missing == 'zero':
+            cleaned_df[numeric_cols] = cleaned_df[numeric_cols].fillna(0)
+        
+        print(f"Filled missing values in numeric columns using '{fill_missing}' method.")
+    
+    categorical_cols = cleaned_df.select_dtypes(include=['object']).columns
+    cleaned_df[categorical_cols] = cleaned_df[categorical_cols].fillna('Unknown')
+    print("Filled missing values in categorical columns with 'Unknown'.")
+    
+    return cleaned_df
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    """
+    if df.empty:
+        raise ValueError("DataFrame is empty.")
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            raise ValueError(f"Missing required columns: {missing_cols}")
+    
+    print(f"DataFrame validation passed. Shape: {df.shape}")
+    return True
+
+def main():
+    """
+    Example usage of data cleaning functions.
+    """
+    sample_data = {
+        'id': [1, 2, 2, 3, 4, 5],
+        'value': [10.5, np.nan, 15.0, 20.0, np.nan, 30.0],
+        'category': ['A', 'B', 'B', None, 'C', 'A'],
+        'score': [100, 200, 200, 300, 400, 500]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\n" + "="*50 + "\n")
+    
+    cleaned_df = clean_dataframe(df, drop_duplicates=True, fill_missing='mean')
+    print("\nCleaned DataFrame:")
+    print(cleaned_df)
+    
+    try:
+        validate_dataframe(cleaned_df, required_columns=['id', 'value', 'category'])
+    except ValueError as e:
+        print(f"Validation error: {e}")
+
+if __name__ == "__main__":
+    main()
