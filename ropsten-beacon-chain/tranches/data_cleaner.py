@@ -125,4 +125,144 @@ def clean_dataset(df, outlier_method='iqr', normalize_method=None, fill_missing=
     elif normalize_method == 'zscore':
         cleaner.normalize_zscore()
         
-    return cleaner.get_cleaned_data(), cleaner.get_summary()
+    return cleaner.get_cleaned_data(), cleaner.get_summary()import pandas as pd
+import numpy as np
+
+def remove_duplicates(df, subset=None, keep='first'):
+    """
+    Remove duplicate rows from a DataFrame.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    subset (list, optional): Columns to consider for duplicates
+    keep (str): Which duplicates to keep - 'first', 'last', or False
+    
+    Returns:
+    pd.DataFrame: DataFrame with duplicates removed
+    """
+    if df.empty:
+        return df
+    
+    if subset is None:
+        subset = df.columns.tolist()
+    
+    cleaned_df = df.drop_duplicates(subset=subset, keep=keep)
+    
+    print(f"Removed {len(df) - len(cleaned_df)} duplicate rows")
+    print(f"Original shape: {df.shape}, Cleaned shape: {cleaned_df.shape}")
+    
+    return cleaned_df
+
+def clean_missing_values(df, strategy='drop', fill_value=None):
+    """
+    Handle missing values in DataFrame.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    strategy (str): 'drop' to remove rows, 'fill' to fill values
+    fill_value: Value to fill when strategy='fill'
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame
+    """
+    if df.empty:
+        return df
+    
+    if strategy == 'drop':
+        cleaned_df = df.dropna()
+        print(f"Removed {len(df) - len(cleaned_df)} rows with missing values")
+    elif strategy == 'fill':
+        if fill_value is None:
+            fill_value = df.mean(numeric_only=True)
+        cleaned_df = df.fillna(fill_value)
+        print(f"Filled missing values with {fill_value}")
+    else:
+        raise ValueError("Strategy must be 'drop' or 'fill'")
+    
+    print(f"Original shape: {df.shape}, Cleaned shape: {cleaned_df.shape}")
+    return cleaned_df
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate
+    required_columns (list): List of required column names
+    
+    Returns:
+    bool: True if validation passes
+    """
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError("Input must be a pandas DataFrame")
+    
+    if df.empty:
+        print("Warning: DataFrame is empty")
+        return True
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            raise ValueError(f"Missing required columns: {missing_cols}")
+    
+    print(f"DataFrame validation passed")
+    print(f"Shape: {df.shape}")
+    print(f"Columns: {list(df.columns)}")
+    print(f"Data types:\n{df.dtypes}")
+    
+    return True
+
+def process_dataframe(df, 
+                     remove_dups=True, 
+                     handle_missing=True, 
+                     missing_strategy='drop',
+                     required_columns=None):
+    """
+    Main function to process and clean DataFrame.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    remove_dups (bool): Whether to remove duplicates
+    handle_missing (bool): Whether to handle missing values
+    missing_strategy (str): Strategy for missing values
+    required_columns (list): Required columns for validation
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame
+    """
+    print("Starting data cleaning process...")
+    
+    validate_dataframe(df, required_columns)
+    
+    if remove_dups:
+        df = remove_duplicates(df)
+    
+    if handle_missing:
+        df = clean_missing_values(df, strategy=missing_strategy)
+    
+    print("Data cleaning completed successfully")
+    return df
+
+if __name__ == "__main__":
+    sample_data = {
+        'id': [1, 2, 3, 1, 4, 5, 6, 7, 8, 9],
+        'name': ['Alice', 'Bob', 'Charlie', 'Alice', 'David', 'Eve', 'Frank', None, 'Grace', 'Henry'],
+        'age': [25, 30, 35, 25, 28, 22, 40, 33, 29, None],
+        'score': [85.5, 92.0, 78.5, 85.5, 88.0, 95.5, 72.0, 81.5, 90.0, 87.5]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\n" + "="*50 + "\n")
+    
+    cleaned_df = process_dataframe(
+        df, 
+        remove_dups=True,
+        handle_missing=True,
+        missing_strategy='drop',
+        required_columns=['id', 'name', 'age', 'score']
+    )
+    
+    print("\nCleaned DataFrame:")
+    print(cleaned_df)
