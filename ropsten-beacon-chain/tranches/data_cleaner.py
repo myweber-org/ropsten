@@ -329,4 +329,110 @@ def validate_data(data, required_columns=None, allow_nan=False):
     if not allow_nan and data.isnull().any().any():
         raise ValueError("Data contains NaN values")
     
-    return True
+    return Trueimport pandas as pd
+import numpy as np
+
+def clean_dataset(df, missing_strategy='mean', outlier_method='iqr', columns=None):
+    """
+    Clean a pandas DataFrame by handling missing values and outliers.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    missing_strategy (str): Strategy for handling missing values ('mean', 'median', 'mode', 'drop')
+    outlier_method (str): Method for outlier detection ('iqr', 'zscore')
+    columns (list): Specific columns to clean, if None clean all numeric columns
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame
+    """
+    df_clean = df.copy()
+    
+    if columns is None:
+        columns = df_clean.select_dtypes(include=[np.number]).columns.tolist()
+    
+    for col in columns:
+        if col not in df_clean.columns:
+            continue
+            
+        if missing_strategy != 'drop':
+            if missing_strategy == 'mean':
+                fill_value = df_clean[col].mean()
+            elif missing_strategy == 'median':
+                fill_value = df_clean[col].median()
+            elif missing_strategy == 'mode':
+                fill_value = df_clean[col].mode()[0] if not df_clean[col].mode().empty else np.nan
+            else:
+                fill_value = 0
+                
+            df_clean[col] = df_clean[col].fillna(fill_value)
+        else:
+            df_clean = df_clean.dropna(subset=[col])
+    
+    if outlier_method == 'iqr':
+        for col in columns:
+            if col not in df_clean.columns:
+                continue
+                
+            Q1 = df_clean[col].quantile(0.25)
+            Q3 = df_clean[col].quantile(0.75)
+            IQR = Q3 - Q1
+            lower_bound = Q1 - 1.5 * IQR
+            upper_bound = Q3 + 1.5 * IQR
+            
+            df_clean[col] = np.where(
+                (df_clean[col] < lower_bound) | (df_clean[col] > upper_bound),
+                df_clean[col].median(),
+                df_clean[col]
+            )
+    
+    elif outlier_method == 'zscore':
+        for col in columns:
+            if col not in df_clean.columns:
+                continue
+                
+            z_scores = np.abs((df_clean[col] - df_clean[col].mean()) / df_clean[col].std())
+            df_clean[col] = np.where(z_scores > 3, df_clean[col].median(), df_clean[col])
+    
+    return df_clean
+
+def validate_data(df, required_columns=None, min_rows=1):
+    """
+    Validate DataFrame structure and content.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate
+    required_columns (list): List of required column names
+    min_rows (int): Minimum number of rows required
+    
+    Returns:
+    tuple: (is_valid, error_message)
+    """
+    if not isinstance(df, pd.DataFrame):
+        return False, "Input is not a pandas DataFrame"
+    
+    if len(df) < min_rows:
+        return False, f"DataFrame has fewer than {min_rows} rows"
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            return False, f"Missing required columns: {missing_cols}"
+    
+    return True, "Data validation passed"
+
+if __name__ == "__main__":
+    sample_data = pd.DataFrame({
+        'A': [1, 2, np.nan, 4, 100],
+        'B': [5, 6, 7, np.nan, 9],
+        'C': ['x', 'y', 'z', 'x', 'y']
+    })
+    
+    print("Original data:")
+    print(sample_data)
+    
+    cleaned_data = clean_dataset(sample_data, missing_strategy='median', outlier_method='iqr')
+    print("\nCleaned data:")
+    print(cleaned_data)
+    
+    is_valid, message = validate_data(cleaned_data, required_columns=['A', 'B'])
+    print(f"\nValidation: {message}")
