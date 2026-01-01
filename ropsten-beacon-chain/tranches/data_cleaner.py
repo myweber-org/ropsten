@@ -2,99 +2,101 @@
 import pandas as pd
 import numpy as np
 
-def clean_dataset(df, column_mapping=None, drop_duplicates=True, normalize_text=True):
+def remove_outliers_iqr(df, column):
     """
-    Clean a pandas DataFrame by handling missing values, removing duplicates,
-    and normalizing text columns.
+    Remove outliers from a DataFrame column using the Interquartile Range method.
     
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    column_mapping (dict): Optional column renaming dictionary
-    drop_duplicates (bool): Whether to remove duplicate rows
-    normalize_text (bool): Whether to normalize text columns
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        column (str): Column name to process
     
     Returns:
-    pd.DataFrame: Cleaned DataFrame
+        pd.DataFrame: DataFrame with outliers removed
     """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
     
-    df_clean = df.copy()
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
     
-    if column_mapping:
-        df_clean = df_clean.rename(columns=column_mapping)
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
     
-    if drop_duplicates:
-        df_clean = df_clean.drop_duplicates().reset_index(drop=True)
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
     
-    for col in df_clean.select_dtypes(include=['object']).columns:
-        df_clean[col] = df_clean[col].astype(str)
-        
-        if normalize_text:
-            df_clean[col] = df_clean[col].str.strip()
-            df_clean[col] = df_clean[col].str.lower()
-            df_clean[col] = df_clean[col].replace('', np.nan)
-    
-    numeric_cols = df_clean.select_dtypes(include=[np.number]).columns
-    for col in numeric_cols:
-        df_clean[col] = pd.to_numeric(df_clean[col], errors='coerce')
-    
-    return df_clean
+    return filtered_df
 
-def validate_dataframe(df, required_columns=None):
+def normalize_column(df, column):
     """
-    Validate DataFrame structure and content.
+    Normalize a column using min-max scaling.
     
-    Parameters:
-    df (pd.DataFrame): DataFrame to validate
-    required_columns (list): List of required column names
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        column (str): Column name to normalize
     
     Returns:
-    dict: Validation results
+        pd.DataFrame: DataFrame with normalized column
     """
-    validation_results = {
-        'is_valid': True,
-        'errors': [],
-        'warnings': []
-    }
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
     
-    if required_columns:
-        missing_columns = [col for col in required_columns if col not in df.columns]
-        if missing_columns:
-            validation_results['is_valid'] = False
-            validation_results['errors'].append(f"Missing columns: {missing_columns}")
+    min_val = df[column].min()
+    max_val = df[column].max()
     
-    if df.empty:
-        validation_results['warnings'].append("DataFrame is empty")
+    if max_val == min_val:
+        df[column + '_normalized'] = 0.5
+    else:
+        df[column + '_normalized'] = (df[column] - min_val) / (max_val - min_val)
     
-    null_counts = df.isnull().sum()
-    if null_counts.any():
-        validation_results['warnings'].append(f"Null values found: {null_counts[null_counts > 0].to_dict()}")
-    
-    return validation_results
+    return df
 
-def sample_data_processing():
+def clean_missing_values(df, strategy='mean'):
     """
-    Example usage of the data cleaning functions.
+    Handle missing values in numeric columns.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        strategy (str): Strategy to handle missing values ('mean', 'median', 'drop')
+    
+    Returns:
+        pd.DataFrame: DataFrame with handled missing values
     """
-    sample_data = {
-        'Name': ['John Doe', 'Jane Smith', 'John Doe', 'Bob Johnson', ''],
-        'Age': [25, 30, 25, 35, None],
-        'Email': ['JOHN@example.com', 'jane@example.com', 'john@example.com', 'bob@example.com', None],
-        'Score': ['85', '92', '85', '78', 'N/A']
-    }
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
     
-    df = pd.DataFrame(sample_data)
-    print("Original DataFrame:")
-    print(df)
-    print("\n" + "="*50 + "\n")
+    if strategy == 'mean':
+        for col in numeric_cols:
+            df[col] = df[col].fillna(df[col].mean())
+    elif strategy == 'median':
+        for col in numeric_cols:
+            df[col] = df[col].fillna(df[col].median())
+    elif strategy == 'drop':
+        df = df.dropna(subset=numeric_cols)
+    else:
+        raise ValueError("Strategy must be 'mean', 'median', or 'drop'")
     
-    cleaned_df = clean_dataset(df, drop_duplicates=True, normalize_text=True)
-    print("Cleaned DataFrame:")
-    print(cleaned_df)
-    print("\n" + "="*50 + "\n")
-    
-    validation = validate_dataframe(cleaned_df, required_columns=['Name', 'Age', 'Email'])
-    print("Validation Results:")
-    print(validation)
+    return df
 
-if __name__ == "__main__":
-    sample_data_processing()
+def get_data_summary(df):
+    """
+    Generate a summary statistics DataFrame.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+    
+    Returns:
+        pd.DataFrame: Summary statistics
+    """
+    summary = pd.DataFrame({
+        'count': df.count(),
+        'mean': df.mean(numeric_only=True),
+        'std': df.std(numeric_only=True),
+        'min': df.min(numeric_only=True),
+        '25%': df.quantile(0.25, numeric_only=True),
+        '50%': df.quantile(0.5, numeric_only=True),
+        '75%': df.quantile(0.75, numeric_only=True),
+        'max': df.max(numeric_only=True),
+        'missing': df.isnull().sum()
+    })
+    
+    return summary
