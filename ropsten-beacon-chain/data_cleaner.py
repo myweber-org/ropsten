@@ -278,3 +278,55 @@ def validate_dataframe(df, required_columns=None):
             return False, f"Missing required columns: {missing_columns}"
     
     return True, "DataFrame is valid"
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df):
+    """
+    Clean the dataset by removing duplicates, handling missing values,
+    and standardizing column names.
+    """
+    # Remove duplicate rows
+    df_cleaned = df.drop_duplicates()
+    
+    # Standardize column names: lower case and replace spaces with underscores
+    df_cleaned.columns = df_cleaned.columns.str.lower().str.replace(' ', '_')
+    
+    # Fill missing numeric values with column median
+    numeric_cols = df_cleaned.select_dtypes(include=[np.number]).columns
+    for col in numeric_cols:
+        df_cleaned[col] = df_cleaned[col].fillna(df_cleaned[col].median())
+    
+    # Fill missing categorical values with mode
+    categorical_cols = df_cleaned.select_dtypes(include=['object']).columns
+    for col in categorical_cols:
+        df_cleaned[col] = df_cleaned[col].fillna(df_cleaned[col].mode()[0] if not df_cleaned[col].mode().empty else 'unknown')
+    
+    return df_cleaned
+
+def validate_data(df, required_columns):
+    """
+    Validate that the dataset contains all required columns.
+    """
+    missing_columns = [col for col in required_columns if col not in df.columns]
+    if missing_columns:
+        raise ValueError(f"Missing required columns: {missing_columns}")
+    return True
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = pd.DataFrame({
+        'Customer ID': [1, 2, 2, 3, 4],
+        'Order Value': [100, 200, None, 150, 300],
+        'Product Category': ['Electronics', 'Clothing', None, 'Electronics', 'Home']
+    })
+    
+    required_cols = ['customer_id', 'order_value', 'product_category']
+    
+    try:
+        cleaned_data = clean_dataset(sample_data)
+        validate_data(cleaned_data, required_cols)
+        print("Data cleaning completed successfully.")
+        print(cleaned_data)
+    except Exception as e:
+        print(f"Error during data cleaning: {e}")
