@@ -288,3 +288,103 @@ if __name__ == "__main__":
     
     print("\nFirst 5 rows of cleaned data:")
     print(cleaned_df.head())
+import pandas as pd
+import re
+
+def clean_dataframe(df, column_mapping=None, drop_duplicates=True, normalize_text=True):
+    """
+    Clean a pandas DataFrame by removing duplicates and normalizing text columns.
+    
+    Args:
+        df: pandas DataFrame to clean
+        column_mapping: dictionary mapping old column names to new ones
+        drop_duplicates: whether to remove duplicate rows
+        normalize_text: whether to normalize text columns (strip, lowercase)
+    
+    Returns:
+        Cleaned pandas DataFrame
+    """
+    cleaned_df = df.copy()
+    
+    if column_mapping:
+        cleaned_df = cleaned_df.rename(columns=column_mapping)
+    
+    if drop_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates().reset_index(drop=True)
+    
+    if normalize_text:
+        for col in cleaned_df.select_dtypes(include=['object']).columns:
+            cleaned_df[col] = cleaned_df[col].astype(str).str.strip().str.lower()
+            cleaned_df[col] = cleaned_df[col].apply(lambda x: re.sub(r'\s+', ' ', x))
+    
+    return cleaned_df
+
+def validate_email(email_string):
+    """
+    Validate email addresses using regex pattern.
+    
+    Args:
+        email_string: string to validate as email
+    
+    Returns:
+        Boolean indicating if string is valid email
+    """
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return bool(re.match(pattern, str(email_string)))
+
+def calculate_statistics(df, numeric_columns=None):
+    """
+    Calculate basic statistics for numeric columns.
+    
+    Args:
+        df: pandas DataFrame
+        numeric_columns: list of numeric column names (uses all numeric if None)
+    
+    Returns:
+        Dictionary with statistics for each column
+    """
+    if numeric_columns is None:
+        numeric_columns = df.select_dtypes(include=['number']).columns.tolist()
+    
+    stats = {}
+    for col in numeric_columns:
+        if col in df.columns:
+            col_data = df[col].dropna()
+            stats[col] = {
+                'mean': col_data.mean(),
+                'median': col_data.median(),
+                'std': col_data.std(),
+                'min': col_data.min(),
+                'max': col_data.max(),
+                'count': len(col_data)
+            }
+    
+    return stats
+
+if __name__ == "__main__":
+    sample_data = {
+        'Name': ['John Doe', 'Jane Smith', 'John Doe', ' Bob Johnson '],
+        'Email': ['john@example.com', 'jane@test.org', 'invalid-email', 'bob@company.co'],
+        'Age': [25, 30, 25, 35],
+        'Salary': [50000, 60000, 50000, 75000]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\n")
+    
+    cleaned = clean_dataframe(df, drop_duplicates=True, normalize_text=True)
+    print("Cleaned DataFrame:")
+    print(cleaned)
+    print("\n")
+    
+    email_validation = cleaned['Email'].apply(validate_email)
+    print("Email Validation Results:")
+    print(email_validation)
+    print("\n")
+    
+    stats = calculate_statistics(cleaned, ['Age', 'Salary'])
+    print("Statistics:")
+    for col, col_stats in stats.items():
+        print(f"{col}: {col_stats}")
