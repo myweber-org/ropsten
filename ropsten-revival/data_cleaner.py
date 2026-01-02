@@ -349,3 +349,25 @@ if __name__ == "__main__":
     print("\nCleaning statistics:")
     for key, value in stats.items():
         print(f"{key}: {value}")
+import re
+
+def clean_string(text):
+    """
+    Clean and normalize a string by:
+    1. Removing leading/trailing whitespace
+    2. Converting multiple spaces to a single space
+    3. Converting to lowercase
+    """
+    if not isinstance(text, str):
+        raise TypeError("Input must be a string")
+    
+    # Remove leading/trailing whitespace
+    cleaned = text.strip()
+    
+    # Replace multiple spaces with a single space
+    cleaned = re.sub(r'\s+', ' ', cleaned)
+    
+    # Convert to lowercase
+    cleaned = cleaned.lower()
+    
+    return cleaned
