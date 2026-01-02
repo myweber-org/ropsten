@@ -1,84 +1,55 @@
 
 import numpy as np
+import pandas as pd
+from scipy import stats
 
-def remove_outliers_iqr(data, column):
-    """
-    Remove outliers from a specified column using the IQR method.
+class DataCleaner:
+    def __init__(self, df):
+        self.df = df.copy()
+        self.original_shape = df.shape
+        
+    def remove_outliers_iqr(self, column, multiplier=1.5):
+        Q1 = self.df[column].quantile(0.25)
+        Q3 = self.df[column].quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - multiplier * IQR
+        upper_bound = Q3 + multiplier * IQR
+        mask = (self.df[column] >= lower_bound) & (self.df[column] <= upper_bound)
+        self.df = self.df[mask]
+        return self
     
-    Parameters:
-    data (list or np.array): Input data
-    column (int): Column index for 2D data, or None for 1D data
+    def remove_outliers_zscore(self, column, threshold=3):
+        z_scores = np.abs(stats.zscore(self.df[column]))
+        mask = z_scores < threshold
+        self.df = self.df[mask]
+        return self
     
-    Returns:
-    np.array: Data with outliers removed
-    """
-    if column is not None:
-        column_data = data[:, column]
-    else:
-        column_data = np.array(data)
+    def normalize_minmax(self, column):
+        min_val = self.df[column].min()
+        max_val = self.df[column].max()
+        self.df[column] = (self.df[column] - min_val) / (max_val - min_val)
+        return self
     
-    q1 = np.percentile(column_data, 25)
-    q3 = np.percentile(column_data, 75)
-    iqr = q3 - q1
+    def normalize_zscore(self, column):
+        mean_val = self.df[column].mean()
+        std_val = self.df[column].std()
+        self.df[column] = (self.df[column] - mean_val) / std_val
+        return self
     
-    lower_bound = q1 - 1.5 * iqr
-    upper_bound = q3 + 1.5 * iqr
+    def fill_missing_mean(self, column):
+        self.df[column] = self.df[column].fillna(self.df[column].mean())
+        return self
     
-    if column is not None:
-        mask = (data[:, column] >= lower_bound) & (data[:, column] <= upper_bound)
-        return data[mask]
-    else:
-        mask = (column_data >= lower_bound) & (column_data <= upper_bound)
-        return column_data[mask]
-
-def calculate_statistics(data):
-    """
-    Calculate basic statistics for the data.
+    def fill_missing_median(self, column):
+        self.df[column] = self.df[column].fillna(self.df[column].median())
+        return self
     
-    Parameters:
-    data (np.array): Input data
+    def drop_duplicates(self):
+        self.df = self.df.drop_duplicates()
+        return self
     
-    Returns:
-    dict: Dictionary containing mean, median, std, min, max
-    """
-    return {
-        'mean': np.mean(data),
-        'median': np.median(data),
-        'std': np.std(data),
-        'min': np.min(data),
-        'max': np.max(data)
-    }
-
-def clean_dataset(data, columns_to_clean=None):
-    """
-    Clean dataset by removing outliers from specified columns.
+    def get_cleaned_data(self):
+        return self.df
     
-    Parameters:
-    data (np.array): 2D array of data
-    columns_to_clean (list): List of column indices to clean
-    
-    Returns:
-    np.array: Cleaned dataset
-    """
-    if columns_to_clean is None:
-        columns_to_clean = range(data.shape[1])
-    
-    cleaned_data = data.copy()
-    
-    for col in columns_to_clean:
-        if col < data.shape[1]:
-            cleaned_data = remove_outliers_iqr(cleaned_data, col)
-    
-    return cleaned_data
-
-if __name__ == "__main__":
-    # Example usage
-    sample_data = np.random.randn(100, 3)
-    sample_data[0, 0] = 10  # Add an outlier
-    
-    print("Original data shape:", sample_data.shape)
-    print("Original statistics for column 0:", calculate_statistics(sample_data[:, 0]))
-    
-    cleaned = clean_dataset(sample_data, columns_to_clean=[0])
-    print("\nCleaned data shape:", cleaned.shape)
-    print("Cleaned statistics for column 0:", calculate_statistics(cleaned[:, 0]))
+    def get_removed_count(self):
+        return self.original_shape[0] - self.df.shape[0]
