@@ -210,3 +210,11 @@ def clean_dataset(df, missing_strategy='mean', outlier_method='zscore'):
     cleaner.remove_outliers(method=outlier_method)
     cleaner.normalize_data()
     return cleaner.get_cleaned_data()
+def deduplicate_list(input_list):
+    seen = set()
+    result = []
+    for item in input_list:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
