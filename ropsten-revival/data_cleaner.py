@@ -570,3 +570,69 @@ def validate_dataframe(df, required_columns=None):
             return False, f"Missing required columns: {missing_columns}"
     
     return True, "DataFrame is valid"
+import pandas as pd
+import numpy as np
+import re
+
+def clean_column_names(df):
+    df.columns = [re.sub(r'\s+', '_', col.strip().lower()) for col in df.columns]
+    return df
+
+def remove_duplicates(df, subset=None):
+    return df.drop_duplicates(subset=subset, keep='first')
+
+def handle_missing_values(df, strategy='mean', columns=None):
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    for col in columns:
+        if df[col].isnull().any():
+            if strategy == 'mean':
+                df[col].fillna(df[col].mean(), inplace=True)
+            elif strategy == 'median':
+                df[col].fillna(df[col].median(), inplace=True)
+            elif strategy == 'mode':
+                df[col].fillna(df[col].mode()[0], inplace=True)
+            elif strategy == 'drop':
+                df.dropna(subset=[col], inplace=True)
+    
+    return df
+
+def normalize_numeric_columns(df, columns=None):
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    for col in columns:
+        if df[col].std() != 0:
+            df[col] = (df[col] - df[col].mean()) / df[col].std()
+    
+    return df
+
+def process_csv(input_file, output_file, cleaning_steps=None):
+    try:
+        df = pd.read_csv(input_file)
+        
+        if cleaning_steps is None:
+            cleaning_steps = [
+                clean_column_names,
+                lambda x: remove_duplicates(x),
+                lambda x: handle_missing_values(x, strategy='mean'),
+                normalize_numeric_columns
+            ]
+        
+        for step in cleaning_steps:
+            df = step(df)
+        
+        df.to_csv(output_file, index=False)
+        print(f"Data cleaned successfully. Output saved to {output_file}")
+        return True
+        
+    except Exception as e:
+        print(f"Error processing file: {e}")
+        return False
+
+if __name__ == "__main__":
+    input_file = "raw_data.csv"
+    output_file = "cleaned_data.csv"
+    
+    process_csv(input_file, output_file)
