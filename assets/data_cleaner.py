@@ -1,100 +1,93 @@
+
 import pandas as pd
 import numpy as np
-from typing import Optional, List
 
-def remove_duplicates(df: pd.DataFrame, subset: Optional[List[str]] = None) -> pd.DataFrame:
+def clean_dataset(df, drop_duplicates=True, fill_missing=True, fill_strategy='mean'):
     """
-    Remove duplicate rows from DataFrame.
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
     
-    Args:
-        df: Input DataFrame
-        subset: Columns to consider for identifying duplicates
+    Parameters:
+    df (pd.DataFrame): Input DataFrame to clean.
+    drop_duplicates (bool): Whether to drop duplicate rows.
+    fill_missing (bool): Whether to fill missing values.
+    fill_strategy (str): Strategy for filling missing values ('mean', 'median', 'mode', or 'zero').
     
     Returns:
-        DataFrame with duplicates removed
-    """
-    return df.drop_duplicates(subset=subset, keep='first')
-
-def fill_missing_values(df: pd.DataFrame, strategy: str = 'mean', columns: Optional[List[str]] = None) -> pd.DataFrame:
-    """
-    Fill missing values in DataFrame columns.
-    
-    Args:
-        df: Input DataFrame
-        strategy: 'mean', 'median', 'mode', or 'constant'
-        columns: Specific columns to fill, None for all numeric columns
-    
-    Returns:
-        DataFrame with missing values filled
-    """
-    df_filled = df.copy()
-    
-    if columns is None:
-        columns = df.select_dtypes(include=[np.number]).columns.tolist()
-    
-    for col in columns:
-        if col in df.columns and df[col].isnull().any():
-            if strategy == 'mean':
-                df_filled[col] = df[col].fillna(df[col].mean())
-            elif strategy == 'median':
-                df_filled[col] = df[col].fillna(df[col].median())
-            elif strategy == 'mode':
-                df_filled[col] = df[col].fillna(df[col].mode()[0])
-            elif strategy == 'constant':
-                df_filled[col] = df[col].fillna(0)
-    
-    return df_filled
-
-def normalize_columns(df: pd.DataFrame, columns: Optional[List[str]] = None) -> pd.DataFrame:
-    """
-    Normalize specified columns using min-max scaling.
-    
-    Args:
-        df: Input DataFrame
-        columns: Columns to normalize, None for all numeric columns
-    
-    Returns:
-        DataFrame with normalized columns
-    """
-    df_normalized = df.copy()
-    
-    if columns is None:
-        columns = df.select_dtypes(include=[np.number]).columns.tolist()
-    
-    for col in columns:
-        if col in df.columns:
-            col_min = df[col].min()
-            col_max = df[col].max()
-            if col_max > col_min:
-                df_normalized[col] = (df[col] - col_min) / (col_max - col_min)
-    
-    return df_normalized
-
-def clean_dataframe(df: pd.DataFrame, 
-                    remove_dups: bool = True,
-                    fill_na: bool = True,
-                    normalize: bool = False) -> pd.DataFrame:
-    """
-    Main function to clean DataFrame with multiple operations.
-    
-    Args:
-        df: Input DataFrame
-        remove_dups: Whether to remove duplicates
-        fill_na: Whether to fill missing values
-        normalize: Whether to normalize numeric columns
-    
-    Returns:
-        Cleaned DataFrame
+    pd.DataFrame: Cleaned DataFrame.
     """
     cleaned_df = df.copy()
     
-    if remove_dups:
-        cleaned_df = remove_duplicates(cleaned_df)
+    if drop_duplicates:
+        initial_rows = len(cleaned_df)
+        cleaned_df = cleaned_df.drop_duplicates()
+        removed = initial_rows - len(cleaned_df)
+        print(f"Removed {removed} duplicate rows.")
     
-    if fill_na:
-        cleaned_df = fill_missing_values(cleaned_df, strategy='mean')
-    
-    if normalize:
-        cleaned_df = normalize_columns(cleaned_df)
+    if fill_missing:
+        for column in cleaned_df.select_dtypes(include=[np.number]).columns:
+            if cleaned_df[column].isnull().any():
+                if fill_strategy == 'mean':
+                    fill_value = cleaned_df[column].mean()
+                elif fill_strategy == 'median':
+                    fill_value = cleaned_df[column].median()
+                elif fill_strategy == 'mode':
+                    fill_value = cleaned_df[column].mode()[0]
+                elif fill_strategy == 'zero':
+                    fill_value = 0
+                else:
+                    raise ValueError(f"Unsupported fill strategy: {fill_strategy}")
+                
+                cleaned_df[column] = cleaned_df[column].fillna(fill_value)
+                print(f"Filled missing values in column '{column}' with {fill_strategy}: {fill_value}")
     
     return cleaned_df
+
+def validate_dataset(df, check_missing=True, check_inf=True):
+    """
+    Validate a DataFrame for common data quality issues.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate.
+    check_missing (bool): Check for missing values.
+    check_inf (bool): Check for infinite values.
+    
+    Returns:
+    dict: Dictionary containing validation results.
+    """
+    validation_results = {}
+    
+    if check_missing:
+        missing_counts = df.isnull().sum()
+        missing_columns = missing_counts[missing_counts > 0]
+        validation_results['missing_values'] = missing_columns.to_dict()
+    
+    if check_inf:
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        inf_counts = {}
+        for col in numeric_cols:
+            inf_count = np.isinf(df[col]).sum()
+            if inf_count > 0:
+                inf_counts[col] = inf_count
+        validation_results['infinite_values'] = inf_counts
+    
+    return validation_results
+
+if __name__ == "__main__":
+    sample_data = {
+        'A': [1, 2, 2, 4, 5, None, 7],
+        'B': [10, 20, 20, 40, 50, 60, None],
+        'C': [100, 200, 300, 400, 500, 600, 700]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\n" + "="*50 + "\n")
+    
+    cleaned = clean_dataset(df, drop_duplicates=True, fill_missing=True, fill_strategy='mean')
+    print("\nCleaned DataFrame:")
+    print(cleaned)
+    
+    validation = validate_dataset(cleaned)
+    print("\nValidation Results:")
+    print(validation)
