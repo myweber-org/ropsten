@@ -953,3 +953,11 @@ def clean_dataset(df, numeric_columns=None, outlier_threshold=1.5):
             cleaned_df = standardize_column(cleaned_df, col)
     
     return cleaned_df
+def remove_duplicates_preserve_order(sequence):
+    seen = set()
+    result = []
+    for item in sequence:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
