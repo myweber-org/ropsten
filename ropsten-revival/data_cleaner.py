@@ -816,4 +816,140 @@ if __name__ == "__main__":
     print(cleaned)
     
     is_valid = validate_data(cleaned, required_columns=['A', 'B'])
-    print(f"\nData validation passed: {is_valid}")
+    print(f"\nData validation passed: {is_valid}")import pandas as pd
+import numpy as np
+
+def remove_missing_rows(df, columns=None):
+    """
+    Remove rows with missing values from DataFrame.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        columns (list, optional): Specific columns to check for missing values.
+                                 If None, checks all columns.
+    
+    Returns:
+        pd.DataFrame: DataFrame with rows containing missing values removed
+    """
+    if columns:
+        return df.dropna(subset=columns)
+    return df.dropna()
+
+def fill_missing_with_mean(df, columns=None):
+    """
+    Fill missing values with column mean.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        columns (list, optional): Specific columns to fill.
+                                 If None, fills all numeric columns.
+    
+    Returns:
+        pd.DataFrame: DataFrame with missing values filled
+    """
+    df_filled = df.copy()
+    
+    if columns is None:
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        columns = list(numeric_cols)
+    
+    for col in columns:
+        if col in df.columns and pd.api.types.is_numeric_dtype(df[col]):
+            mean_val = df[col].mean()
+            df_filled[col] = df[col].fillna(mean_val)
+    
+    return df_filled
+
+def detect_outliers_iqr(df, column, threshold=1.5):
+    """
+    Detect outliers using Interquartile Range method.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        column (str): Column name to check for outliers
+        threshold (float): IQR multiplier threshold
+    
+    Returns:
+        pd.Series: Boolean series indicating outliers
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    if not pd.api.types.is_numeric_dtype(df[column]):
+        raise ValueError(f"Column '{column}' must be numeric")
+    
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - threshold * IQR
+    upper_bound = Q3 + threshold * IQR
+    
+    outliers = (df[column] < lower_bound) | (df[column] > upper_bound)
+    return outliers
+
+def remove_outliers(df, column, threshold=1.5):
+    """
+    Remove outliers from a specific column.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        column (str): Column name to remove outliers from
+        threshold (float): IQR multiplier threshold
+    
+    Returns:
+        pd.DataFrame: DataFrame with outliers removed
+    """
+    outliers = detect_outliers_iqr(df, column, threshold)
+    return df[~outliers].copy()
+
+def standardize_column(df, column):
+    """
+    Standardize a column using z-score normalization.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        column (str): Column name to standardize
+    
+    Returns:
+        pd.DataFrame: DataFrame with standardized column
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    if not pd.api.types.is_numeric_dtype(df[column]):
+        raise ValueError(f"Column '{column}' must be numeric")
+    
+    df_standardized = df.copy()
+    mean_val = df[column].mean()
+    std_val = df[column].std()
+    
+    if std_val > 0:
+        df_standardized[column] = (df[column] - mean_val) / std_val
+    
+    return df_standardized
+
+def clean_dataset(df, numeric_columns=None, outlier_threshold=1.5):
+    """
+    Comprehensive data cleaning pipeline.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        numeric_columns (list, optional): List of numeric columns to process
+        outlier_threshold (float): IQR threshold for outlier detection
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame
+    """
+    cleaned_df = df.copy()
+    
+    if numeric_columns is None:
+        numeric_columns = cleaned_df.select_dtypes(include=[np.number]).columns.tolist()
+    
+    for col in numeric_columns:
+        if col in cleaned_df.columns:
+            cleaned_df = fill_missing_with_mean(cleaned_df, columns=[col])
+            cleaned_df = remove_outliers(cleaned_df, col, outlier_threshold)
+            cleaned_df = standardize_column(cleaned_df, col)
+    
+    return cleaned_df
