@@ -1,55 +1,100 @@
-
-import numpy as np
 import pandas as pd
-from scipy import stats
+import numpy as np
+from typing import Optional, List
 
-class DataCleaner:
-    def __init__(self, df):
-        self.df = df.copy()
-        self.original_shape = df.shape
-        
-    def remove_outliers_iqr(self, column, multiplier=1.5):
-        Q1 = self.df[column].quantile(0.25)
-        Q3 = self.df[column].quantile(0.75)
-        IQR = Q3 - Q1
-        lower_bound = Q1 - multiplier * IQR
-        upper_bound = Q3 + multiplier * IQR
-        mask = (self.df[column] >= lower_bound) & (self.df[column] <= upper_bound)
-        self.df = self.df[mask]
-        return self
+def remove_duplicates(df: pd.DataFrame, subset: Optional[List[str]] = None) -> pd.DataFrame:
+    """
+    Remove duplicate rows from DataFrame.
     
-    def remove_outliers_zscore(self, column, threshold=3):
-        z_scores = np.abs(stats.zscore(self.df[column]))
-        mask = z_scores < threshold
-        self.df = self.df[mask]
-        return self
+    Args:
+        df: Input DataFrame
+        subset: Columns to consider for identifying duplicates
     
-    def normalize_minmax(self, column):
-        min_val = self.df[column].min()
-        max_val = self.df[column].max()
-        self.df[column] = (self.df[column] - min_val) / (max_val - min_val)
-        return self
+    Returns:
+        DataFrame with duplicates removed
+    """
+    return df.drop_duplicates(subset=subset, keep='first')
+
+def fill_missing_values(df: pd.DataFrame, strategy: str = 'mean', columns: Optional[List[str]] = None) -> pd.DataFrame:
+    """
+    Fill missing values in DataFrame columns.
     
-    def normalize_zscore(self, column):
-        mean_val = self.df[column].mean()
-        std_val = self.df[column].std()
-        self.df[column] = (self.df[column] - mean_val) / std_val
-        return self
+    Args:
+        df: Input DataFrame
+        strategy: 'mean', 'median', 'mode', or 'constant'
+        columns: Specific columns to fill, None for all numeric columns
     
-    def fill_missing_mean(self, column):
-        self.df[column] = self.df[column].fillna(self.df[column].mean())
-        return self
+    Returns:
+        DataFrame with missing values filled
+    """
+    df_filled = df.copy()
     
-    def fill_missing_median(self, column):
-        self.df[column] = self.df[column].fillna(self.df[column].median())
-        return self
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns.tolist()
     
-    def drop_duplicates(self):
-        self.df = self.df.drop_duplicates()
-        return self
+    for col in columns:
+        if col in df.columns and df[col].isnull().any():
+            if strategy == 'mean':
+                df_filled[col] = df[col].fillna(df[col].mean())
+            elif strategy == 'median':
+                df_filled[col] = df[col].fillna(df[col].median())
+            elif strategy == 'mode':
+                df_filled[col] = df[col].fillna(df[col].mode()[0])
+            elif strategy == 'constant':
+                df_filled[col] = df[col].fillna(0)
     
-    def get_cleaned_data(self):
-        return self.df
+    return df_filled
+
+def normalize_columns(df: pd.DataFrame, columns: Optional[List[str]] = None) -> pd.DataFrame:
+    """
+    Normalize specified columns using min-max scaling.
     
-    def get_removed_count(self):
-        return self.original_shape[0] - self.df.shape[0]
+    Args:
+        df: Input DataFrame
+        columns: Columns to normalize, None for all numeric columns
+    
+    Returns:
+        DataFrame with normalized columns
+    """
+    df_normalized = df.copy()
+    
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns.tolist()
+    
+    for col in columns:
+        if col in df.columns:
+            col_min = df[col].min()
+            col_max = df[col].max()
+            if col_max > col_min:
+                df_normalized[col] = (df[col] - col_min) / (col_max - col_min)
+    
+    return df_normalized
+
+def clean_dataframe(df: pd.DataFrame, 
+                    remove_dups: bool = True,
+                    fill_na: bool = True,
+                    normalize: bool = False) -> pd.DataFrame:
+    """
+    Main function to clean DataFrame with multiple operations.
+    
+    Args:
+        df: Input DataFrame
+        remove_dups: Whether to remove duplicates
+        fill_na: Whether to fill missing values
+        normalize: Whether to normalize numeric columns
+    
+    Returns:
+        Cleaned DataFrame
+    """
+    cleaned_df = df.copy()
+    
+    if remove_dups:
+        cleaned_df = remove_duplicates(cleaned_df)
+    
+    if fill_na:
+        cleaned_df = fill_missing_values(cleaned_df, strategy='mean')
+    
+    if normalize:
+        cleaned_df = normalize_columns(cleaned_df)
+    
+    return cleaned_df
