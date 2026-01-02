@@ -1,57 +1,63 @@
 
 import pandas as pd
 
-def clean_dataset(df, drop_duplicates=True, fill_missing=None):
+def remove_duplicates(df, subset=None, keep='first'):
     """
-    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    Remove duplicate rows from a DataFrame.
     
-    Parameters:
-    df (pd.DataFrame): Input DataFrame to clean.
-    drop_duplicates (bool): If True, remove duplicate rows.
-    fill_missing (str or dict): Method to fill missing values. 
-                                Can be 'mean', 'median', 'mode', or a dictionary of column:value pairs.
+    Args:
+        df: pandas DataFrame
+        subset: column label or sequence of labels to consider for duplicates
+        keep: determines which duplicates to keep ('first', 'last', False)
     
     Returns:
-    pd.DataFrame: Cleaned DataFrame.
+        DataFrame with duplicates removed
     """
-    cleaned_df = df.copy()
+    if df.empty:
+        return df
     
-    if drop_duplicates:
-        cleaned_df = cleaned_df.drop_duplicates()
+    cleaned_df = df.drop_duplicates(subset=subset, keep=keep)
     
-    if fill_missing is not None:
-        if isinstance(fill_missing, dict):
-            cleaned_df = cleaned_df.fillna(fill_missing)
-        elif fill_missing == 'mean':
-            cleaned_df = cleaned_df.fillna(cleaned_df.mean(numeric_only=True))
-        elif fill_missing == 'median':
-            cleaned_df = cleaned_df.fillna(cleaned_df.median(numeric_only=True))
-        elif fill_missing == 'mode':
-            cleaned_df = cleaned_df.fillna(cleaned_df.mode().iloc[0])
+    removed_count = len(df) - len(cleaned_df)
+    if removed_count > 0:
+        print(f"Removed {removed_count} duplicate rows")
     
     return cleaned_df
 
-def validate_data(df, required_columns=None, min_rows=1):
+def clean_numeric_columns(df, columns):
     """
-    Validate the structure and content of a DataFrame.
+    Clean numeric columns by converting to appropriate dtype and handling errors.
     
-    Parameters:
-    df (pd.DataFrame): DataFrame to validate.
-    required_columns (list): List of column names that must be present.
-    min_rows (int): Minimum number of rows required.
+    Args:
+        df: pandas DataFrame
+        columns: list of column names to clean
     
     Returns:
-    tuple: (is_valid, error_message)
+        DataFrame with cleaned numeric columns
+    """
+    for col in columns:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+    
+    return df
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Args:
+        df: pandas DataFrame to validate
+        required_columns: list of required column names
+    
+    Returns:
+        tuple: (is_valid, message)
     """
     if df.empty:
         return False, "DataFrame is empty"
-    
-    if len(df) < min_rows:
-        return False, f"DataFrame has fewer than {min_rows} rows"
     
     if required_columns:
         missing_columns = [col for col in required_columns if col not in df.columns]
         if missing_columns:
             return False, f"Missing required columns: {missing_columns}"
     
-    return True, "Data validation passed"
+    return True, "DataFrame is valid"
