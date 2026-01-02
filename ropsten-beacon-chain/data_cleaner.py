@@ -451,4 +451,35 @@ def load_and_clean_data(filepath):
         return clean_dataset(df, numeric_cols)
     except Exception as e:
         print(f"Error processing file: {e}")
-        return None
+        return Noneimport pandas as pd
+
+def clean_dataset(df):
+    """
+    Cleans a pandas DataFrame by removing duplicate rows and
+    filling missing numeric values with column median.
+    """
+    # Remove duplicate rows
+    df_cleaned = df.drop_duplicates()
+
+    # Fill missing numeric values with column median
+    numeric_cols = df_cleaned.select_dtypes(include=['number']).columns
+    for col in numeric_cols:
+        if df_cleaned[col].isnull().any():
+            median_val = df_cleaned[col].median()
+            df_cleaned[col].fillna(median_val, inplace=True)
+
+    return df_cleaned
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'A': [1, 2, 2, None, 5],
+        'B': [10, None, 10, 40, 50],
+        'C': ['x', 'y', 'x', 'z', 'w']
+    }
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\nCleaned DataFrame:")
+    cleaned_df = clean_dataset(df)
+    print(cleaned_df)
