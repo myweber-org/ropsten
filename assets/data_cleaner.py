@@ -304,3 +304,146 @@ if __name__ == "__main__":
     print(cleaned)
     print("\nCleaned Validation Results:")
     print(validate_data(cleaned))
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(dataframe, column, factor=1.5):
+    """
+    Remove outliers from a DataFrame column using IQR method.
+    
+    Parameters:
+    dataframe (pd.DataFrame): Input DataFrame
+    column (str): Column name to process
+    factor (float): IQR multiplier for outlier detection
+    
+    Returns:
+    pd.DataFrame: DataFrame with outliers removed
+    """
+    if column not in dataframe.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    q1 = dataframe[column].quantile(0.25)
+    q3 = dataframe[column].quantile(0.75)
+    iqr = q3 - q1
+    
+    lower_bound = q1 - factor * iqr
+    upper_bound = q3 + factor * iqr
+    
+    filtered_df = dataframe[(dataframe[column] >= lower_bound) & 
+                           (dataframe[column] <= upper_bound)]
+    
+    return filtered_df.copy()
+
+def normalize_column_zscore(dataframe, column):
+    """
+    Normalize a column using Z-score normalization.
+    
+    Parameters:
+    dataframe (pd.DataFrame): Input DataFrame
+    column (str): Column name to normalize
+    
+    Returns:
+    pd.DataFrame: DataFrame with normalized column
+    """
+    if column not in dataframe.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    result_df = dataframe.copy()
+    mean_val = result_df[column].mean()
+    std_val = result_df[column].std()
+    
+    if std_val > 0:
+        result_df[f'{column}_normalized'] = (result_df[column] - mean_val) / std_val
+    else:
+        result_df[f'{column}_normalized'] = 0
+    
+    return result_df
+
+def min_max_scale(dataframe, column, new_min=0, new_max=1):
+    """
+    Apply min-max scaling to a column.
+    
+    Parameters:
+    dataframe (pd.DataFrame): Input DataFrame
+    column (str): Column name to scale
+    new_min (float): New minimum value
+    new_max (float): New maximum value
+    
+    Returns:
+    pd.DataFrame: DataFrame with scaled column
+    """
+    if column not in dataframe.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    result_df = dataframe.copy()
+    old_min = result_df[column].min()
+    old_max = result_df[column].max()
+    
+    if old_max - old_min > 0:
+        scaled = (result_df[column] - old_min) / (old_max - old_min)
+        result_df[f'{column}_scaled'] = scaled * (new_max - new_min) + new_min
+    else:
+        result_df[f'{column}_scaled'] = new_min
+    
+    return result_df
+
+def handle_missing_values(dataframe, strategy='mean', columns=None):
+    """
+    Handle missing values in DataFrame columns.
+    
+    Parameters:
+    dataframe (pd.DataFrame): Input DataFrame
+    strategy (str): Imputation strategy ('mean', 'median', 'mode', 'drop')
+    columns (list): List of columns to process, None for all numeric columns
+    
+    Returns:
+    pd.DataFrame: DataFrame with handled missing values
+    """
+    result_df = dataframe.copy()
+    
+    if columns is None:
+        numeric_cols = result_df.select_dtypes(include=[np.number]).columns
+        columns = list(numeric_cols)
+    
+    for col in columns:
+        if col not in result_df.columns:
+            continue
+            
+        if strategy == 'drop':
+            result_df = result_df.dropna(subset=[col])
+        elif strategy == 'mean':
+            result_df[col] = result_df[col].fillna(result_df[col].mean())
+        elif strategy == 'median':
+            result_df[col] = result_df[col].fillna(result_df[col].median())
+        elif strategy == 'mode':
+            result_df[col] = result_df[col].fillna(result_df[col].mode()[0])
+        else:
+            raise ValueError(f"Unknown strategy: {strategy}")
+    
+    return result_df
+
+def validate_dataframe(dataframe, required_columns=None, min_rows=1):
+    """
+    Validate DataFrame structure and content.
+    
+    Parameters:
+    dataframe (pd.DataFrame): DataFrame to validate
+    required_columns (list): List of required column names
+    min_rows (int): Minimum number of rows required
+    
+    Returns:
+    bool: True if validation passes, raises ValueError otherwise
+    """
+    if not isinstance(dataframe, pd.DataFrame):
+        raise TypeError("Input must be a pandas DataFrame")
+    
+    if len(dataframe) < min_rows:
+        raise ValueError(f"DataFrame must have at least {min_rows} rows")
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in dataframe.columns]
+        if missing_cols:
+            raise ValueError(f"Missing required columns: {missing_cols}")
+    
+    return True
