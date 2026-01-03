@@ -139,3 +139,135 @@ def validate_dataframe(df, required_columns=None):
 #     # Validate
 #     is_valid, message = validate_dataframe(cleaned, required_columns=['id', 'value'])
 #     print(f"\nValidation: {is_valid}, Message: {message}")
+import pandas as pd
+import numpy as np
+
+def remove_missing_rows(df, columns=None):
+    """
+    Remove rows with missing values from DataFrame.
+    
+    Args:
+        df: pandas DataFrame
+        columns: list of columns to check for missing values, 
+                 if None checks all columns
+                 
+    Returns:
+        Cleaned DataFrame
+    """
+    if columns is None:
+        columns = df.columns
+        
+    return df.dropna(subset=columns)
+
+def fill_missing_with_mean(df, columns=None):
+    """
+    Fill missing values with column mean.
+    
+    Args:
+        df: pandas DataFrame
+        columns: list of columns to fill, if None fills all numeric columns
+                 
+    Returns:
+        DataFrame with filled values
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+        
+    df_filled = df.copy()
+    for col in columns:
+        if col in df.columns:
+            df_filled[col] = df[col].fillna(df[col].mean())
+            
+    return df_filled
+
+def remove_outliers_iqr(df, columns=None, threshold=1.5):
+    """
+    Remove outliers using IQR method.
+    
+    Args:
+        df: pandas DataFrame
+        columns: list of numeric columns to check for outliers,
+                 if None checks all numeric columns
+        threshold: IQR multiplier (default 1.5)
+                 
+    Returns:
+        DataFrame without outliers
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+        
+    df_clean = df.copy()
+    
+    for col in columns:
+        if col in df.columns:
+            Q1 = df[col].quantile(0.25)
+            Q3 = df[col].quantile(0.75)
+            IQR = Q3 - Q1
+            
+            lower_bound = Q1 - threshold * IQR
+            upper_bound = Q3 + threshold * IQR
+            
+            mask = (df[col] >= lower_bound) & (df[col] <= upper_bound)
+            df_clean = df_clean[mask]
+            
+    return df_clean.reset_index(drop=True)
+
+def standardize_columns(df, columns=None):
+    """
+    Standardize numeric columns to have mean=0 and std=1.
+    
+    Args:
+        df: pandas DataFrame
+        columns: list of columns to standardize,
+                 if None standardizes all numeric columns
+                 
+    Returns:
+        DataFrame with standardized columns
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+        
+    df_standardized = df.copy()
+    
+    for col in columns:
+        if col in df.columns:
+            mean_val = df[col].mean()
+            std_val = df[col].std()
+            
+            if std_val > 0:
+                df_standardized[col] = (df[col] - mean_val) / std_val
+                
+    return df_standardized
+
+def clean_dataset(df, missing_strategy='remove', outlier_removal=True, 
+                  standardization=False, outlier_threshold=1.5):
+    """
+    Comprehensive data cleaning pipeline.
+    
+    Args:
+        df: pandas DataFrame
+        missing_strategy: 'remove' or 'fill_mean'
+        outlier_removal: boolean, whether to remove outliers
+        standardization: boolean, whether to standardize numeric columns
+        outlier_threshold: IQR multiplier for outlier detection
+                 
+    Returns:
+        Cleaned DataFrame
+    """
+    cleaned_df = df.copy()
+    
+    # Handle missing values
+    if missing_strategy == 'remove':
+        cleaned_df = remove_missing_rows(cleaned_df)
+    elif missing_strategy == 'fill_mean':
+        cleaned_df = fill_missing_with_mean(cleaned_df)
+    
+    # Remove outliers
+    if outlier_removal:
+        cleaned_df = remove_outliers_iqr(cleaned_df, threshold=outlier_threshold)
+    
+    # Standardize columns
+    if standardization:
+        cleaned_df = standardize_columns(cleaned_df)
+    
+    return cleaned_df
