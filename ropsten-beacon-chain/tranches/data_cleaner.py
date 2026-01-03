@@ -1,107 +1,40 @@
-
 import pandas as pd
-import re
+import numpy as np
 
-def clean_dataframe(df, column_mapping=None, drop_duplicates=True, normalize_text=True):
-    """
-    Clean a pandas DataFrame by removing duplicates and normalizing text columns.
-    
-    Args:
-        df: Input pandas DataFrame
-        column_mapping: Dictionary to rename columns (optional)
-        drop_duplicates: Boolean flag to remove duplicate rows
-        normalize_text: Boolean flag to normalize text columns
-    
-    Returns:
-        Cleaned pandas DataFrame
-    """
-    cleaned_df = df.copy()
-    
-    if column_mapping:
-        cleaned_df = cleaned_df.rename(columns=column_mapping)
-    
-    if drop_duplicates:
-        initial_rows = len(cleaned_df)
-        cleaned_df = cleaned_df.drop_duplicates()
-        removed = initial_rows - len(cleaned_df)
-        print(f"Removed {removed} duplicate rows")
-    
-    if normalize_text:
-        text_columns = cleaned_df.select_dtypes(include=['object']).columns
-        for col in text_columns:
-            cleaned_df[col] = cleaned_df[col].apply(_normalize_string)
-    
-    return cleaned_df
+def remove_duplicates(df):
+    """Remove duplicate rows from DataFrame."""
+    return df.drop_duplicates()
 
-def _normalize_string(text):
-    """
-    Normalize a string by converting to lowercase, removing extra whitespace,
-    and stripping special characters.
-    
-    Args:
-        text: Input string
-    
-    Returns:
-        Normalized string
-    """
-    if pd.isna(text):
-        return text
-    
-    normalized = str(text).lower().strip()
-    normalized = re.sub(r'\s+', ' ', normalized)
-    normalized = re.sub(r'[^\w\s-]', '', normalized)
-    
-    return normalized
+def fill_missing_values(df, strategy='mean'):
+    """Fill missing values using specified strategy."""
+    if strategy == 'mean':
+        return df.fillna(df.mean())
+    elif strategy == 'median':
+        return df.fillna(df.median())
+    elif strategy == 'mode':
+        return df.fillna(df.mode().iloc[0])
+    else:
+        return df.fillna(0)
 
-def validate_dataframe(df, required_columns=None, min_rows=1):
-    """
-    Validate DataFrame structure and content.
-    
-    Args:
-        df: DataFrame to validate
-        required_columns: List of required column names
-        min_rows: Minimum number of rows required
-    
-    Returns:
-        Boolean indicating if validation passed
-    """
-    if df.empty:
-        print("DataFrame is empty")
-        return False
-    
-    if len(df) < min_rows:
-        print(f"DataFrame has fewer than {min_rows} rows")
-        return False
-    
-    if required_columns:
-        missing_columns = [col for col in required_columns if col not in df.columns]
-        if missing_columns:
-            print(f"Missing required columns: {missing_columns}")
-            return False
-    
-    return True
+def normalize_column(df, column_name):
+    """Normalize specified column to range [0,1]."""
+    if column_name in df.columns:
+        col = df[column_name]
+        df[column_name] = (col - col.min()) / (col.max() - col.min())
+    return df
 
-def sample_usage():
-    """
-    Example usage of the data cleaning functions.
-    """
-    data = {
-        'Name': ['John Doe', 'Jane Smith', 'John Doe', 'Bob Johnson  '],
-        'Email': ['JOHN@example.com', 'jane@example.com', 'john@example.com', 'bob@example.com'],
-        'Age': [25, 30, 25, 35]
-    }
+def clean_dataset(file_path, output_path=None):
+    """Main cleaning pipeline for CSV datasets."""
+    df = pd.read_csv(file_path)
     
-    df = pd.DataFrame(data)
-    print("Original DataFrame:")
-    print(df)
-    print("\n")
+    df = remove_duplicates(df)
+    df = fill_missing_values(df, strategy='median')
     
-    cleaned = clean_dataframe(df, drop_duplicates=True, normalize_text=True)
-    print("Cleaned DataFrame:")
-    print(cleaned)
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    for col in numeric_cols:
+        df = normalize_column(df, col)
     
-    is_valid = validate_dataframe(cleaned, required_columns=['Name', 'Email', 'Age'])
-    print(f"\nDataFrame validation: {is_valid}")
-
-if __name__ == "__main__":
-    sample_usage()
+    if output_path:
+        df.to_csv(output_path, index=False)
+    
+    return df
