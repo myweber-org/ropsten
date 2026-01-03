@@ -134,4 +134,95 @@ if __name__ == "__main__":
     print(cleaned)
     
     validation_result = validate_data(cleaned, required_columns=['A', 'B'], min_rows=1)
-    print(f"\nValidation result: {validation_result}")
+    print(f"\nValidation result: {validation_result}")import pandas as pd
+import numpy as np
+
+def clean_dataset(df, column_mapping=None, drop_duplicates=True, normalize_text=True):
+    """
+    Clean a pandas DataFrame by removing duplicates and normalizing text columns.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame to clean.
+    column_mapping (dict, optional): Dictionary mapping original column names to new names.
+    drop_duplicates (bool): Whether to remove duplicate rows.
+    normalize_text (bool): Whether to normalize text columns (strip, lower case).
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame.
+    """
+    df_clean = df.copy()
+    
+    if column_mapping:
+        df_clean = df_clean.rename(columns=column_mapping)
+    
+    if drop_duplicates:
+        initial_rows = len(df_clean)
+        df_clean = df_clean.drop_duplicates().reset_index(drop=True)
+        removed = initial_rows - len(df_clean)
+        print(f"Removed {removed} duplicate rows.")
+    
+    if normalize_text:
+        text_columns = df_clean.select_dtypes(include=['object']).columns
+        for col in text_columns:
+            df_clean[col] = df_clean[col].astype(str).str.strip().str.lower()
+        print(f"Normalized text in columns: {list(text_columns)}")
+    
+    df_clean = df_clean.replace(['none', 'null', 'nan', ''], np.nan)
+    
+    return df_clean
+
+def validate_data(df, required_columns=None, unique_columns=None):
+    """
+    Validate the cleaned DataFrame for required columns and uniqueness.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate.
+    required_columns (list): List of column names that must be present.
+    unique_columns (list): List of column names that should have unique values.
+    
+    Returns:
+    dict: Dictionary containing validation results.
+    """
+    validation_results = {}
+    
+    if required_columns:
+        missing = [col for col in required_columns if col not in df.columns]
+        validation_results['missing_columns'] = missing
+        if missing:
+            print(f"Warning: Missing required columns: {missing}")
+    
+    if unique_columns:
+        for col in unique_columns:
+            if col in df.columns:
+                unique_count = df[col].nunique()
+                total_count = len(df[col])
+                if unique_count < total_count:
+                    validation_results[f'duplicates_in_{col}'] = total_count - unique_count
+                    print(f"Warning: Column '{col}' has {total_count - unique_count} duplicate values.")
+    
+    validation_results['total_rows'] = len(df)
+    validation_results['total_columns'] = len(df.columns)
+    
+    return validation_results
+
+if __name__ == "__main__":
+    sample_data = {
+        'Name': ['John Doe', 'Jane Smith', 'John Doe', ' Bob Johnson ', 'ALICE'],
+        'Email': ['john@example.com', 'jane@example.com', 'john@example.com', 'bob@example.com', 'alice@example.com'],
+        'Age': [25, 30, 25, 35, 28],
+        'City': ['New York', 'Los Angeles', 'New York', ' Chicago ', 'BOSTON']
+    }
+    
+    df_raw = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df_raw)
+    print("\n" + "="*50 + "\n")
+    
+    df_cleaned = clean_dataset(df_raw, drop_duplicates=True, normalize_text=True)
+    print("\nCleaned DataFrame:")
+    print(df_cleaned)
+    
+    validation = validate_data(df_cleaned, required_columns=['Name', 'Email'], unique_columns=['Email'])
+    print("\nValidation Results:")
+    for key, value in validation.items():
+        print(f"{key}: {value}")
