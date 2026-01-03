@@ -789,3 +789,65 @@ if __name__ == "__main__":
     
     cleaned_data = cleaner.get_clean_data()
     print("\nData cleaning process completed successfully")
+import pandas as pd
+
+def clean_dataset(df):
+    """
+    Remove null values and duplicate rows from a pandas DataFrame.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame to be cleaned.
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame.
+    """
+    # Remove rows with any null values
+    df_cleaned = df.dropna()
+    
+    # Remove duplicate rows
+    df_cleaned = df_cleaned.drop_duplicates()
+    
+    # Reset index after cleaning
+    df_cleaned = df_cleaned.reset_index(drop=True)
+    
+    return df_cleaned
+
+def validate_dataset(df):
+    """
+    Validate dataset by checking for null values and duplicates.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame to be validated.
+    
+    Returns:
+    dict: Dictionary containing validation results.
+    """
+    validation_results = {
+        'total_rows': len(df),
+        'null_count': df.isnull().sum().sum(),
+        'duplicate_count': df.duplicated().sum(),
+        'is_clean': df.isnull().sum().sum() == 0 and df.duplicated().sum() == 0
+    }
+    
+    return validation_results
+
+# Example usage
+if __name__ == "__main__":
+    # Create sample data with nulls and duplicates
+    data = {
+        'A': [1, 2, None, 4, 1],
+        'B': [5, 6, 7, None, 5],
+        'C': ['x', 'y', 'z', 'x', 'x']
+    }
+    
+    df = pd.DataFrame(data)
+    print("Original DataFrame:")
+    print(df)
+    print("\nValidation Results:")
+    print(validate_dataset(df))
+    
+    cleaned_df = clean_dataset(df)
+    print("\nCleaned DataFrame:")
+    print(cleaned_df)
+    print("\nValidation Results after cleaning:")
+    print(validate_dataset(cleaned_df))
