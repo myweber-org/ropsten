@@ -1,130 +1,115 @@
+
 import numpy as np
 import pandas as pd
+from scipy import stats
 
-def remove_outliers_iqr(df, column):
+def remove_outliers_iqr(data, column, factor=1.5):
     """
-    Remove outliers from a DataFrame column using the IQR method.
-    
-    Parameters:
-    df (pd.DataFrame): The input DataFrame.
-    column (str): The column name to process.
-    
-    Returns:
-    pd.DataFrame: DataFrame with outliers removed.
+    Remove outliers using Interquartile Range method
     """
-    if column not in df.columns:
+    if column not in data.columns:
         raise ValueError(f"Column '{column}' not found in DataFrame")
     
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
+    q1 = data[column].quantile(0.25)
+    q3 = data[column].quantile(0.75)
+    iqr = q3 - q1
+    lower_bound = q1 - factor * iqr
+    upper_bound = q3 + factor * iqr
     
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
-    
-    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
-    
-    return filtered_df.reset_index(drop=True)
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    return filtered_data.copy()
 
-def calculate_summary_statistics(df, column):
+def remove_outliers_zscore(data, column, threshold=3):
     """
-    Calculate summary statistics for a column after outlier removal.
-    
-    Parameters:
-    df (pd.DataFrame): The input DataFrame.
-    column (str): The column name to analyze.
-    
-    Returns:
-    dict: Dictionary containing summary statistics.
+    Remove outliers using Z-score method
     """
-    if column not in df.columns:
+    if column not in data.columns:
         raise ValueError(f"Column '{column}' not found in DataFrame")
     
-    stats = {
-        'mean': df[column].mean(),
-        'median': df[column].median(),
-        'std': df[column].std(),
-        'min': df[column].min(),
-        'max': df[column].max(),
-        'count': df[column].count()
-    }
+    z_scores = np.abs(stats.zscore(data[column].dropna()))
+    filtered_indices = np.where(z_scores < threshold)[0]
+    filtered_data = data.iloc[filtered_indices].copy()
+    return filtered_data
+
+def normalize_minmax(data, column):
+    """
+    Normalize data using Min-Max scaling
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
     
-    return stats
-
-if __name__ == "__main__":
-    sample_data = {
-        'values': [10, 12, 12, 13, 12, 11, 14, 13, 15, 100, 12, 14, 13, 12, 11, 10, 14, 13, 12, 11]
-    }
+    min_val = data[column].min()
+    max_val = data[column].max()
     
-    df = pd.DataFrame(sample_data)
-    print("Original data:")
-    print(df)
-    print(f"\nOriginal shape: {df.shape}")
+    if max_val == min_val:
+        return data[column].copy()
     
-    cleaned_df = remove_outliers_iqr(df, 'values')
-    print("\nCleaned data:")
-    print(cleaned_df)
-    print(f"\nCleaned shape: {cleaned_df.shape}")
+    normalized = (data[column] - min_val) / (max_val - min_val)
+    return normalized
+
+def normalize_zscore(data, column):
+    """
+    Normalize data using Z-score standardization
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
     
-    stats = calculate_summary_statistics(cleaned_df, 'values')
-    print("\nSummary statistics:")
-    for key, value in stats.items():
-        print(f"{key}: {value:.2f}")
-import pandas as pd
-import numpy as np
+    mean_val = data[column].mean()
+    std_val = data[column].std()
+    
+    if std_val == 0:
+        return data[column].copy()
+    
+    standardized = (data[column] - mean_val) / std_val
+    return standardized
 
-def remove_missing_rows(df, columns=None):
+def handle_missing_values(data, strategy='mean', columns=None):
     """
-    Remove rows with missing values from specified columns or entire DataFrame.
+    Handle missing values in specified columns
     """
-    if columns:
-        return df.dropna(subset=columns)
-    return df.dropna()
+    if columns is None:
+        columns = data.columns
+    
+    data_copy = data.copy()
+    
+    for column in columns:
+        if column not in data.columns:
+            continue
+            
+        if data_copy[column].isnull().any():
+            if strategy == 'mean':
+                fill_value = data_copy[column].mean()
+            elif strategy == 'median':
+                fill_value = data_copy[column].median()
+            elif strategy == 'mode':
+                fill_value = data_copy[column].mode()[0]
+            elif strategy == 'drop':
+                data_copy = data_copy.dropna(subset=[column])
+                continue
+            else:
+                raise ValueError(f"Unknown strategy: {strategy}")
+            
+            data_copy[column] = data_copy[column].fillna(fill_value)
+    
+    return data_copy
 
-def fill_missing_with_mean(df, columns):
+def validate_dataframe(data, required_columns=None, check_types=None):
     """
-    Fill missing values in specified columns with column mean.
+    Validate DataFrame structure and content
     """
-    df_filled = df.copy()
-    for col in columns:
-        if col in df_filled.columns:
-            df_filled[col] = df_filled[col].fillna(df_filled[col].mean())
-    return df_filled
-
-def detect_outliers_iqr(df, column):
-    """
-    Detect outliers using IQR method for a specific column.
-    """
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
-    outliers = df[(df[column] < lower_bound) | (df[column] > upper_bound)]
-    return outliers
-
-def cap_outliers(df, column, method='iqr'):
-    """
-    Cap outliers to specified bounds using IQR method.
-    """
-    df_capped = df.copy()
-    if method == 'iqr':
-        Q1 = df_capped[column].quantile(0.25)
-        Q3 = df_capped[column].quantile(0.75)
-        IQR = Q3 - Q1
-        lower_bound = Q1 - 1.5 * IQR
-        upper_bound = Q3 + 1.5 * IQR
-        df_capped[column] = np.where(df_capped[column] < lower_bound, lower_bound, df_capped[column])
-        df_capped[column] = np.where(df_capped[column] > upper_bound, upper_bound, df_capped[column])
-    return df_capped
-
-def standardize_column(df, column):
-    """
-    Standardize a column to have zero mean and unit variance.
-    """
-    df_standardized = df.copy()
-    mean_val = df_standardized[column].mean()
-    std_val = df_standardized[column].std()
-    if std_val > 0:
-        df_standardized[column] = (df_standardized[column] - mean_val) / std_val
-    return df_standardized
+    if not isinstance(data, pd.DataFrame):
+        raise TypeError("Input must be a pandas DataFrame")
+    
+    if required_columns:
+        missing_columns = set(required_columns) - set(data.columns)
+        if missing_columns:
+            raise ValueError(f"Missing required columns: {missing_columns}")
+    
+    if check_types:
+        for column, expected_type in check_types.items():
+            if column in data.columns:
+                actual_type = data[column].dtype
+                if not np.issubdtype(actual_type, expected_type):
+                    raise TypeError(f"Column '{column}' has type {actual_type}, expected {expected_type}")
+    
+    return True
