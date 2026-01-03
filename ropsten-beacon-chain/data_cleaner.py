@@ -145,3 +145,74 @@ if __name__ == "__main__":
     print("\nData Validation Results:")
     for key, value in validation.items():
         print(f"{key}: {value}")
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df, drop_duplicates=True, fill_missing=True):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame to clean.
+    drop_duplicates (bool): Whether to drop duplicate rows.
+    fill_missing (bool): Whether to fill missing values with column mean.
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame.
+    """
+    cleaned_df = df.copy()
+    
+    if drop_duplicates:
+        initial_rows = len(cleaned_df)
+        cleaned_df = cleaned_df.drop_duplicates()
+        removed = initial_rows - len(cleaned_df)
+        print(f"Removed {removed} duplicate rows.")
+    
+    if fill_missing:
+        numeric_cols = cleaned_df.select_dtypes(include=[np.number]).columns
+        for col in numeric_cols:
+            if cleaned_df[col].isnull().any():
+                mean_val = cleaned_df[col].mean()
+                cleaned_df[col] = cleaned_df[col].fillna(mean_val)
+                print(f"Filled missing values in column '{col}' with mean: {mean_val:.2f}")
+    
+    return cleaned_df
+
+def validate_dataset(df):
+    """
+    Validate the dataset for common issues.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate.
+    
+    Returns:
+    dict: Dictionary containing validation results.
+    """
+    validation_results = {
+        'total_rows': len(df),
+        'total_columns': len(df.columns),
+        'missing_values': df.isnull().sum().sum(),
+        'duplicate_rows': df.duplicated().sum(),
+        'numeric_columns': list(df.select_dtypes(include=[np.number]).columns),
+        'categorical_columns': list(df.select_dtypes(include=['object']).columns)
+    }
+    return validation_results
+
+if __name__ == "__main__":
+    sample_data = {
+        'A': [1, 2, 2, 4, 5, None, 7],
+        'B': [10, 20, 20, None, 50, 60, 70],
+        'C': ['x', 'y', 'y', 'z', 'x', 'y', 'z']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original dataset:")
+    print(df)
+    print("\nValidation results:")
+    print(validate_dataset(df))
+    
+    cleaned = clean_dataset(df)
+    print("\nCleaned dataset:")
+    print(cleaned)
+    print("\nValidation after cleaning:")
+    print(validate_dataset(cleaned))
