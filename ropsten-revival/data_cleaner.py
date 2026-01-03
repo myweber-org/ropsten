@@ -399,3 +399,152 @@ def clean_dataset(df, numeric_columns, outlier_method='iqr', normalize_method='s
                 cleaned_df = normalize_standard(cleaned_df, col)
     
     return cleaned_df
+import pandas as pd
+import numpy as np
+from pathlib import Path
+
+class DataCleaner:
+    def __init__(self, file_path):
+        self.file_path = Path(file_path)
+        self.df = None
+        
+    def load_data(self):
+        if not self.file_path.exists():
+            raise FileNotFoundError(f"File not found: {self.file_path}")
+        
+        if self.file_path.suffix == '.csv':
+            self.df = pd.read_csv(self.file_path)
+        elif self.file_path.suffix in ['.xlsx', '.xls']:
+            self.df = pd.read_excel(self.file_path)
+        else:
+            raise ValueError("Unsupported file format")
+            
+        print(f"Loaded data with shape: {self.df.shape}")
+        return self
+        
+    def remove_duplicates(self):
+        if self.df is None:
+            raise ValueError("Data not loaded. Call load_data() first.")
+            
+        initial_rows = len(self.df)
+        self.df = self.df.drop_duplicates()
+        removed = initial_rows - len(self.df)
+        print(f"Removed {removed} duplicate rows")
+        return self
+        
+    def handle_missing_values(self, strategy='mean', columns=None):
+        if self.df is None:
+            raise ValueError("Data not loaded. Call load_data() first.")
+            
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
+            
+        for col in columns:
+            if col in self.df.columns:
+                missing_count = self.df[col].isnull().sum()
+                if missing_count > 0:
+                    if strategy == 'mean':
+                        fill_value = self.df[col].mean()
+                    elif strategy == 'median':
+                        fill_value = self.df[col].median()
+                    elif strategy == 'mode':
+                        fill_value = self.df[col].mode()[0]
+                    elif strategy == 'drop':
+                        self.df = self.df.dropna(subset=[col])
+                        print(f"Dropped rows with missing values in column: {col}")
+                        continue
+                    else:
+                        fill_value = strategy
+                        
+                    self.df[col] = self.df[col].fillna(fill_value)
+                    print(f"Filled {missing_count} missing values in column '{col}' with {fill_value}")
+                    
+        return self
+        
+    def normalize_columns(self, columns=None):
+        if self.df is None:
+            raise ValueError("Data not loaded. Call load_data() first.")
+            
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
+            
+        for col in columns:
+            if col in self.df.columns:
+                if self.df[col].std() != 0:
+                    self.df[col] = (self.df[col] - self.df[col].mean()) / self.df[col].std()
+                    print(f"Normalized column: {col}")
+                    
+        return self
+        
+    def save_cleaned_data(self, output_path=None):
+        if self.df is None:
+            raise ValueError("Data not loaded. Call load_data() first.")
+            
+        if output_path is None:
+            output_path = self.file_path.parent / f"cleaned_{self.file_path.name}"
+            
+        output_path = Path(output_path)
+        
+        if output_path.suffix == '.csv':
+            self.df.to_csv(output_path, index=False)
+        elif output_path.suffix in ['.xlsx', '.xls']:
+            self.df.to_excel(output_path, index=False)
+        else:
+            raise ValueError("Unsupported output format")
+            
+        print(f"Saved cleaned data to: {output_path}")
+        return output_path
+        
+    def get_summary(self):
+        if self.df is None:
+            raise ValueError("Data not loaded. Call load_data() first.")
+            
+        summary = {
+            'rows': len(self.df),
+            'columns': len(self.df.columns),
+            'missing_values': self.df.isnull().sum().sum(),
+            'duplicates': self.df.duplicated().sum(),
+            'data_types': self.df.dtypes.to_dict()
+        }
+        
+        return summary
+
+def clean_csv_file(input_file, output_file=None):
+    cleaner = DataCleaner(input_file)
+    
+    try:
+        cleaner.load_data()
+        summary_before = cleaner.get_summary()
+        
+        cleaner.remove_duplicates()
+        cleaner.handle_missing_values(strategy='mean')
+        cleaner.normalize_columns()
+        
+        output_path = cleaner.save_cleaned_data(output_file)
+        summary_after = cleaner.get_summary()
+        
+        print("\nCleaning Summary:")
+        print(f"Initial rows: {summary_before['rows']}")
+        print(f"Final rows: {summary_after['rows']}")
+        print(f"Missing values before: {summary_before['missing_values']}")
+        print(f"Missing values after: {summary_after['missing_values']}")
+        
+        return output_path
+        
+    except Exception as e:
+        print(f"Error during cleaning: {e}")
+        raise
+
+if __name__ == "__main__":
+    sample_data = {
+        'A': [1, 2, np.nan, 4, 5, 5],
+        'B': [10, 20, 30, np.nan, 50, 50],
+        'C': ['a', 'b', 'c', 'd', 'e', 'e']
+    }
+    
+    test_df = pd.DataFrame(sample_data)
+    test_df.to_csv('test_data.csv', index=False)
+    
+    print("Testing DataCleaner with sample data...")
+    result = clean_csv_file('test_data.csv', 'cleaned_test_data.csv')
+    print(f"Cleaned file saved to: {result}")
