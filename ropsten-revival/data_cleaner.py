@@ -547,4 +547,121 @@ if __name__ == "__main__":
     
     print("Testing DataCleaner with sample data...")
     result = clean_csv_file('test_data.csv', 'cleaned_test_data.csv')
-    print(f"Cleaned file saved to: {result}")
+    print(f"Cleaned file saved to: {result}")import pandas as pd
+import numpy as np
+
+def clean_csv_data(file_path, output_path=None, fill_strategy='mean'):
+    """
+    Clean CSV data by handling missing values and removing duplicates.
+    
+    Args:
+        file_path (str): Path to input CSV file
+        output_path (str, optional): Path for cleaned output CSV. If None, returns DataFrame
+        fill_strategy (str): Strategy for filling missing values ('mean', 'median', 'mode', 'zero')
+    
+    Returns:
+        pd.DataFrame or None: Cleaned DataFrame if output_path is None, else None
+    """
+    
+    try:
+        df = pd.read_csv(file_path)
+        print(f"Loaded data with shape: {df.shape}")
+        
+        # Remove duplicate rows
+        initial_rows = len(df)
+        df = df.drop_duplicates()
+        duplicates_removed = initial_rows - len(df)
+        print(f"Removed {duplicates_removed} duplicate rows")
+        
+        # Handle missing values
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        categorical_cols = df.select_dtypes(exclude=[np.number]).columns
+        
+        for col in df.columns:
+            missing_count = df[col].isnull().sum()
+            if missing_count > 0:
+                print(f"Column '{col}' has {missing_count} missing values")
+                
+                if col in numeric_cols:
+                    if fill_strategy == 'mean':
+                        fill_value = df[col].mean()
+                    elif fill_strategy == 'median':
+                        fill_value = df[col].median()
+                    elif fill_strategy == 'zero':
+                        fill_value = 0
+                    else:
+                        fill_value = df[col].mean()
+                    
+                    df[col] = df[col].fillna(fill_value)
+                    print(f"  Filled with {fill_strategy}: {fill_value:.2f}")
+                    
+                elif col in categorical_cols:
+                    # For categorical, fill with most frequent value
+                    most_frequent = df[col].mode()[0] if not df[col].mode().empty else 'Unknown'
+                    df[col] = df[col].fillna(most_frequent)
+                    print(f"  Filled with mode: '{most_frequent}'")
+        
+        # Remove columns with all missing values (if any remain)
+        cols_to_drop = df.columns[df.isnull().all()].tolist()
+        if cols_to_drop:
+            df = df.drop(columns=cols_to_drop)
+            print(f"Dropped columns with all missing values: {cols_to_drop}")
+        
+        print(f"Final data shape: {df.shape}")
+        
+        if output_path:
+            df.to_csv(output_path, index=False)
+            print(f"Cleaned data saved to: {output_path}")
+            return None
+        else:
+            return df
+            
+    except FileNotFoundError:
+        print(f"Error: File not found at {file_path}")
+        return None
+    except pd.errors.EmptyDataError:
+        print("Error: The CSV file is empty")
+        return None
+    except Exception as e:
+        print(f"Error during data cleaning: {str(e)}")
+        return None
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate
+        required_columns (list, optional): List of required column names
+    
+    Returns:
+        bool: True if validation passes, False otherwise
+    """
+    if df is None or df.empty:
+        print("Validation failed: DataFrame is empty or None")
+        return False
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            print(f"Validation failed: Missing required columns: {missing_cols}")
+            return False
+    
+    # Check for infinite values in numeric columns
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    for col in numeric_cols:
+        if np.any(np.isinf(df[col])):
+            print(f"Validation warning: Column '{col}' contains infinite values")
+    
+    return True
+
+if __name__ == "__main__":
+    # Example usage
+    input_file = "raw_data.csv"
+    output_file = "cleaned_data.csv"
+    
+    cleaned_df = clean_csv_data(input_file, output_file, fill_strategy='median')
+    
+    if cleaned_df is not None:
+        is_valid = validate_dataframe(cleaned_df)
+        print(f"Data validation: {'PASSED' if is_valid else 'FAILED'}")
