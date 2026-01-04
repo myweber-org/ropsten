@@ -391,3 +391,160 @@ def main():
 
 if __name__ == "__main__":
     main()
+import numpy as np
+import pandas as pd
+
+def remove_outliers_iqr(data, column, multiplier=1.5):
+    """
+    Remove outliers from a DataFrame column using IQR method.
+    
+    Parameters:
+    data (pd.DataFrame): Input DataFrame
+    column (str): Column name to process
+    multiplier (float): IQR multiplier for outlier detection
+    
+    Returns:
+    pd.DataFrame: DataFrame with outliers removed
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    q1 = data[column].quantile(0.25)
+    q3 = data[column].quantile(0.75)
+    iqr = q3 - q1
+    
+    lower_bound = q1 - multiplier * iqr
+    upper_bound = q3 + multiplier * iqr
+    
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    return filtered_data
+
+def normalize_minmax(data, columns=None):
+    """
+    Normalize specified columns using min-max scaling.
+    
+    Parameters:
+    data (pd.DataFrame): Input DataFrame
+    columns (list): List of column names to normalize. If None, normalize all numeric columns.
+    
+    Returns:
+    pd.DataFrame: DataFrame with normalized columns
+    """
+    if columns is None:
+        numeric_cols = data.select_dtypes(include=[np.number]).columns
+        columns = list(numeric_cols)
+    
+    normalized_data = data.copy()
+    
+    for col in columns:
+        if col not in normalized_data.columns:
+            continue
+            
+        col_min = normalized_data[col].min()
+        col_max = normalized_data[col].max()
+        
+        if col_max != col_min:
+            normalized_data[col] = (normalized_data[col] - col_min) / (col_max - col_min)
+        else:
+            normalized_data[col] = 0
+    
+    return normalized_data
+
+def clean_dataset(data, outlier_columns=None, normalize_columns=None, outlier_multiplier=1.5):
+    """
+    Comprehensive data cleaning pipeline.
+    
+    Parameters:
+    data (pd.DataFrame): Input DataFrame
+    outlier_columns (list): Columns to remove outliers from
+    normalize_columns (list): Columns to normalize
+    outlier_multiplier (float): IQR multiplier for outlier detection
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame
+    """
+    cleaned_data = data.copy()
+    
+    if outlier_columns:
+        for col in outlier_columns:
+            if col in cleaned_data.columns:
+                cleaned_data = remove_outliers_iqr(cleaned_data, col, outlier_multiplier)
+    
+    if normalize_columns:
+        cleaned_data = normalize_minmax(cleaned_data, normalize_columns)
+    
+    return cleaned_data
+
+def validate_data(data, required_columns=None, allow_nan=False):
+    """
+    Validate DataFrame structure and content.
+    
+    Parameters:
+    data (pd.DataFrame): DataFrame to validate
+    required_columns (list): List of required column names
+    allow_nan (bool): Whether NaN values are allowed
+    
+    Returns:
+    bool: True if validation passes, False otherwise
+    """
+    if not isinstance(data, pd.DataFrame):
+        return False
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in data.columns]
+        if missing_cols:
+            return False
+    
+    if not allow_nan and data.isnull().any().any():
+        return False
+    
+    return True
+
+def calculate_statistics(data, columns=None):
+    """
+    Calculate descriptive statistics for specified columns.
+    
+    Parameters:
+    data (pd.DataFrame): Input DataFrame
+    columns (list): Columns to calculate statistics for
+    
+    Returns:
+    dict: Dictionary containing statistics
+    """
+    if columns is None:
+        columns = data.select_dtypes(include=[np.number]).columns
+    
+    stats = {}
+    
+    for col in columns:
+        if col in data.columns:
+            col_data = data[col].dropna()
+            stats[col] = {
+                'mean': col_data.mean(),
+                'median': col_data.median(),
+                'std': col_data.std(),
+                'min': col_data.min(),
+                'max': col_data.max(),
+                'count': len(col_data)
+            }
+    
+    return stats
+
+if __name__ == "__main__":
+    sample_data = pd.DataFrame({
+        'feature_a': np.random.normal(100, 15, 1000),
+        'feature_b': np.random.exponential(50, 1000),
+        'category': np.random.choice(['A', 'B', 'C'], 1000)
+    })
+    
+    print("Original data shape:", sample_data.shape)
+    print("Original statistics:", calculate_statistics(sample_data, ['feature_a', 'feature_b']))
+    
+    cleaned = clean_dataset(
+        sample_data,
+        outlier_columns=['feature_a', 'feature_b'],
+        normalize_columns=['feature_a', 'feature_b']
+    )
+    
+    print("\nCleaned data shape:", cleaned.shape)
+    print("Cleaned statistics:", calculate_statistics(cleaned, ['feature_a', 'feature_b']))
