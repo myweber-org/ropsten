@@ -1,58 +1,52 @@
+
 import pandas as pd
 import numpy as np
 
-def remove_outliers_iqr(df, column):
-    """
-    Remove outliers from a DataFrame column using the IQR method.
-    
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    column (str): Column name to process
-    
-    Returns:
-    pd.DataFrame: DataFrame with outliers removed
-    """
+def remove_missing_rows(df, columns=None):
+    if columns is None:
+        columns = df.columns
+    return df.dropna(subset=columns)
+
+def fill_missing_with_mean(df, columns=None):
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    df_filled = df.copy()
+    for col in columns:
+        if col in df.columns and df[col].dtype in [np.float64, np.int64]:
+            df_filled[col] = df[col].fillna(df[col].mean())
+    return df_filled
+
+def remove_outliers_iqr(df, column, multiplier=1.5):
+    if column not in df.columns:
+        return df
     Q1 = df[column].quantile(0.25)
     Q3 = df[column].quantile(0.75)
     IQR = Q3 - Q1
-    
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
-    
-    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
-    return filtered_df
+    lower_bound = Q1 - multiplier * IQR
+    upper_bound = Q3 + multiplier * IQR
+    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
 
-def clean_dataset(file_path, output_path=None):
-    """
-    Main function to clean dataset by removing outliers from numeric columns.
-    
-    Parameters:
-    file_path (str): Path to input CSV file
-    output_path (str, optional): Path to save cleaned data
-    
-    Returns:
-    pd.DataFrame: Cleaned DataFrame
-    """
-    df = pd.read_csv(file_path)
-    
-    numeric_cols = df.select_dtypes(include=[np.number]).columns
-    
-    for col in numeric_cols:
-        initial_count = len(df)
-        df = remove_outliers_iqr(df, col)
-        removed_count = initial_count - len(df)
-        print(f"Removed {removed_count} outliers from column: {col}")
-    
-    if output_path:
-        df.to_csv(output_path, index=False)
-        print(f"Cleaned data saved to: {output_path}")
-    
-    return df
+def standardize_column(df, column):
+    if column not in df.columns:
+        return df
+    df_standardized = df.copy()
+    mean = df[column].mean()
+    std = df[column].std()
+    if std != 0:
+        df_standardized[column] = (df[column] - mean) / std
+    return df_standardized
 
-if __name__ == "__main__":
-    input_file = "raw_data.csv"
-    output_file = "cleaned_data.csv"
+def clean_dataset(df, missing_strategy='drop', outlier_columns=None):
+    df_clean = df.copy()
     
-    cleaned_data = clean_dataset(input_file, output_file)
-    print(f"Original data shape: {pd.read_csv(input_file).shape}")
-    print(f"Cleaned data shape: {cleaned_data.shape}")
+    if missing_strategy == 'drop':
+        df_clean = remove_missing_rows(df_clean)
+    elif missing_strategy == 'mean':
+        df_clean = fill_missing_with_mean(df_clean)
+    
+    if outlier_columns:
+        for col in outlier_columns:
+            if col in df_clean.columns:
+                df_clean = remove_outliers_iqr(df_clean, col)
+    
+    return df_clean
