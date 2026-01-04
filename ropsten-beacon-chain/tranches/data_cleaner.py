@@ -205,3 +205,143 @@ if __name__ == "__main__":
     print("\nSummary statistics:")
     print("Original -", df['value'].describe())
     print("Cleaned  -", cleaned_df['value'].describe())
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df, missing_strategy='mean', remove_duplicates=True):
+    """
+    Clean a pandas DataFrame by handling missing values and removing duplicates.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame to clean
+    missing_strategy (str): Strategy for handling missing values ('mean', 'median', 'mode', 'drop')
+    remove_duplicates (bool): Whether to remove duplicate rows
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame
+    """
+    
+    df_clean = df.copy()
+    
+    # Handle missing values
+    if missing_strategy == 'mean':
+        numeric_cols = df_clean.select_dtypes(include=[np.number]).columns
+        df_clean[numeric_cols] = df_clean[numeric_cols].fillna(df_clean[numeric_cols].mean())
+    elif missing_strategy == 'median':
+        numeric_cols = df_clean.select_dtypes(include=[np.number]).columns
+        df_clean[numeric_cols] = df_clean[numeric_cols].fillna(df_clean[numeric_cols].median())
+    elif missing_strategy == 'mode':
+        for col in df_clean.columns:
+            df_clean[col] = df_clean[col].fillna(df_clean[col].mode()[0] if not df_clean[col].mode().empty else None)
+    elif missing_strategy == 'drop':
+        df_clean = df_clean.dropna()
+    
+    # Remove duplicates
+    if remove_duplicates:
+        df_clean = df_clean.drop_duplicates()
+    
+    # Reset index after cleaning
+    df_clean = df_clean.reset_index(drop=True)
+    
+    return df_clean
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate
+    required_columns (list): List of required column names
+    
+    Returns:
+    dict: Validation results
+    """
+    
+    validation_results = {
+        'is_valid': True,
+        'errors': [],
+        'warnings': []
+    }
+    
+    # Check if input is a DataFrame
+    if not isinstance(df, pd.DataFrame):
+        validation_results['is_valid'] = False
+        validation_results['errors'].append('Input is not a pandas DataFrame')
+        return validation_results
+    
+    # Check for empty DataFrame
+    if df.empty:
+        validation_results['warnings'].append('DataFrame is empty')
+    
+    # Check required columns
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            validation_results['is_valid'] = False
+            validation_results['errors'].append(f'Missing required columns: {missing_columns}')
+    
+    # Check for all-NaN columns
+    nan_columns = df.columns[df.isna().all()].tolist()
+    if nan_columns:
+        validation_results['warnings'].append(f'Columns with all NaN values: {nan_columns}')
+    
+    return validation_results
+
+def get_data_summary(df):
+    """
+    Generate a summary of the DataFrame.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    
+    Returns:
+    dict: Summary statistics
+    """
+    
+    summary = {
+        'shape': df.shape,
+        'columns': list(df.columns),
+        'dtypes': df.dtypes.to_dict(),
+        'missing_values': df.isnull().sum().to_dict(),
+        'unique_values': {col: df[col].nunique() for col in df.columns},
+        'memory_usage': df.memory_usage(deep=True).sum()
+    }
+    
+    # Add descriptive statistics for numeric columns
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    if len(numeric_cols) > 0:
+        summary['numeric_stats'] = df[numeric_cols].describe().to_dict()
+    
+    return summary
+
+# Example usage
+if __name__ == "__main__":
+    # Create sample data
+    sample_data = {
+        'A': [1, 2, np.nan, 4, 5, 5],
+        'B': [10, 20, 30, np.nan, 50, 10],
+        'C': ['x', 'y', 'z', 'x', 'y', 'x']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print()
+    
+    # Clean the data
+    df_clean = clean_dataset(df, missing_strategy='mean', remove_duplicates=True)
+    print("Cleaned DataFrame:")
+    print(df_clean)
+    print()
+    
+    # Validate the data
+    validation = validate_dataframe(df_clean, required_columns=['A', 'B', 'C'])
+    print("Validation Results:")
+    print(validation)
+    print()
+    
+    # Get summary
+    summary = get_data_summary(df_clean)
+    print("Data Summary:")
+    print(f"Shape: {summary['shape']}")
+    print(f"Memory Usage: {summary['memory_usage']} bytes")
