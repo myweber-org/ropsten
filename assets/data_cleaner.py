@@ -1,57 +1,75 @@
 
 import pandas as pd
-import numpy as np
-import sys
 
-def clean_csv_data(input_file, output_file):
-    try:
-        df = pd.read_csv(input_file)
-        
-        print(f"Original shape: {df.shape}")
-        print(f"Missing values per column:")
-        print(df.isnull().sum())
-        
-        numeric_cols = df.select_dtypes(include=[np.number]).columns
-        categorical_cols = df.select_dtypes(exclude=[np.number]).columns
-        
-        for col in numeric_cols:
-            if df[col].isnull().sum() > 0:
-                df[col].fillna(df[col].median(), inplace=True)
-        
-        for col in categorical_cols:
-            if df[col].isnull().sum() > 0:
-                df[col].fillna(df[col].mode()[0], inplace=True)
-        
-        df.drop_duplicates(inplace=True)
-        
-        df.to_csv(output_file, index=False)
-        
-        print(f"Cleaned shape: {df.shape}")
-        print(f"Missing values after cleaning:")
-        print(df.isnull().sum())
-        print(f"Cleaned data saved to: {output_file}")
-        
-        return True
-        
-    except FileNotFoundError:
-        print(f"Error: File '{input_file}' not found.")
-        return False
-    except Exception as e:
-        print(f"Error: {str(e)}")
-        return False
+def clean_dataframe(df, drop_duplicates=True, fill_missing=True, fill_value=0):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean
+        drop_duplicates (bool): Whether to drop duplicate rows
+        fill_missing (bool): Whether to fill missing values
+        fill_value: Value to use for filling missing data
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame
+    """
+    cleaned_df = df.copy()
+    
+    if drop_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates()
+    
+    if fill_missing:
+        cleaned_df = cleaned_df.fillna(fill_value)
+    
+    return cleaned_df
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate that a DataFrame meets basic requirements.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate
+        required_columns (list): List of required column names
+    
+    Returns:
+        tuple: (is_valid, error_message)
+    """
+    if df.empty:
+        return False, "DataFrame is empty"
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            return False, f"Missing required columns: {missing_columns}"
+    
+    return True, "DataFrame is valid"
+
+def sample_data_cleaning():
+    """
+    Example usage of the data cleaning functions.
+    """
+    data = {
+        'id': [1, 2, 2, 3, 4],
+        'value': [10, 20, 20, None, 40],
+        'category': ['A', 'B', 'B', 'C', None]
+    }
+    
+    df = pd.DataFrame(data)
+    print("Original DataFrame:")
+    print(df)
+    print("\n")
+    
+    cleaned = clean_dataframe(df, drop_duplicates=True, fill_missing=True)
+    print("Cleaned DataFrame:")
+    print(cleaned)
+    print("\n")
+    
+    is_valid, message = validate_dataframe(cleaned, required_columns=['id', 'value'])
+    print(f"Validation result: {is_valid}")
+    print(f"Validation message: {message}")
+    
+    return cleaned
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
-        print("Usage: python data_cleaner.py <input_file> <output_file>")
-        sys.exit(1)
-    
-    input_file = sys.argv[1]
-    output_file = sys.argv[2]
-    
-    success = clean_csv_data(input_file, output_file)
-    
-    if success:
-        print("Data cleaning completed successfully.")
-    else:
-        print("Data cleaning failed.")
-        sys.exit(1)
+    sample_data_cleaning()
