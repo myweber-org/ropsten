@@ -71,3 +71,37 @@ if __name__ == "__main__":
     
     print("\nCleaned data shape:", cleaned_data.shape)
     print("Cleaned statistics:", calculate_summary_statistics(cleaned_data, 'values'))
+import pandas as pd
+import re
+
+def clean_dataframe(df, column_name):
+    """
+    Clean a specified column in a DataFrame by removing duplicates,
+    stripping whitespace, and converting to lowercase.
+    """
+    if column_name not in df.columns:
+        raise ValueError(f"Column '{column_name}' not found in DataFrame")
+
+    df = df.copy()
+    df[column_name] = df[column_name].astype(str)
+    df[column_name] = df[column_name].str.strip()
+    df[column_name] = df[column_name].str.lower()
+    df = df.drop_duplicates(subset=[column_name], keep='first')
+    df = df.reset_index(drop=True)
+    return df
+
+def normalize_string(text):
+    """
+    Normalize a string by removing extra spaces and special characters.
+    """
+    if not isinstance(text, str):
+        return text
+    text = re.sub(r'\s+', ' ', text)
+    text = re.sub(r'[^\w\s]', '', text)
+    return text.strip()
+
+if __name__ == "__main__":
+    sample_data = {'Name': ['  Alice  ', 'Bob', 'alice', 'Charlie ', 'bob']}
+    df = pd.DataFrame(sample_data)
+    cleaned_df = clean_dataframe(df, 'Name')
+    print(cleaned_df)
