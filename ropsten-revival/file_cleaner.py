@@ -1,44 +1,90 @@
-
-import sys
 import os
+import shutil
+import tempfile
+from pathlib import Path
+from typing import List, Optional
 
-def remove_duplicates(input_file, output_file=None):
-    if not os.path.exists(input_file):
-        print(f"Error: File '{input_file}' not found.")
-        return False
-    
-    if output_file is None:
-        output_file = input_file + ".deduped"
-    
-    seen_lines = set()
-    unique_lines = []
-    
-    try:
-        with open(input_file, 'r', encoding='utf-8') as f:
-            for line in f:
-                stripped_line = line.rstrip('\n')
-                if stripped_line not in seen_lines:
-                    seen_lines.add(stripped_line)
-                    unique_lines.append(line)
+class TemporaryFileCleaner:
+    def __init__(self, target_dir: Optional[str] = None):
+        self.target_dir = Path(target_dir) if target_dir else Path(tempfile.gettempdir())
+        self.deleted_files = []
+        self.deleted_dirs = []
+
+    def identify_temporary_files(self, patterns: List[str] = None) -> List[Path]:
+        if patterns is None:
+            patterns = ['*.tmp', 'temp_*', '~*', '*.bak']
         
-        with open(output_file, 'w', encoding='utf-8') as f:
-            f.writelines(unique_lines)
+        found_files = []
+        for pattern in patterns:
+            found_files.extend(self.target_dir.glob(pattern))
         
-        print(f"Successfully removed duplicates. Output saved to '{output_file}'")
-        print(f"Original lines: {len(seen_lines) + (len(unique_lines) - len(seen_lines))}")
-        print(f"Unique lines: {len(unique_lines)}")
-        return True
-        
-    except Exception as e:
-        print(f"Error processing file: {e}")
-        return False
+        return list(set(found_files))
+
+    def clean_files(self, patterns: List[str] = None, dry_run: bool = False) -> dict:
+        files_to_clean = self.identify_temporary_files(patterns)
+        results = {
+            'files_found': len(files_to_clean),
+            'files_deleted': 0,
+            'bytes_freed': 0,
+            'errors': []
+        }
+
+        for file_path in files_to_clean:
+            try:
+                if dry_run:
+                    file_size = file_path.stat().st_size if file_path.exists() else 0
+                    results['bytes_freed'] += file_size
+                    results['files_deleted'] += 1
+                    continue
+
+                if file_path.is_file():
+                    file_size = file_path.stat().st_size
+                    file_path.unlink()
+                    self.deleted_files.append(file_path)
+                    results['bytes_freed'] += file_size
+                    results['files_deleted'] += 1
+                elif file_path.is_dir():
+                    dir_size = self._calculate_dir_size(file_path)
+                    shutil.rmtree(file_path)
+                    self.deleted_dirs.append(file_path)
+                    results['bytes_freed'] += dir_size
+                    results['files_deleted'] += 1
+            except Exception as e:
+                results['errors'].append(f"Failed to delete {file_path}: {str(e)}")
+
+        return results
+
+    def _calculate_dir_size(self, directory: Path) -> int:
+        total_size = 0
+        for file_path in directory.rglob('*'):
+            if file_path.is_file():
+                total_size += file_path.stat().st_size
+        return total_size
+
+    def get_summary(self) -> str:
+        total_items = len(self.deleted_files) + len(self.deleted_dirs)
+        return f"Cleaned {total_items} items: {len(self.deleted_files)} files and {len(self.deleted_dirs)} directories"
+
+def main():
+    cleaner = TemporaryFileCleaner()
+    print(f"Cleaning temporary files in: {cleaner.target_dir}")
+    
+    result = cleaner.clean_files(dry_run=True)
+    print(f"Dry run found {result['files_found']} files to delete")
+    print(f"Would free approximately {result['bytes_freed'] / (1024*1024):.2f} MB")
+    
+    if result['files_found'] > 0:
+        confirm = input("Proceed with deletion? (y/n): ")
+        if confirm.lower() == 'y':
+            result = cleaner.clean_files(dry_run=False)
+            print(cleaner.get_summary())
+            print(f"Freed {result['bytes_freed'] / (1024*1024):.2f} MB")
+            if result['errors']:
+                print(f"Encountered {len(result['errors'])} errors")
+        else:
+            print("Cleanup cancelled")
+    else:
+        print("No temporary files found to clean")
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python file_cleaner.py <input_file> [output_file]")
-        sys.exit(1)
-    
-    input_file = sys.argv[1]
-    output_file = sys.argv[2] if len(sys.argv) > 2 else None
-    
-    remove_duplicates(input_file, output_file)
+    main()
