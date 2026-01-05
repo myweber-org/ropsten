@@ -381,4 +381,72 @@ def clean_dataframe(df: pd.DataFrame,
             if col in cleaned_df.columns:
                 cleaned_df = normalize_column(cleaned_df, col)
     
-    return cleaned_df
+    return cleaned_dfimport numpy as np
+import pandas as pd
+
+def remove_outliers_iqr(data, column, factor=1.5):
+    """
+    Remove outliers using IQR method
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    q1 = data[column].quantile(0.25)
+    q3 = data[column].quantile(0.75)
+    iqr = q3 - q1
+    lower_bound = q1 - factor * iqr
+    upper_bound = q3 + factor * iqr
+    
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    return filtered_data
+
+def normalize_minmax(data, column):
+    """
+    Normalize data using min-max scaling
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    min_val = data[column].min()
+    max_val = data[column].max()
+    
+    if max_val == min_val:
+        return data
+    
+    normalized = (data[column] - min_val) / (max_val - min_val)
+    data[column + '_normalized'] = normalized
+    return data
+
+def standardize_zscore(data, column):
+    """
+    Standardize data using z-score normalization
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    mean_val = data[column].mean()
+    std_val = data[column].std()
+    
+    if std_val == 0:
+        return data
+    
+    standardized = (data[column] - mean_val) / std_val
+    data[column + '_standardized'] = standardized
+    return data
+
+def clean_dataset(data, numeric_columns=None, outlier_factor=1.5):
+    """
+    Comprehensive data cleaning pipeline
+    """
+    if numeric_columns is None:
+        numeric_columns = data.select_dtypes(include=[np.number]).columns.tolist()
+    
+    cleaned_data = data.copy()
+    
+    for col in numeric_columns:
+        if col in cleaned_data.columns:
+            cleaned_data = remove_outliers_iqr(cleaned_data, col, outlier_factor)
+            cleaned_data = normalize_minmax(cleaned_data, col)
+            cleaned_data = standardize_zscore(cleaned_data, col)
+    
+    return cleaned_data
