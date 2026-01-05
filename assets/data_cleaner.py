@@ -730,4 +730,98 @@ if __name__ == "__main__":
     stats = calculate_summary_statistics(cleaned_df, 'values')
     print("\nSummary Statistics:")
     for key, value in stats.items():
-        print(f"{key}: {value:.2f}" if isinstance(value, float) else f"{key}: {value}")
+        print(f"{key}: {value:.2f}" if isinstance(value, float) else f"{key}: {value}")import pandas as pd
+import numpy as np
+
+def clean_csv_data(filepath, fill_strategy='mean', drop_threshold=0.5):
+    """
+    Clean CSV data by handling missing values and removing problematic columns.
+    
+    Args:
+        filepath (str): Path to the CSV file.
+        fill_strategy (str): Strategy for filling missing values ('mean', 'median', 'mode', 'zero').
+        drop_threshold (float): Threshold of missing values to drop a column (0 to 1).
+    
+    Returns:
+        pandas.DataFrame: Cleaned DataFrame.
+    """
+    try:
+        df = pd.read_csv(filepath)
+    except FileNotFoundError:
+        raise FileNotFoundError(f"File not found: {filepath}")
+    
+    # Calculate missing percentage for each column
+    missing_percent = df.isnull().sum() / len(df)
+    
+    # Drop columns with missing values above threshold
+    columns_to_drop = missing_percent[missing_percent > drop_threshold].index
+    df = df.drop(columns=columns_to_drop)
+    
+    # Fill remaining missing values based on strategy
+    for column in df.columns:
+        if df[column].isnull().any():
+            if fill_strategy == 'mean' and pd.api.types.is_numeric_dtype(df[column]):
+                df[column].fillna(df[column].mean(), inplace=True)
+            elif fill_strategy == 'median' and pd.api.types.is_numeric_dtype(df[column]):
+                df[column].fillna(df[column].median(), inplace=True)
+            elif fill_strategy == 'mode':
+                df[column].fillna(df[column].mode()[0], inplace=True)
+            elif fill_strategy == 'zero':
+                df[column].fillna(0, inplace=True)
+            else:
+                # For non-numeric columns or unsupported strategies, fill with forward fill
+                df[column].fillna(method='ffill', inplace=True)
+    
+    # Remove duplicate rows
+    df = df.drop_duplicates()
+    
+    # Reset index after cleaning
+    df.reset_index(drop=True, inplace=True)
+    
+    return df
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Args:
+        df (pandas.DataFrame): DataFrame to validate.
+        required_columns (list): List of required column names.
+    
+    Returns:
+        tuple: (is_valid, error_message)
+    """
+    if df.empty:
+        return False, "DataFrame is empty"
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            return False, f"Missing required columns: {missing_columns}"
+    
+    # Check for infinite values in numeric columns
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    for col in numeric_cols:
+        if np.any(np.isinf(df[col])):
+            return False, f"Column '{col}' contains infinite values"
+    
+    return True, "DataFrame is valid"
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'A': [1, 2, np.nan, 4, 5],
+        'B': [np.nan, np.nan, np.nan, 8, 9],
+        'C': [10, 11, 12, 13, 14],
+        'D': ['x', 'y', 'z', 'x', 'y']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    df.to_csv('sample_data.csv', index=False)
+    
+    cleaned_df = clean_csv_data('sample_data.csv', fill_strategy='mean', drop_threshold=0.5)
+    print("Cleaned DataFrame:")
+    print(cleaned_df)
+    
+    is_valid, message = validate_dataframe(cleaned_df, required_columns=['A', 'C'])
+    print(f"\nValidation: {is_valid} - {message}")
