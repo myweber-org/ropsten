@@ -152,4 +152,82 @@ def clean_dataframe(df, remove_dups=True, fill_na=True, normalize=False,
     if normalize:
         cleaned_df = normalize_columns(cleaned_df, method='minmax')
     
-    return cleaned_df
+    return cleaned_dfimport pandas as pd
+
+def clean_dataset(df, drop_duplicates=True, fillna_method='drop'):
+    """
+    Clean a pandas DataFrame by handling null values and removing duplicates.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean
+        drop_duplicates (bool): Whether to remove duplicate rows
+        fillna_method (str): Method to handle null values - 'drop', 'fill_mean', 'fill_median', or 'fill_zero'
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame
+    """
+    df_clean = df.copy()
+    
+    # Handle null values
+    if fillna_method == 'drop':
+        df_clean = df_clean.dropna()
+    elif fillna_method == 'fill_mean':
+        df_clean = df_clean.fillna(df_clean.mean(numeric_only=True))
+    elif fillna_method == 'fill_median':
+        df_clean = df_clean.fillna(df_clean.median(numeric_only=True))
+    elif fillna_method == 'fill_zero':
+        df_clean = df_clean.fillna(0)
+    
+    # Remove duplicates if requested
+    if drop_duplicates:
+        df_clean = df_clean.drop_duplicates()
+    
+    # Reset index after cleaning
+    df_clean = df_clean.reset_index(drop=True)
+    
+    return df_clean
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate
+        required_columns (list): List of column names that must be present
+    
+    Returns:
+        tuple: (is_valid, error_message)
+    """
+    if not isinstance(df, pd.DataFrame):
+        return False, "Input is not a pandas DataFrame"
+    
+    if df.empty:
+        return False, "DataFrame is empty"
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            return False, f"Missing required columns: {missing_columns}"
+    
+    return True, "DataFrame is valid"
+
+# Example usage (commented out for production)
+# if __name__ == "__main__":
+#     # Create sample data
+#     data = {
+#         'A': [1, 2, None, 4, 2],
+#         'B': [5, None, 7, 8, 5],
+#         'C': [9, 10, 11, 12, 9]
+#     }
+#     df = pd.DataFrame(data)
+#     
+#     # Clean the data
+#     cleaned_df = clean_dataset(df, drop_duplicates=True, fillna_method='fill_mean')
+#     print("Original DataFrame:")
+#     print(df)
+#     print("\nCleaned DataFrame:")
+#     print(cleaned_df)
+#     
+#     # Validate the cleaned data
+#     is_valid, message = validate_dataframe(cleaned_df, required_columns=['A', 'B', 'C'])
+#     print(f"\nValidation: {is_valid} - {message}")
