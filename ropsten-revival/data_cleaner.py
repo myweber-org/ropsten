@@ -747,3 +747,67 @@ if __name__ == "__main__":
     print("\nCleaned data shape:", cleaned_data.shape)
     print("\nCleaned summary statistics:")
     print(get_summary_statistics(cleaned_data, numeric_cols))
+import pandas as pd
+import numpy as np
+import re
+
+def clean_column_names(df):
+    df.columns = [re.sub(r'[^a-zA-Z0-9_]', '_', col).lower() for col in df.columns]
+    return df
+
+def remove_duplicates(df, subset=None):
+    return df.drop_duplicates(subset=subset, keep='first')
+
+def handle_missing_values(df, strategy='mean', columns=None):
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    if strategy == 'mean':
+        df[columns] = df[columns].fillna(df[columns].mean())
+    elif strategy == 'median':
+        df[columns] = df[columns].fillna(df[columns].median())
+    elif strategy == 'mode':
+        df[columns] = df[columns].fillna(df[columns].mode().iloc[0])
+    elif strategy == 'drop':
+        df = df.dropna(subset=columns)
+    
+    return df
+
+def normalize_numeric_columns(df, columns=None):
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    for col in columns:
+        if df[col].std() != 0:
+            df[col] = (df[col] - df[col].mean()) / df[col].std()
+    
+    return df
+
+def process_csv(input_path, output_path, cleaning_steps=None):
+    try:
+        df = pd.read_csv(input_path)
+        
+        if cleaning_steps is None:
+            cleaning_steps = [
+                clean_column_names,
+                lambda x: remove_duplicates(x),
+                lambda x: handle_missing_values(x, strategy='mean'),
+                lambda x: normalize_numeric_columns(x)
+            ]
+        
+        for step in cleaning_steps:
+            df = step(df)
+        
+        df.to_csv(output_path, index=False)
+        print(f"Data cleaned successfully. Output saved to {output_path}")
+        return True
+        
+    except Exception as e:
+        print(f"Error processing file: {e}")
+        return False
+
+if __name__ == "__main__":
+    input_file = "raw_data.csv"
+    output_file = "cleaned_data.csv"
+    
+    process_csv(input_file, output_file)
