@@ -1,47 +1,31 @@
-import numpy as np
-import pandas as pd
 
-def remove_outliers_iqr(df, column):
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
-    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+def remove_duplicates(data_list):
+    """
+    Remove duplicate entries from a list while preserving order.
+    Returns a new list with unique elements.
+    """
+    seen = set()
+    unique_list = []
+    for item in data_list:
+        if item not in seen:
+            seen.add(item)
+            unique_list.append(item)
+    return unique_list
 
-def normalize_minmax(df, column):
-    min_val = df[column].min()
-    max_val = df[column].max()
-    if max_val - min_val == 0:
-        return df[column]
-    return (df[column] - min_val) / (max_val - min_val)
+def clean_numeric_data(values, default=0):
+    """
+    Clean numeric data by converting strings to floats.
+    Non-convertible values are replaced with the default.
+    """
+    cleaned = []
+    for val in values:
+        try:
+            cleaned.append(float(val))
+        except (ValueError, TypeError):
+            cleaned.append(default)
+    return cleaned
 
-def standardize_zscore(df, column):
-    mean_val = df[column].mean()
-    std_val = df[column].std()
-    if std_val == 0:
-        return df[column]
-    return (df[column] - mean_val) / std_val
-
-def clean_dataset(df, numeric_columns):
-    cleaned_df = df.copy()
-    for col in numeric_columns:
-        if col in cleaned_df.columns:
-            cleaned_df = remove_outliers_iqr(cleaned_df, col)
-    return cleaned_df
-
-def process_features(df, numeric_columns, method='minmax'):
-    processed_df = df.copy()
-    for col in numeric_columns:
-        if col in processed_df.columns:
-            if method == 'minmax':
-                processed_df[col] = normalize_minmax(processed_df, col)
-            elif method == 'zscore':
-                processed_df[col] = standardize_zscore(processed_df, col)
-    return processed_df
-
-def validate_data(df, required_columns):
-    missing_columns = [col for col in required_columns if col not in df.columns]
-    if missing_columns:
-        raise ValueError(f"Missing required columns: {missing_columns}")
-    return True
+if __name__ == "__main__":
+    sample_data = [1, 2, 2, 3, 4, 4, 5]
+    print("Original:", sample_data)
+    print("Cleaned:", remove_duplicates(sample_data))
