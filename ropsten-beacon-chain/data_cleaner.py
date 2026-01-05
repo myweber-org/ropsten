@@ -1,96 +1,74 @@
 
 import numpy as np
+import pandas as pd
 
-def remove_outliers_iqr(data, column):
+def remove_outliers_iqr(df, column):
     """
-    Remove outliers from a specified column in a dataset using the IQR method.
+    Remove outliers from a DataFrame column using the IQR method.
     
     Parameters:
-    data (numpy.ndarray): The dataset.
-    column (int): Index of the column to clean.
+    df (pd.DataFrame): Input DataFrame
+    column (str): Column name to process
     
     Returns:
-    numpy.ndarray: Dataset with outliers removed from the specified column.
+    pd.DataFrame: DataFrame with outliers removed
     """
-    if not isinstance(data, np.ndarray):
-        raise TypeError("Input data must be a numpy array")
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
     
-    if column >= data.shape[1]:
-        raise IndexError("Column index out of bounds")
-    
-    col_data = data[:, column]
-    
-    Q1 = np.percentile(col_data, 25)
-    Q3 = np.percentile(col_data, 75)
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
     IQR = Q3 - Q1
     
     lower_bound = Q1 - 1.5 * IQR
     upper_bound = Q3 + 1.5 * IQR
     
-    mask = (col_data >= lower_bound) & (col_data <= upper_bound)
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
     
-    return data[mask]
-import pandas as pd
-import re
+    return filtered_df
 
-def clean_dataframe(df, column_mapping=None, drop_duplicates=True, normalize_text=True):
+def calculate_summary_statistics(df, column):
     """
-    Clean a pandas DataFrame by removing duplicates and normalizing text columns.
+    Calculate summary statistics for a column after outlier removal.
     
-    Args:
-        df (pd.DataFrame): Input DataFrame to clean.
-        column_mapping (dict, optional): Dictionary mapping old column names to new ones.
-        drop_duplicates (bool): Whether to remove duplicate rows.
-        normalize_text (bool): Whether to normalize text columns (strip, lower case).
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    column (str): Column name to analyze
     
     Returns:
-        pd.DataFrame: Cleaned DataFrame.
+    dict: Dictionary containing summary statistics
     """
-    cleaned_df = df.copy()
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
     
-    if column_mapping:
-        cleaned_df = cleaned_df.rename(columns=column_mapping)
+    stats = {
+        'mean': df[column].mean(),
+        'median': df[column].median(),
+        'std': df[column].std(),
+        'min': df[column].min(),
+        'max': df[column].max(),
+        'count': df[column].count()
+    }
     
-    if drop_duplicates:
-        cleaned_df = cleaned_df.drop_duplicates().reset_index(drop=True)
-    
-    if normalize_text:
-        for col in cleaned_df.select_dtypes(include=['object']).columns:
-            cleaned_df[col] = cleaned_df[col].apply(
-                lambda x: re.sub(r'\s+', ' ', str(x).strip().lower()) if pd.notnull(x) else x
-            )
-    
-    return cleaned_df
+    return stats
 
-def validate_email(email):
-    """
-    Validate email format using regex.
+def main():
+    # Example usage
+    np.random.seed(42)
+    data = {
+        'values': np.concatenate([
+            np.random.normal(100, 15, 95),
+            np.array([500, -100, 300, 250])
+        ])
+    }
     
-    Args:
-        email (str): Email address to validate.
+    df = pd.DataFrame(data)
+    print(f"Original data shape: {df.shape}")
+    print(f"Original statistics: {calculate_summary_statistics(df, 'values')}")
     
-    Returns:
-        bool: True if email is valid, False otherwise.
-    """
-    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-    return bool(re.match(pattern, str(email))) if pd.notnull(email) else False
+    cleaned_df = remove_outliers_iqr(df, 'values')
+    print(f"\nCleaned data shape: {cleaned_df.shape}")
+    print(f"Cleaned statistics: {calculate_summary_statistics(cleaned_df, 'values')}")
 
-def remove_outliers_iqr(df, column, multiplier=1.5):
-    """
-    Remove outliers from a column using the Interquartile Range (IQR) method.
-    
-    Args:
-        df (pd.DataFrame): Input DataFrame.
-        column (str): Column name to process.
-        multiplier (float): IQR multiplier for outlier detection.
-    
-    Returns:
-        pd.DataFrame: DataFrame with outliers removed.
-    """
-    q1 = df[column].quantile(0.25)
-    q3 = df[column].quantile(0.75)
-    iqr = q3 - q1
-    lower_bound = q1 - multiplier * iqr
-    upper_bound = q3 + multiplier * iqr
-    
-    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)].copy()
+if __name__ == "__main__":
+    main()
