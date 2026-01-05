@@ -1,74 +1,64 @@
-
-import numpy as np
 import pandas as pd
 
-def remove_outliers_iqr(df, column):
+def clean_dataset(df, drop_duplicates=True, fill_missing=True, fill_value=0):
     """
-    Remove outliers from a DataFrame column using the IQR method.
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
     
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    column (str): Column name to process
+    Args:
+        df: pandas DataFrame to clean
+        drop_duplicates: If True, remove duplicate rows
+        fill_missing: If True, fill missing values
+        fill_value: Value to use for filling missing data
     
     Returns:
-    pd.DataFrame: DataFrame with outliers removed
+        Cleaned pandas DataFrame
     """
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
+    cleaned_df = df.copy()
     
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
+    if drop_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates()
     
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
+    if fill_missing:
+        cleaned_df = cleaned_df.fillna(fill_value)
     
-    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
-    
-    return filtered_df
+    return cleaned_df
 
-def calculate_summary_statistics(df, column):
+def validate_dataset(df, required_columns=None):
     """
-    Calculate summary statistics for a column after outlier removal.
+    Validate a dataset by checking for required columns and data types.
     
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    column (str): Column name to analyze
+    Args:
+        df: pandas DataFrame to validate
+        required_columns: List of column names that must be present
     
     Returns:
-    dict: Dictionary containing summary statistics
+        Tuple of (is_valid, error_message)
     """
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            return False, f"Missing required columns: {missing_columns}"
     
-    stats = {
-        'mean': df[column].mean(),
-        'median': df[column].median(),
-        'std': df[column].std(),
-        'min': df[column].min(),
-        'max': df[column].max(),
-        'count': df[column].count()
-    }
+    if df.empty:
+        return False, "DataFrame is empty"
     
-    return stats
+    return True, "Dataset is valid"
 
-def main():
-    # Example usage
-    np.random.seed(42)
-    data = {
-        'values': np.concatenate([
-            np.random.normal(100, 15, 95),
-            np.array([500, -100, 300, 250])
-        ])
-    }
+def remove_outliers(df, column, threshold=3):
+    """
+    Remove outliers from a specific column using z-score method.
     
-    df = pd.DataFrame(data)
-    print(f"Original data shape: {df.shape}")
-    print(f"Original statistics: {calculate_summary_statistics(df, 'values')}")
+    Args:
+        df: pandas DataFrame
+        column: Column name to check for outliers
+        threshold: Z-score threshold for outlier detection
     
-    cleaned_df = remove_outliers_iqr(df, 'values')
-    print(f"\nCleaned data shape: {cleaned_df.shape}")
-    print(f"Cleaned statistics: {calculate_summary_statistics(cleaned_df, 'values')}")
-
-if __name__ == "__main__":
-    main()
+    Returns:
+        DataFrame with outliers removed
+    """
+    from scipy import stats
+    import numpy as np
+    
+    z_scores = np.abs(stats.zscore(df[column].dropna()))
+    filtered_entries = z_scores < threshold
+    return df[filtered_entries]
