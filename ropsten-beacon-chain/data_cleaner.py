@@ -61,4 +61,47 @@ def remove_outliers(df, column, threshold=3):
     
     z_scores = np.abs(stats.zscore(df[column].dropna()))
     filtered_entries = z_scores < threshold
-    return df[filtered_entries]
+    return df[filtered_entries]import csv
+import re
+
+def clean_csv(input_file, output_file, columns_to_clean=None):
+    """
+    Clean a CSV file by removing extra whitespace and standardizing text.
+    """
+    cleaned_rows = []
+    
+    with open(input_file, 'r', encoding='utf-8') as infile:
+        reader = csv.DictReader(infile)
+        fieldnames = reader.fieldnames
+        
+        for row in reader:
+            cleaned_row = {}
+            for field in fieldnames:
+                value = row[field]
+                if value and isinstance(value, str):
+                    # Remove extra whitespace
+                    value = re.sub(r'\s+', ' ', value.strip())
+                    # Convert to title case for name fields
+                    if 'name' in field.lower():
+                        value = value.title()
+                cleaned_row[field] = value
+            cleaned_rows.append(cleaned_row)
+    
+    with open(output_file, 'w', encoding='utf-8', newline='') as outfile:
+        writer = csv.DictWriter(outfile, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(cleaned_rows)
+    
+    return len(cleaned_rows)
+
+def validate_email(email):
+    """
+    Validate email format using regex.
+    """
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return bool(re.match(pattern, email)) if email else False
+
+if __name__ == "__main__":
+    # Example usage
+    count = clean_csv('raw_data.csv', 'cleaned_data.csv')
+    print(f"Cleaned {count} rows of data.")
