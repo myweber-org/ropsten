@@ -599,4 +599,64 @@ def get_data_summary(df):
         'missing_values': df.isnull().sum().to_dict(),
         'numeric_summary': df.describe().to_dict() if df.select_dtypes(include=[np.number]).shape[1] > 0 else {}
     }
-    return summary
+    return summaryimport csv
+import re
+
+def clean_csv(input_file, output_file):
+    """
+    Clean a CSV file by removing rows with missing values
+    and standardizing text fields.
+    """
+    cleaned_rows = []
+    
+    with open(input_file, 'r', encoding='utf-8') as infile:
+        reader = csv.DictReader(infile)
+        fieldnames = reader.fieldnames
+        
+        for row in reader:
+            # Skip rows with any empty values
+            if any(value.strip() == '' for value in row.values()):
+                continue
+            
+            # Clean text fields: remove extra whitespace and normalize case
+            cleaned_row = {}
+            for key, value in row.items():
+                if key.lower().endswith(('name', 'title', 'description')):
+                    # Remove extra spaces and capitalize first letter
+                    cleaned_value = re.sub(r'\s+', ' ', value.strip())
+                    cleaned_value = cleaned_value.capitalize()
+                    cleaned_row[key] = cleaned_value
+                else:
+                    cleaned_row[key] = value.strip()
+            
+            cleaned_rows.append(cleaned_row)
+    
+    # Write cleaned data to output file
+    with open(output_file, 'w', newline='', encoding='utf-8') as outfile:
+        writer = csv.DictWriter(outfile, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(cleaned_rows)
+    
+    return len(cleaned_rows)
+
+def validate_email(email):
+    """
+    Validate email format using regex pattern.
+    """
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return bool(re.match(pattern, email))
+
+def filter_by_date(data, date_field, start_date, end_date):
+    """
+    Filter data rows based on date range.
+    """
+    filtered = []
+    for row in data:
+        if start_date <= row[date_field] <= end_date:
+            filtered.append(row)
+    return filtered
+
+if __name__ == "__main__":
+    # Example usage
+    rows_processed = clean_csv('raw_data.csv', 'cleaned_data.csv')
+    print(f"Processed {rows_processed} rows")
