@@ -81,3 +81,38 @@ if __name__ == "__main__":
     # Validate
     is_valid, message = validate_dataframe(cleaned, required_columns=['A', 'B', 'C'])
     print(f"\nValidation: {is_valid} - {message}")
+import pandas as pd
+
+def clean_dataset(df, text_columns=None):
+    """
+    Clean a pandas DataFrame by removing rows with null values
+    and standardizing text columns to lowercase.
+    """
+    df_clean = df.copy()
+    
+    df_clean = df_clean.dropna()
+    
+    if text_columns:
+        for col in text_columns:
+            if col in df_clean.columns:
+                df_clean[col] = df_clean[col].astype(str).str.lower().str.strip()
+    
+    return df_clean
+
+def remove_duplicates(df, subset=None):
+    """
+    Remove duplicate rows from DataFrame.
+    """
+    return df.drop_duplicates(subset=subset, keep='first')
+
+def validate_email_column(df, email_col):
+    """
+    Validate email addresses in a column and return valid rows.
+    """
+    if email_col not in df.columns:
+        raise ValueError(f"Column '{email_col}' not found in DataFrame")
+    
+    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    valid_emails = df[df[email_col].str.match(email_pattern, na=False)]
+    
+    return valid_emails
