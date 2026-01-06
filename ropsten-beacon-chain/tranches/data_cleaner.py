@@ -1,113 +1,49 @@
-import numpy as np
-import pandas as pd
-from scipy import stats
 
-def remove_outliers_iqr(data, column, threshold=1.5):
+import numpy as np
+
+def remove_outliers_iqr(data, column):
     """
-    Remove outliers using IQR method
+    Remove outliers from a specified column using the IQR method.
+    
+    Args:
+        data: pandas DataFrame containing the data
+        column: string name of the column to clean
+    
+    Returns:
+        pandas DataFrame with outliers removed
     """
     if column not in data.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
+        raise ValueError(f"Column '{column}' not found in data")
     
     Q1 = data[column].quantile(0.25)
     Q3 = data[column].quantile(0.75)
     IQR = Q3 - Q1
     
-    lower_bound = Q1 - threshold * IQR
-    upper_bound = Q3 + threshold * IQR
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
     
     filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
-    return filtered_data.copy()
-
-def remove_outliers_zscore(data, column, threshold=3):
-    """
-    Remove outliers using Z-score method
-    """
-    if column not in data.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
     
-    z_scores = np.abs(stats.zscore(data[column].dropna()))
-    filtered_indices = np.where(z_scores < threshold)[0]
-    
-    filtered_data = data.iloc[filtered_indices].copy()
     return filtered_data
 
-def normalize_minmax(data, column):
+def calculate_basic_stats(data, column):
     """
-    Normalize data using Min-Max scaling
+    Calculate basic statistics for a column after outlier removal.
+    
+    Args:
+        data: pandas DataFrame
+        column: string name of the column
+    
+    Returns:
+        dictionary with statistical measures
     """
-    if column not in data.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
+    stats = {
+        'mean': data[column].mean(),
+        'median': data[column].median(),
+        'std': data[column].std(),
+        'min': data[column].min(),
+        'max': data[column].max(),
+        'count': data[column].count()
+    }
     
-    min_val = data[column].min()
-    max_val = data[column].max()
-    
-    if max_val == min_val:
-        return data[column].copy()
-    
-    normalized = (data[column] - min_val) / (max_val - min_val)
-    return normalized
-
-def normalize_zscore(data, column):
-    """
-    Normalize data using Z-score standardization
-    """
-    if column not in data.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
-    
-    mean_val = data[column].mean()
-    std_val = data[column].std()
-    
-    if std_val == 0:
-        return data[column].copy()
-    
-    standardized = (data[column] - mean_val) / std_val
-    return standardized
-
-def clean_dataset(df, numeric_columns=None, outlier_method='iqr', normalize_method='minmax'):
-    """
-    Main function to clean dataset by removing outliers and normalizing numeric columns
-    """
-    if numeric_columns is None:
-        numeric_columns = df.select_dtypes(include=[np.number]).columns.tolist()
-    
-    cleaned_df = df.copy()
-    
-    for column in numeric_columns:
-        if column not in df.columns:
-            continue
-            
-        if outlier_method == 'iqr':
-            temp_df = remove_outliers_iqr(cleaned_df, column)
-        elif outlier_method == 'zscore':
-            temp_df = remove_outliers_zscore(cleaned_df, column)
-        else:
-            temp_df = cleaned_df.copy()
-        
-        if normalize_method == 'minmax':
-            temp_df[column] = normalize_minmax(temp_df, column)
-        elif normalize_method == 'zscore':
-            temp_df[column] = normalize_zscore(temp_df, column)
-        
-        cleaned_df = temp_df
-    
-    return cleaned_df
-
-def validate_data(df, required_columns=None, allow_nan=True, max_nan_ratio=0.1):
-    """
-    Validate dataset structure and content
-    """
-    if required_columns:
-        missing_columns = [col for col in required_columns if col not in df.columns]
-        if missing_columns:
-            raise ValueError(f"Missing required columns: {missing_columns}")
-    
-    if not allow_nan:
-        if df.isnull().any().any():
-            raise ValueError("Dataset contains NaN values")
-    else:
-        nan_ratio = df.isnull().sum().sum() / (df.shape[0] * df.shape[1])
-        if nan_ratio > max_nan_ratio:
-            raise ValueError(f"NaN ratio {nan_ratio:.2%} exceeds maximum allowed {max_nan_ratio:.2%}")
-    
-    return True
+    return stats
