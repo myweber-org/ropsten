@@ -18,29 +18,28 @@ def get_weather(api_key, city):
         return None
 
 def display_weather(data):
-    if data and data.get('cod') == 200:
+    if data is None:
+        print("No data to display.")
+        return
+    try:
         city = data['name']
         country = data['sys']['country']
         temp = data['main']['temp']
-        weather_desc = data['weather'][0]['description']
+        feels_like = data['main']['feels_like']
         humidity = data['main']['humidity']
-        wind_speed = data['wind']['speed']
-        
+        weather_desc = data['weather'][0]['description']
         print(f"Weather in {city}, {country}:")
-        print(f"  Temperature: {temp}°C")
-        print(f"  Conditions: {weather_desc}")
+        print(f"  Temperature: {temp}°C (feels like {feels_like}°C)")
         print(f"  Humidity: {humidity}%")
-        print(f"  Wind Speed: {wind_speed} m/s")
-    else:
-        print("City not found or invalid API response.")
+        print(f"  Conditions: {weather_desc}")
+    except KeyError as e:
+        print(f"Unexpected data structure: missing key {e}")
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
-        print("Usage: python fetch_weather.py <API_KEY> <CITY_NAME>")
+        print("Usage: python fetch_weather.py <API_KEY> <CITY>")
         sys.exit(1)
-    
     api_key = sys.argv[1]
     city = sys.argv[2]
-    
     weather_data = get_weather(api_key, city)
     display_weather(weather_data)
