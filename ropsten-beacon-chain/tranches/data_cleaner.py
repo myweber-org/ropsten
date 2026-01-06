@@ -1,85 +1,49 @@
 
 import pandas as pd
 
-def remove_duplicates(df, subset=None, keep='first'):
+def clean_dataset(df, drop_duplicates=True, fill_missing=False, fill_value=0):
     """
-    Remove duplicate rows from a DataFrame.
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
     
     Parameters:
-    df (pd.DataFrame): Input DataFrame
-    subset (list, optional): Column labels to consider for duplicates
-    keep (str, optional): Which duplicates to keep: 'first', 'last', or False
+    df (pd.DataFrame): Input DataFrame to clean.
+    drop_duplicates (bool): Whether to drop duplicate rows.
+    fill_missing (bool): Whether to fill missing values.
+    fill_value: Value to use for filling missing data.
     
     Returns:
-    pd.DataFrame: DataFrame with duplicates removed
+    pd.DataFrame: Cleaned DataFrame.
     """
-    if df.empty:
-        return df
+    cleaned_df = df.copy()
     
-    cleaned_df = df.drop_duplicates(subset=subset, keep=keep)
+    if drop_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates()
     
-    removed_count = len(df) - len(cleaned_df)
-    if removed_count > 0:
-        print(f"Removed {removed_count} duplicate rows")
+    if fill_missing:
+        cleaned_df = cleaned_df.fillna(fill_value)
     
     return cleaned_df
-
-def clean_numeric_columns(df, columns):
-    """
-    Clean numeric columns by converting to appropriate types and handling errors.
-    
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    columns (list): List of column names to clean
-    
-    Returns:
-    pd.DataFrame: DataFrame with cleaned numeric columns
-    """
-    for col in columns:
-        if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors='coerce')
-    
-    return df
 
 def validate_dataframe(df, required_columns=None):
     """
     Validate DataFrame structure and content.
     
     Parameters:
-    df (pd.DataFrame): Input DataFrame
-    required_columns (list, optional): List of required column names
+    df (pd.DataFrame): DataFrame to validate.
+    required_columns (list): List of required column names.
     
     Returns:
-    bool: True if validation passes, False otherwise
+    tuple: (is_valid, error_message)
     """
+    if not isinstance(df, pd.DataFrame):
+        return False, "Input is not a pandas DataFrame"
+    
     if df.empty:
-        print("Warning: DataFrame is empty")
-        return False
+        return False, "DataFrame is empty"
     
     if required_columns:
         missing_columns = [col for col in required_columns if col not in df.columns]
         if missing_columns:
-            print(f"Missing required columns: {missing_columns}")
-            return False
+            return False, f"Missing required columns: {missing_columns}"
     
-    return True
-
-def get_data_summary(df):
-    """
-    Generate a summary of the DataFrame.
-    
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    
-    Returns:
-    dict: Dictionary containing summary statistics
-    """
-    summary = {
-        'total_rows': len(df),
-        'total_columns': len(df.columns),
-        'missing_values': df.isnull().sum().sum(),
-        'duplicate_rows': df.duplicated().sum(),
-        'column_types': df.dtypes.to_dict()
-    }
-    
-    return summary
+    return True, "DataFrame is valid"
