@@ -1,118 +1,110 @@
 
+import numpy as np
 import pandas as pd
 
-def remove_duplicates(df, subset=None, keep='first'):
+def remove_outliers_iqr(df, column):
     """
-    Remove duplicate rows from a DataFrame.
+    Remove outliers from a DataFrame column using the IQR method.
     
     Parameters:
     df (pd.DataFrame): Input DataFrame
-    subset (list, optional): Column labels to consider for duplicates
-    keep (str, optional): Which duplicates to keep ('first', 'last', False)
+    column (str): Column name to process
     
     Returns:
-    pd.DataFrame: DataFrame with duplicates removed
+    pd.DataFrame: DataFrame with outliers removed
     """
-    if df.empty:
-        return df
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
     
-    cleaned_df = df.drop_duplicates(subset=subset, keep=keep)
-    return cleaned_df
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    
+    return filtered_df
 
-def clean_numeric_columns(df, columns):
+def calculate_basic_stats(df, column):
     """
-    Clean numeric columns by converting to appropriate types and handling errors.
+    Calculate basic statistics for a column.
     
     Parameters:
     df (pd.DataFrame): Input DataFrame
-    columns (list): List of column names to clean
+    column (str): Column name
     
     Returns:
-    pd.DataFrame: DataFrame with cleaned numeric columns
+    dict: Dictionary containing statistics
     """
+    stats = {
+        'mean': df[column].mean(),
+        'median': df[column].median(),
+        'std': df[column].std(),
+        'min': df[column].min(),
+        'max': df[column].max(),
+        'count': df[column].count()
+    }
+    
+    return stats
+
+def clean_numeric_data(df, columns=None):
+    """
+    Clean numeric data by removing outliers from specified columns.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    columns (list): List of column names to clean. If None, clean all numeric columns.
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame
+    """
+    if columns is None:
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        columns = list(numeric_cols)
+    
     cleaned_df = df.copy()
     
-    for col in columns:
-        if col in cleaned_df.columns:
-            cleaned_df[col] = pd.to_numeric(cleaned_df[col], errors='coerce')
+    for column in columns:
+        if column in cleaned_df.columns:
+            original_count = len(cleaned_df)
+            cleaned_df = remove_outliers_iqr(cleaned_df, column)
+            removed_count = original_count - len(cleaned_df)
+            print(f"Removed {removed_count} outliers from column '{column}'")
     
     return cleaned_df
 
-def validate_dataframe(df, required_columns=None):
-    """
-    Validate DataFrame structure and content.
+if __name__ == "__main__":
+    # Example usage
+    np.random.seed(42)
     
-    Parameters:
-    df (pd.DataFrame): DataFrame to validate
-    required_columns (list, optional): List of required column names
+    # Create sample data with outliers
+    data = {
+        'temperature': np.concatenate([
+            np.random.normal(20, 2, 90),
+            np.array([40, 45, 50, -10, -5])
+        ]),
+        'humidity': np.concatenate([
+            np.random.normal(60, 5, 90),
+            np.array([90, 95, 100, 10, 5])
+        ]),
+        'pressure': np.random.normal(1013, 10, 95)
+    }
     
-    Returns:
-    tuple: (is_valid, error_message)
-    """
-    if df is None:
-        return False, "DataFrame is None"
+    df = pd.DataFrame(data)
     
-    if not isinstance(df, pd.DataFrame):
-        return False, "Input is not a pandas DataFrame"
+    print("Original data shape:", df.shape)
+    print("\nOriginal statistics:")
+    for col in df.columns:
+        stats = calculate_basic_stats(df, col)
+        print(f"{col}: {stats}")
     
-    if df.empty:
-        return False, "DataFrame is empty"
+    # Clean the data
+    cleaned_df = clean_numeric_data(df)
     
-    if required_columns:
-        missing_columns = [col for col in required_columns if col not in df.columns]
-        if missing_columns:
-            return False, f"Missing required columns: {missing_columns}"
-    
-    return True, "DataFrame is valid"
-import pandas as pd
-import re
-
-def clean_text_column(df, column_name):
-    """
-    Standardize text by converting to lowercase, removing extra whitespace,
-    and stripping special characters except basic punctuation.
-    """
-    if column_name not in df.columns:
-        raise ValueError(f"Column '{column_name}' not found in DataFrame")
-    
-    df[column_name] = df[column_name].astype(str)
-    df[column_name] = df[column_name].str.lower()
-    df[column_name] = df[column_name].str.strip()
-    df[column_name] = df[column_name].apply(lambda x: re.sub(r'[^\w\s.,!?-]', '', x))
-    df[column_name] = df[column_name].apply(lambda x: re.sub(r'\s+', ' ', x))
-    
-    return df
-
-def remove_duplicate_rows(df, subset=None, keep='first'):
-    """
-    Remove duplicate rows from DataFrame.
-    """
-    return df.drop_duplicates(subset=subset, keep=keep)
-
-def standardize_dataframe(df, text_columns=None):
-    """
-    Apply cleaning functions to entire DataFrame.
-    """
-    df_clean = df.copy()
-    
-    if text_columns:
-        for col in text_columns:
-            if col in df_clean.columns:
-                df_clean = clean_text_column(df_clean, col)
-    
-    df_clean = remove_duplicate_rows(df_clean)
-    
-    return df_clean
-
-def save_cleaned_data(df, output_path, format='csv'):
-    """
-    Save cleaned DataFrame to file.
-    """
-    if format == 'csv':
-        df.to_csv(output_path, index=False)
-    elif format == 'excel':
-        df.to_excel(output_path, index=False)
-    elif format == 'json':
-        df.to_json(output_path, orient='records')
-    else:
-        raise ValueError("Unsupported format. Use 'csv', 'excel', or 'json'")
+    print("\nCleaned data shape:", cleaned_df.shape)
+    print("\nCleaned statistics:")
+    for col in cleaned_df.columns:
+        stats = calculate_basic_stats(cleaned_df, col)
+        print(f"{col}: {stats}")
