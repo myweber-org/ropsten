@@ -111,3 +111,125 @@ def validate_dataset(df, required_columns=None, min_rows=1):
             return False, f"Missing required columns: {missing_columns}"
     
     return True, "Dataset is valid."
+import pandas as pd
+import numpy as np
+
+def clean_missing_values(df, strategy='mean', columns=None):
+    """
+    Handle missing values in a DataFrame.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    strategy (str): Strategy for imputation ('mean', 'median', 'mode', 'drop')
+    columns (list): Specific columns to clean, None for all columns
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame
+    """
+    if columns is None:
+        columns = df.columns
+    
+    df_clean = df.copy()
+    
+    for col in columns:
+        if df[col].isnull().any():
+            if strategy == 'mean':
+                df_clean[col].fillna(df[col].mean(), inplace=True)
+            elif strategy == 'median':
+                df_clean[col].fillna(df[col].median(), inplace=True)
+            elif strategy == 'mode':
+                df_clean[col].fillna(df[col].mode()[0], inplace=True)
+            elif strategy == 'drop':
+                df_clean = df_clean.dropna(subset=[col])
+    
+    return df_clean
+
+def remove_outliers_iqr(df, columns=None, threshold=1.5):
+    """
+    Remove outliers using IQR method.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    columns (list): Columns to check for outliers
+    threshold (float): IQR multiplier threshold
+    
+    Returns:
+    pd.DataFrame: DataFrame with outliers removed
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    df_clean = df.copy()
+    
+    for col in columns:
+        Q1 = df_clean[col].quantile(0.25)
+        Q3 = df_clean[col].quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - threshold * IQR
+        upper_bound = Q3 + threshold * IQR
+        
+        mask = (df_clean[col] >= lower_bound) & (df_clean[col] <= upper_bound)
+        df_clean = df_clean[mask]
+    
+    return df_clean
+
+def normalize_data(df, columns=None, method='minmax'):
+    """
+    Normalize numerical columns.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    columns (list): Columns to normalize
+    method (str): Normalization method ('minmax', 'zscore')
+    
+    Returns:
+    pd.DataFrame: Normalized DataFrame
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    df_norm = df.copy()
+    
+    for col in columns:
+        if method == 'minmax':
+            min_val = df_norm[col].min()
+            max_val = df_norm[col].max()
+            if max_val > min_val:
+                df_norm[col] = (df_norm[col] - min_val) / (max_val - min_val)
+        elif method == 'zscore':
+            mean_val = df_norm[col].mean()
+            std_val = df_norm[col].std()
+            if std_val > 0:
+                df_norm[col] = (df_norm[col] - mean_val) / std_val
+    
+    return df_norm
+
+def validate_data(df, check_types=True, check_ranges=None):
+    """
+    Validate data quality.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate
+    check_types (bool): Check data types consistency
+    check_ranges (dict): Dictionary of column: (min, max) ranges to check
+    
+    Returns:
+    dict: Validation results
+    """
+    results = {
+        'missing_values': df.isnull().sum().to_dict(),
+        'duplicates': df.duplicated().sum(),
+        'data_types': {}
+    }
+    
+    if check_types:
+        results['data_types'] = df.dtypes.astype(str).to_dict()
+    
+    if check_ranges:
+        results['range_violations'] = {}
+        for col, (min_val, max_val) in check_ranges.items():
+            if col in df.columns:
+                violations = ((df[col] < min_val) | (df[col] > max_val)).sum()
+                results['range_violations'][col] = violations
+    
+    return results
