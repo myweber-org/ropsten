@@ -101,4 +101,55 @@ if __name__ == "__main__":
     print("\nCleaned dataset:")
     print(cleaned_df)
     print("\nCleaned statistics:")
-    print(calculate_statistics(cleaned_df, 'temperature'))
+    print(calculate_statistics(cleaned_df, 'temperature'))import pandas as pd
+
+def remove_duplicates(df, subset=None, keep='first'):
+    """
+    Remove duplicate rows from a DataFrame.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame.
+        subset (list, optional): Column labels to consider for duplicates.
+        keep (str, optional): Which duplicates to keep.
+    
+    Returns:
+        pd.DataFrame: DataFrame with duplicates removed.
+    """
+    if df.empty:
+        return df
+    
+    cleaned_df = df.drop_duplicates(subset=subset, keep=keep)
+    return cleaned_df
+
+def validate_dataframe(df):
+    """
+    Basic validation of DataFrame structure.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate.
+    
+    Returns:
+        bool: True if valid, False otherwise.
+    """
+    if not isinstance(df, pd.DataFrame):
+        return False
+    if df.shape[0] == 0:
+        return False
+    return True
+
+def clean_numeric_column(df, column_name):
+    """
+    Clean a numeric column by removing non-numeric values.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame.
+        column_name (str): Name of column to clean.
+    
+    Returns:
+        pd.DataFrame: DataFrame with cleaned column.
+    """
+    if column_name not in df.columns:
+        return df
+    
+    df[column_name] = pd.to_numeric(df[column_name], errors='coerce')
+    return df
