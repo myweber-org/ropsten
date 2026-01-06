@@ -1,78 +1,66 @@
-import numpy as np
+
 import pandas as pd
-from scipy import stats
 
-class DataCleaner:
-    def __init__(self, df):
-        self.df = df.copy()
-        self.original_shape = df.shape
-        
-    def detect_outliers_iqr(self, column, threshold=1.5):
-        Q1 = self.df[column].quantile(0.25)
-        Q3 = self.df[column].quantile(0.75)
-        IQR = Q3 - Q1
-        lower_bound = Q1 - threshold * IQR
-        upper_bound = Q3 + threshold * IQR
-        outliers = self.df[(self.df[column] < lower_bound) | (self.df[column] > upper_bound)]
-        return outliers.index.tolist()
+def remove_duplicates(df, subset=None, keep='first'):
+    """
+    Remove duplicate rows from a DataFrame.
     
-    def remove_outliers(self, columns, method='iqr', threshold=1.5):
-        outlier_indices = []
-        for col in columns:
-            if method == 'iqr':
-                indices = self.detect_outliers_iqr(col, threshold)
-                outlier_indices.extend(indices)
-        
-        unique_indices = list(set(outlier_indices))
-        self.df = self.df.drop(index=unique_indices)
-        return len(unique_indices)
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    subset (list, optional): Column labels to consider for duplicates
+    keep (str, optional): Which duplicates to keep ('first', 'last', False)
     
-    def normalize_column(self, column, method='zscore'):
-        if method == 'zscore':
-            self.df[f'{column}_normalized'] = stats.zscore(self.df[column])
-        elif method == 'minmax':
-            min_val = self.df[column].min()
-            max_val = self.df[column].max()
-            self.df[f'{column}_normalized'] = (self.df[column] - min_val) / (max_val - min_val)
-        return self.df[f'{column}_normalized']
+    Returns:
+    pd.DataFrame: DataFrame with duplicates removed
+    """
+    if df.empty:
+        return df
     
-    def fill_missing(self, column, method='mean'):
-        if method == 'mean':
-            fill_value = self.df[column].mean()
-        elif method == 'median':
-            fill_value = self.df[column].median()
-        elif method == 'mode':
-            fill_value = self.df[column].mode()[0]
-        else:
-            fill_value = method
-            
-        self.df[column] = self.df[column].fillna(fill_value)
-        return fill_value
-    
-    def get_cleaned_data(self):
-        return self.df
-    
-    def get_cleaning_report(self):
-        removed_rows = self.original_shape[0] - self.df.shape[0]
-        return {
-            'original_rows': self.original_shape[0],
-            'cleaned_rows': self.df.shape[0],
-            'removed_rows': removed_rows,
-            'removed_percentage': (removed_rows / self.original_shape[0]) * 100
-        }
+    cleaned_df = df.drop_duplicates(subset=subset, keep=keep)
+    return cleaned_df
 
-def clean_dataset(df, numeric_columns, outlier_threshold=1.5):
-    cleaner = DataCleaner(df)
+def clean_numeric_columns(df, columns):
+    """
+    Clean numeric columns by converting to appropriate types and handling errors.
     
-    for col in numeric_columns:
-        cleaner.fill_missing(col, 'median')
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    columns (list): List of column names to clean
     
-    removed = cleaner.remove_outliers(numeric_columns, threshold=outlier_threshold)
+    Returns:
+    pd.DataFrame: DataFrame with cleaned numeric columns
+    """
+    cleaned_df = df.copy()
     
-    for col in numeric_columns:
-        cleaner.normalize_column(col, 'zscore')
+    for col in columns:
+        if col in cleaned_df.columns:
+            cleaned_df[col] = pd.to_numeric(cleaned_df[col], errors='coerce')
     
-    cleaned_df = cleaner.get_cleaned_data()
-    report = cleaner.get_cleaning_report()
+    return cleaned_df
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and content.
     
-    return cleaned_df, report
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate
+    required_columns (list, optional): List of required column names
+    
+    Returns:
+    tuple: (is_valid, error_message)
+    """
+    if df is None:
+        return False, "DataFrame is None"
+    
+    if not isinstance(df, pd.DataFrame):
+        return False, "Input is not a pandas DataFrame"
+    
+    if df.empty:
+        return False, "DataFrame is empty"
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            return False, f"Missing required columns: {missing_columns}"
+    
+    return True, "DataFrame is valid"
