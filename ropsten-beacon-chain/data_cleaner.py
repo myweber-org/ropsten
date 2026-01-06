@@ -816,4 +816,91 @@ def clean_dataframe(df: pd.DataFrame,
             if col in cleaned_df.columns:
                 cleaned_df = normalize_column(cleaned_df, col)
     
-    return cleaned_df
+    return cleaned_dfimport pandas as pd
+import numpy as np
+
+def clean_csv_data(input_file, output_file, missing_strategy='mean'):
+    """
+    Clean CSV data by handling missing values and removing duplicates.
+    
+    Args:
+        input_file (str): Path to input CSV file
+        output_file (str): Path to save cleaned CSV file
+        missing_strategy (str): Strategy for handling missing values ('mean', 'median', 'drop')
+    """
+    try:
+        df = pd.read_csv(input_file)
+        print(f"Original data shape: {df.shape}")
+        
+        # Remove duplicate rows
+        df = df.drop_duplicates()
+        print(f"After removing duplicates: {df.shape}")
+        
+        # Handle missing values
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        
+        if missing_strategy == 'mean':
+            for col in numeric_cols:
+                df[col] = df[col].fillna(df[col].mean())
+        elif missing_strategy == 'median':
+            for col in numeric_cols:
+                df[col] = df[col].fillna(df[col].median())
+        elif missing_strategy == 'drop':
+            df = df.dropna(subset=numeric_cols)
+        else:
+            raise ValueError("Invalid missing_strategy. Use 'mean', 'median', or 'drop'")
+        
+        # Save cleaned data
+        df.to_csv(output_file, index=False)
+        print(f"Cleaned data saved to: {output_file}")
+        print(f"Final data shape: {df.shape}")
+        
+        return df
+        
+    except FileNotFoundError:
+        print(f"Error: Input file '{input_file}' not found.")
+    except pd.errors.EmptyDataError:
+        print("Error: Input file is empty.")
+    except Exception as e:
+        print(f"Error during data cleaning: {str(e)}")
+
+def validate_data(df, required_columns):
+    """
+    Validate that DataFrame contains required columns and no negative values in numeric columns.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate
+        required_columns (list): List of required column names
+    
+    Returns:
+        bool: True if validation passes, False otherwise
+    """
+    missing_cols = [col for col in required_columns if col not in df.columns]
+    
+    if missing_cols:
+        print(f"Missing required columns: {missing_cols}")
+        return False
+    
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    negative_check = (df[numeric_cols] < 0).any().any()
+    
+    if negative_check:
+        print("Warning: Negative values found in numeric columns")
+    
+    return True
+
+if __name__ == "__main__":
+    # Example usage
+    input_path = "raw_data.csv"
+    output_path = "cleaned_data.csv"
+    
+    cleaned_df = clean_csv_data(input_path, output_path, missing_strategy='median')
+    
+    if cleaned_df is not None:
+        required_cols = ['id', 'value', 'timestamp']
+        is_valid = validate_data(cleaned_df, required_cols)
+        
+        if is_valid:
+            print("Data validation passed")
+        else:
+            print("Data validation failed")
