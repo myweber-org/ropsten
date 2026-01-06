@@ -302,4 +302,73 @@ if __name__ == "__main__":
     print(cleaned)
     
     is_valid, msg = validate_data(cleaned, required_columns=['A', 'B', 'C'])
-    print(f"\nValidation: {is_valid} - {msg}")
+    print(f"\nValidation: {is_valid} - {msg}")import pandas as pd
+
+def clean_dataset(df, text_columns=None):
+    """
+    Clean a pandas DataFrame by removing rows with null values
+    and standardizing text columns to lowercase.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame to clean
+    text_columns (list): List of column names containing text to standardize
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame
+    """
+    # Remove rows with any null values
+    df_cleaned = df.dropna()
+    
+    # Standardize text columns to lowercase if specified
+    if text_columns:
+        for col in text_columns:
+            if col in df_cleaned.columns:
+                df_cleaned[col] = df_cleaned[col].astype(str).str.lower()
+    
+    return df_cleaned
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate that a DataFrame meets basic requirements.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate
+    required_columns (list): List of required column names
+    
+    Returns:
+    bool: True if validation passes, False otherwise
+    """
+    if df.empty:
+        print("DataFrame is empty")
+        return False
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            print(f"Missing required columns: {missing_columns}")
+            return False
+    
+    return True
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'name': ['Alice', 'Bob', None, 'Charlie'],
+        'age': [25, 30, 35, None],
+        'city': ['New York', 'LONDON', 'paris', 'TOKYO']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\n")
+    
+    # Clean the data
+    cleaned_df = clean_dataset(df, text_columns=['city'])
+    print("Cleaned DataFrame:")
+    print(cleaned_df)
+    print("\n")
+    
+    # Validate the cleaned data
+    is_valid = validate_dataframe(cleaned_df, required_columns=['name', 'age', 'city'])
+    print(f"Data validation passed: {is_valid}")
