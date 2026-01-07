@@ -128,3 +128,76 @@ def process_data_pipeline(data, config):
                     processed_data[f'{column}_standardized'] = standardize_zscore(processed_data, column)
     
     return processed_data
+import pandas as pd
+
+def clean_dataset(df, columns_to_check=None):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    """
+    # Create a copy to avoid modifying the original DataFrame
+    df_clean = df.copy()
+
+    # Remove duplicate rows
+    initial_rows = df_clean.shape[0]
+    df_clean.drop_duplicates(inplace=True)
+    removed_duplicates = initial_rows - df_clean.shape[0]
+
+    # Handle missing values
+    if columns_to_check is None:
+        columns_to_check = df_clean.columns
+
+    missing_counts = {}
+    for col in columns_to_check:
+        if col in df_clean.columns:
+            missing_count = df_clean[col].isnull().sum()
+            if missing_count > 0:
+                # For numeric columns, fill with median
+                if pd.api.types.is_numeric_dtype(df_clean[col]):
+                    df_clean[col].fillna(df_clean[col].median(), inplace=True)
+                # For categorical columns, fill with mode
+                else:
+                    df_clean[col].fillna(df_clean[col].mode()[0] if not df_clean[col].mode().empty else 'Unknown', inplace=True)
+                missing_counts[col] = missing_count
+
+    return df_clean, removed_duplicates, missing_counts
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate that a DataFrame meets basic requirements.
+    """
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError("Input must be a pandas DataFrame")
+
+    if df.empty:
+        raise ValueError("DataFrame is empty")
+
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            raise ValueError(f"Missing required columns: {missing_cols}")
+
+    return True
+
+# Example usage (commented out for production)
+# if __name__ == "__main__":
+#     # Create sample data
+#     data = {
+#         'id': [1, 2, 2, 3, 4, 5],
+#         'name': ['Alice', 'Bob', 'Bob', None, 'Eve', None],
+#         'age': [25, 30, 30, None, 35, 40],
+#         'score': [85.5, 92.0, 92.0, 78.5, None, 88.0]
+#     }
+#     
+#     df = pd.DataFrame(data)
+#     print("Original DataFrame:")
+#     print(df)
+#     print(f"\nOriginal shape: {df.shape}")
+#     
+#     # Clean the data
+#     cleaned_df, duplicates_removed, missing_filled = clean_dataset(df)
+#     
+#     print(f"\nDuplicates removed: {duplicates_removed}")
+#     print(f"Missing values filled per column: {missing_filled}")
+#     print("\nCleaned DataFrame:")
+#     print(cleaned_df)
+#     print(f"\nCleaned shape: {cleaned_df.shape}")
