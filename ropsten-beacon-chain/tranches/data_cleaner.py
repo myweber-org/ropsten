@@ -117,3 +117,96 @@ if __name__ == "__main__":
     cleaned_df = clean_dataset(df, drop_duplicates=True, fill_missing='mean')
     print("\nCleaned DataFrame:")
     print(cleaned_df)
+import numpy as np
+
+def remove_outliers_iqr(data, column):
+    """
+    Remove outliers from a specified column using the Interquartile Range method.
+    
+    Parameters:
+    data (list or np.array): Input data array
+    column (int): Column index to process (for 2D arrays)
+    
+    Returns:
+    np.array: Data with outliers removed
+    """
+    if isinstance(data, list):
+        data = np.array(data)
+    
+    # Handle 2D arrays
+    if data.ndim == 2:
+        column_data = data[:, column]
+    else:
+        column_data = data
+    
+    # Calculate IQR
+    q1 = np.percentile(column_data, 25)
+    q3 = np.percentile(column_data, 75)
+    iqr = q3 - q1
+    
+    # Define outlier bounds
+    lower_bound = q1 - 1.5 * iqr
+    upper_bound = q3 + 1.5 * iqr
+    
+    # Filter data
+    if data.ndim == 2:
+        mask = (data[:, column] >= lower_bound) & (data[:, column] <= upper_bound)
+        return data[mask]
+    else:
+        mask = (data >= lower_bound) & (data <= upper_bound)
+        return data[mask]
+
+def calculate_statistics(data):
+    """
+    Calculate basic statistics for the data.
+    
+    Parameters:
+    data (np.array): Input data array
+    
+    Returns:
+    dict: Dictionary containing statistics
+    """
+    if isinstance(data, list):
+        data = np.array(data)
+    
+    stats = {
+        'mean': np.mean(data),
+        'median': np.median(data),
+        'std': np.std(data),
+        'min': np.min(data),
+        'max': np.max(data),
+        'count': len(data)
+    }
+    
+    return stats
+
+def normalize_data(data, method='minmax'):
+    """
+    Normalize data using specified method.
+    
+    Parameters:
+    data (np.array): Input data array
+    method (str): Normalization method ('minmax' or 'zscore')
+    
+    Returns:
+    np.array: Normalized data
+    """
+    if isinstance(data, list):
+        data = np.array(data)
+    
+    if method == 'minmax':
+        data_min = np.min(data)
+        data_max = np.max(data)
+        if data_max - data_min == 0:
+            return np.zeros_like(data)
+        return (data - data_min) / (data_max - data_min)
+    
+    elif method == 'zscore':
+        data_mean = np.mean(data)
+        data_std = np.std(data)
+        if data_std == 0:
+            return np.zeros_like(data)
+        return (data - data_mean) / data_std
+    
+    else:
+        raise ValueError("Method must be 'minmax' or 'zscore'")
