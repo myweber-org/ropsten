@@ -217,4 +217,15 @@ def save_cleaned_data(df, output_path, format='csv'):
     elif format == 'json':
         df.to_json(output_path, orient='records')
     else:
-        raise ValueError(f"Unsupported format: {format}")
+        raise ValueError(f"Unsupported format: {format}")def remove_duplicates(input_list):
+    """
+    Removes duplicate elements from a list while preserving the original order.
+    Uses a dictionary to track seen elements for O(n) average time complexity.
+    """
+    seen = {}
+    result = []
+    for item in input_list:
+        if item not in seen:
+            seen[item] = True
+            result.append(item)
+    return result
