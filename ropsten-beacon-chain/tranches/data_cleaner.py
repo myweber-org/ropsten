@@ -174,4 +174,76 @@ if __name__ == "__main__":
     
     print("\nCleaned DataFrame shape:", cleaned_df.shape)
     print("\nCleaned statistics for column 'A':")
-    print(stats['A'])
+    print(stats['A'])import numpy as np
+
+def remove_outliers_iqr(data, column):
+    """
+    Remove outliers from a specified column using the IQR method.
+    
+    Parameters:
+    data (list or np.array): The dataset
+    column (int): Index of the column to clean
+    
+    Returns:
+    np.array: Data with outliers removed
+    """
+    if not isinstance(data, np.ndarray):
+        data = np.array(data)
+    
+    column_data = data[:, column].astype(float)
+    
+    Q1 = np.percentile(column_data, 25)
+    Q3 = np.percentile(column_data, 75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    mask = (column_data >= lower_bound) & (column_data <= upper_bound)
+    
+    return data[mask]
+
+def calculate_statistics(data, column):
+    """
+    Calculate basic statistics for a column.
+    
+    Parameters:
+    data (np.array): The dataset
+    column (int): Index of the column
+    
+    Returns:
+    dict: Dictionary containing statistics
+    """
+    column_data = data[:, column].astype(float)
+    
+    stats = {
+        'mean': np.mean(column_data),
+        'median': np.median(column_data),
+        'std': np.std(column_data),
+        'min': np.min(column_data),
+        'max': np.max(column_data)
+    }
+    
+    return stats
+
+def clean_dataset(data, columns_to_clean):
+    """
+    Clean multiple columns in a dataset.
+    
+    Parameters:
+    data (list or np.array): The dataset
+    columns_to_clean (list): List of column indices to clean
+    
+    Returns:
+    np.array: Cleaned dataset
+    """
+    if not isinstance(data, np.ndarray):
+        data = np.array(data)
+    
+    cleaned_data = data.copy()
+    
+    for column in columns_to_clean:
+        if column < cleaned_data.shape[1]:
+            cleaned_data = remove_outliers_iqr(cleaned_data, column)
+    
+    return cleaned_data
