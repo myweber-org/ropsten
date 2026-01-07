@@ -1,188 +1,54 @@
-
-import numpy as np
 import pandas as pd
-from scipy import stats
+import sys
 
-def remove_outliers_iqr(data, column, factor=1.5):
+def remove_duplicates(input_file, output_file=None, subset=None, keep='first'):
     """
-    Remove outliers using IQR method
-    """
-    if column not in data.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
+    Remove duplicate rows from a CSV file.
     
-    q1 = data[column].quantile(0.25)
-    q3 = data[column].quantile(0.75)
-    iqr = q3 - q1
-    lower_bound = q1 - factor * iqr
-    upper_bound = q3 + factor * iqr
-    
-    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
-    return filtered_data
-
-def remove_outliers_zscore(data, column, threshold=3):
-    """
-    Remove outliers using Z-score method
-    """
-    if column not in data.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
-    
-    z_scores = np.abs(stats.zscore(data[column]))
-    filtered_data = data[z_scores < threshold]
-    return filtered_data
-
-def normalize_minmax(data, columns=None):
-    """
-    Normalize data using min-max scaling
-    """
-    if columns is None:
-        columns = data.select_dtypes(include=[np.number]).columns
-    
-    normalized_data = data.copy()
-    for col in columns:
-        if col in data.columns and pd.api.types.is_numeric_dtype(data[col]):
-            min_val = data[col].min()
-            max_val = data[col].max()
-            if max_val != min_val:
-                normalized_data[col] = (data[col] - min_val) / (max_val - min_val)
-    
-    return normalized_data
-
-def normalize_zscore(data, columns=None):
-    """
-    Normalize data using Z-score standardization
-    """
-    if columns is None:
-        columns = data.select_dtypes(include=[np.number]).columns
-    
-    standardized_data = data.copy()
-    for col in columns:
-        if col in data.columns and pd.api.types.is_numeric_dtype(data[col]):
-            mean_val = data[col].mean()
-            std_val = data[col].std()
-            if std_val != 0:
-                standardized_data[col] = (data[col] - mean_val) / std_val
-    
-    return standardized_data
-
-def clean_dataset(data, outlier_method='iqr', normalization_method='minmax', 
-                  outlier_columns=None, norm_columns=None, outlier_params=None):
-    """
-    Main function to clean dataset with outlier removal and normalization
-    """
-    cleaned_data = data.copy()
-    
-    if outlier_columns is None:
-        outlier_columns = data.select_dtypes(include=[np.number]).columns
-    
-    if outlier_method == 'iqr':
-        factor = outlier_params.get('factor', 1.5) if outlier_params else 1.5
-        for col in outlier_columns:
-            if col in data.columns:
-                cleaned_data = remove_outliers_iqr(cleaned_data, col, factor)
-    elif outlier_method == 'zscore':
-        threshold = outlier_params.get('threshold', 3) if outlier_params else 3
-        for col in outlier_columns:
-            if col in data.columns:
-                cleaned_data = remove_outliers_zscore(cleaned_data, col, threshold)
-    
-    if normalization_method == 'minmax':
-        cleaned_data = normalize_minmax(cleaned_data, norm_columns)
-    elif normalization_method == 'zscore':
-        cleaned_data = normalize_zscore(cleaned_data, norm_columns)
-    
-    return cleaned_data
-
-def validate_data(data, check_missing=True, check_duplicates=True):
-    """
-    Validate data quality
-    """
-    validation_report = {}
-    
-    if check_missing:
-        missing_values = data.isnull().sum()
-        missing_percentage = (missing_values / len(data)) * 100
-        validation_report['missing_values'] = missing_values[missing_values > 0]
-        validation_report['missing_percentage'] = missing_percentage[missing_percentage > 0]
-    
-    if check_duplicates:
-        duplicate_count = data.duplicated().sum()
-        validation_report['duplicate_rows'] = duplicate_count
-    
-    return validation_report
-import pandas as pd
-import numpy as np
-
-def remove_outliers_iqr(df, column):
-    """
-    Remove outliers from a DataFrame column using the Interquartile Range method.
-    
-    Parameters:
-    df (pd.DataFrame): Input DataFrame.
-    column (str): Column name to process.
+    Args:
+        input_file (str): Path to input CSV file
+        output_file (str): Path to output CSV file (optional)
+        subset (list): Columns to consider for duplicates (optional)
+        keep (str): Which duplicates to keep - 'first', 'last', or False
     
     Returns:
-    pd.DataFrame: DataFrame with outliers removed.
+        pd.DataFrame: Cleaned dataframe
     """
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
-    
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
-    
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
-    
-    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
-    
-    return filtered_df
-
-def calculate_summary_statistics(df, column):
-    """
-    Calculate summary statistics for a column after outlier removal.
-    
-    Parameters:
-    df (pd.DataFrame): Input DataFrame.
-    column (str): Column name to analyze.
-    
-    Returns:
-    dict: Dictionary containing summary statistics.
-    """
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
-    
-    stats = {
-        'mean': df[column].mean(),
-        'median': df[column].median(),
-        'std': df[column].std(),
-        'min': df[column].min(),
-        'max': df[column].max(),
-        'count': df[column].count()
-    }
-    
-    return stats
-
-def main():
-    """
-    Example usage of the data cleaning functions.
-    """
-    np.random.seed(42)
-    data = pd.DataFrame({
-        'values': np.concatenate([
-            np.random.normal(100, 15, 1000),
-            np.random.normal(300, 50, 50)
-        ])
-    })
-    
-    print("Original data shape:", data.shape)
-    print("Original statistics:", calculate_summary_statistics(data, 'values'))
-    
-    cleaned_data = remove_outliers_iqr(data, 'values')
-    
-    print("\nCleaned data shape:", cleaned_data.shape)
-    print("Cleaned statistics:", calculate_summary_statistics(cleaned_data, 'values'))
-    
-    return cleaned_data
+    try:
+        df = pd.read_csv(input_file)
+        initial_rows = len(df)
+        
+        df_clean = df.drop_duplicates(subset=subset, keep=keep)
+        final_rows = len(df_clean)
+        
+        duplicates_removed = initial_rows - final_rows
+        
+        if output_file:
+            df_clean.to_csv(output_file, index=False)
+            print(f"Cleaned data saved to: {output_file}")
+        
+        print(f"Initial rows: {initial_rows}")
+        print(f"Final rows: {final_rows}")
+        print(f"Duplicates removed: {duplicates_removed}")
+        
+        return df_clean
+        
+    except FileNotFoundError:
+        print(f"Error: File '{input_file}' not found.")
+        sys.exit(1)
+    except pd.errors.EmptyDataError:
+        print(f"Error: File '{input_file}' is empty.")
+        sys.exit(1)
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        sys.exit(1)
 
 if __name__ == "__main__":
-    cleaned = main()
+    if len(sys.argv) < 2:
+        print("Usage: python data_cleaner.py <input_file> [output_file]")
+        sys.exit(1)
+    
+    input_file = sys.argv[1]
+    output_file = sys.argv[2] if len(sys.argv) > 2 else None
+    
+    remove_duplicates(input_file, output_file)
