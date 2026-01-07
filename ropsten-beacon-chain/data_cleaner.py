@@ -129,4 +129,92 @@ if __name__ == "__main__":
     stats = calculate_summary_statistics(cleaned_df, 'values')
     print("\nSummary statistics:")
     for key, value in stats.items():
-        print(f"{key}: {value:.2f}" if isinstance(value, float) else f"{key}: {value}")
+        print(f"{key}: {value:.2f}" if isinstance(value, float) else f"{key}: {value}")import pandas as pd
+import numpy as np
+
+def clean_dataframe(df, column_mapping=None, drop_duplicates=True, fill_na=True):
+    """
+    Clean a pandas DataFrame by standardizing columns, removing duplicates,
+    and handling missing values.
+    """
+    cleaned_df = df.copy()
+    
+    # Standardize column names if mapping is provided
+    if column_mapping:
+        cleaned_df = cleaned_df.rename(columns=column_mapping)
+    
+    # Remove duplicate rows
+    if drop_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates()
+    
+    # Fill missing values with appropriate defaults
+    if fill_na:
+        for col in cleaned_df.columns:
+            if cleaned_df[col].dtype == 'object':
+                cleaned_df[col] = cleaned_df[col].fillna('Unknown')
+            elif np.issubdtype(cleaned_df[col].dtype, np.number):
+                cleaned_df[col] = cleaned_df[col].fillna(0)
+            else:
+                cleaned_df[col] = cleaned_df[col].fillna(pd.NaT)
+    
+    # Reset index after cleaning
+    cleaned_df = cleaned_df.reset_index(drop=True)
+    
+    return cleaned_df
+
+def validate_email_format(email_series):
+    """
+    Validate email addresses in a pandas Series.
+    Returns a boolean Series indicating valid emails.
+    """
+    import re
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return email_series.str.match(pattern, na=False)
+
+def standardize_phone_numbers(phone_series):
+    """
+    Standardize phone numbers to format: (XXX) XXX-XXXX
+    """
+    # Remove all non-digit characters
+    digits = phone_series.str.replace(r'\D', '', regex=True)
+    
+    # Format to standard pattern
+    formatted = digits.str.replace(
+        r'(\d{3})(\d{3})(\d{4})',
+        r'(\1) \2-\3',
+        regex=True
+    )
+    
+    return formatted
+
+def main():
+    # Example usage
+    sample_data = {
+        'name': ['Alice', 'Bob', 'Alice', None, 'Charlie'],
+        'email': ['alice@example.com', 'invalid-email', 'alice@example.com', 'bob@test.org', None],
+        'phone': ['123-456-7890', '555 123 4567', '1234567890', None, '9876543210'],
+        'age': [25, 30, 25, None, 35]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\n" + "="*50 + "\n")
+    
+    # Clean the data
+    column_map = {'name': 'full_name', 'age': 'user_age'}
+    cleaned_df = clean_dataframe(df, column_mapping=column_map)
+    
+    # Validate emails
+    cleaned_df['email_valid'] = validate_email_format(cleaned_df['email'])
+    
+    # Standardize phone numbers
+    cleaned_df['phone'] = standardize_phone_numbers(cleaned_df['phone'])
+    
+    print("Cleaned DataFrame:")
+    print(cleaned_df)
+    
+    return cleaned_df
+
+if __name__ == "__main__":
+    cleaned_data = main()
