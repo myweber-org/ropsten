@@ -349,4 +349,76 @@ def validate_dataframe(df, required_columns=None, check_types=True):
         if len(numeric_cols) == 0:
             validation_results['warnings'].append('No numeric columns found')
     
+    return validation_resultsimport pandas as pd
+import numpy as np
+import re
+
+def clean_csv_data(input_file, output_file):
+    """
+    Clean CSV data by handling missing values, removing duplicates,
+    standardizing text, and converting data types.
+    """
+    try:
+        df = pd.read_csv(input_file)
+        
+        # Remove duplicate rows
+        df = df.drop_duplicates()
+        
+        # Standardize column names
+        df.columns = df.columns.str.strip().str.lower().str.replace(' ', '_')
+        
+        # Handle missing values
+        for col in df.columns:
+            if df[col].dtype == 'object':
+                df[col] = df[col].fillna('unknown')
+            else:
+                df[col] = df[col].fillna(df[col].median())
+        
+        # Clean text columns
+        text_columns = df.select_dtypes(include=['object']).columns
+        for col in text_columns:
+            df[col] = df[col].apply(lambda x: re.sub(r'\s+', ' ', str(x)).strip() if pd.notnull(x) else x)
+        
+        # Convert date columns if present
+        date_columns = [col for col in df.columns if 'date' in col]
+        for col in date_columns:
+            try:
+                df[col] = pd.to_datetime(df[col], errors='coerce')
+            except:
+                pass
+        
+        # Save cleaned data
+        df.to_csv(output_file, index=False)
+        print(f"Data cleaned successfully. Output saved to {output_file}")
+        return True
+        
+    except Exception as e:
+        print(f"Error cleaning data: {str(e)}")
+        return False
+
+def validate_data(df):
+    """
+    Validate data quality after cleaning.
+    """
+    validation_results = {
+        'total_rows': len(df),
+        'total_columns': len(df.columns),
+        'missing_values': df.isnull().sum().sum(),
+        'duplicate_rows': df.duplicated().sum(),
+        'data_types': df.dtypes.to_dict()
+    }
     return validation_results
+
+if __name__ == "__main__":
+    # Example usage
+    input_csv = "raw_data.csv"
+    output_csv = "cleaned_data.csv"
+    
+    success = clean_csv_data(input_csv, output_csv)
+    
+    if success:
+        cleaned_df = pd.read_csv(output_csv)
+        validation = validate_data(cleaned_df)
+        print("Data Validation Results:")
+        for key, value in validation.items():
+            print(f"{key}: {value}")
