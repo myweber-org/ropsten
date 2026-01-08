@@ -47,3 +47,54 @@ if __name__ == "__main__":
 
     success = rename_files(target_dir, regex_pattern, repl_string)
     sys.exit(0 if success else 1)
+import os
+import sys
+from pathlib import Path
+from datetime import datetime
+
+def rename_files_sequentially(directory_path, prefix="file"):
+    try:
+        path = Path(directory_path)
+        if not path.exists() or not path.is_dir():
+            print(f"Error: {directory_path} is not a valid directory.")
+            return False
+
+        files = []
+        for item in path.iterdir():
+            if item.is_file():
+                mtime = item.stat().st_mtime
+                files.append((mtime, item))
+
+        files.sort(key=lambda x: x[0])
+
+        for index, (mtime, file_path) in enumerate(files, start=1):
+            extension = file_path.suffix
+            new_name = f"{prefix}_{index:03d}{extension}"
+            new_path = file_path.parent / new_name
+
+            if new_path.exists():
+                print(f"Warning: {new_name} already exists. Skipping rename.")
+                continue
+
+            file_path.rename(new_path)
+            print(f"Renamed: {file_path.name} -> {new_name}")
+
+        print("Renaming completed successfully.")
+        return True
+
+    except PermissionError:
+        print("Error: Permission denied. Check file access rights.")
+        return False
+    except Exception as e:
+        print(f"Unexpected error: {e}")
+        return False
+
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        print("Usage: python file_renamer.py <directory_path> [prefix]")
+        sys.exit(1)
+
+    dir_path = sys.argv[1]
+    pref = sys.argv[2] if len(sys.argv) > 2 else "file"
+
+    rename_files_sequentially(dir_path, pref)
