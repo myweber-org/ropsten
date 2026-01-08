@@ -1,60 +1,94 @@
+
+import numpy as np
 import pandas as pd
+from scipy import stats
 
-def clean_dataset(df, drop_duplicates=True, fill_missing=None):
+def detect_outliers_iqr(data, column, threshold=1.5):
     """
-    Clean a pandas DataFrame by removing duplicates and handling missing values.
-    
-    Parameters:
-    df (pd.DataFrame): Input DataFrame to clean.
-    drop_duplicates (bool): If True, remove duplicate rows.
-    fill_missing (str or dict): Method to fill missing values. 
-                                Can be 'mean', 'median', 'mode', or a dictionary of column:value pairs.
-    
-    Returns:
-    pd.DataFrame: Cleaned DataFrame.
+    Detect outliers using IQR method
     """
-    cleaned_df = df.copy()
-    
-    if drop_duplicates:
-        cleaned_df = cleaned_df.drop_duplicates()
-    
-    if fill_missing is not None:
-        if isinstance(fill_missing, dict):
-            cleaned_df = cleaned_df.fillna(fill_missing)
-        elif fill_missing == 'mean':
-            cleaned_df = cleaned_df.fillna(cleaned_df.mean(numeric_only=True))
-        elif fill_missing == 'median':
-            cleaned_df = cleaned_df.fillna(cleaned_df.median(numeric_only=True))
-        elif fill_missing == 'mode':
-            for col in cleaned_df.columns:
-                if cleaned_df[col].dtype == 'object':
-                    cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].mode()[0] if not cleaned_df[col].mode().empty else 'Unknown')
-                else:
-                    cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].mode()[0] if not cleaned_df[col].mode().empty else 0)
-    
-    return cleaned_df
+    q1 = data[column].quantile(0.25)
+    q3 = data[column].quantile(0.75)
+    iqr = q3 - q1
+    lower_bound = q1 - threshold * iqr
+    upper_bound = q3 + threshold * iqr
+    outliers = data[(data[column] < lower_bound) | (data[column] > upper_bound)]
+    return outliers, lower_bound, upper_bound
 
-def validate_data(df, required_columns=None, min_rows=1):
+def remove_outliers_zscore(data, column, threshold=3):
     """
-    Validate the DataFrame structure and content.
-    
-    Parameters:
-    df (pd.DataFrame): DataFrame to validate.
-    required_columns (list): List of column names that must be present.
-    min_rows (int): Minimum number of rows required.
-    
-    Returns:
-    tuple: (bool, str) indicating success and error message if any.
+    Remove outliers using Z-score method
     """
-    if df.empty:
-        return False, "DataFrame is empty"
+    z_scores = np.abs(stats.zscore(data[column].dropna()))
+    filtered_data = data[(z_scores < threshold) | (data[column].isna())]
+    return filtered_data
+
+def normalize_minmax(data, column):
+    """
+    Normalize data using Min-Max scaling
+    """
+    min_val = data[column].min()
+    max_val = data[column].max()
+    if max_val - min_val == 0:
+        return data[column].apply(lambda x: 0)
+    normalized = (data[column] - min_val) / (max_val - min_val)
+    return normalized
+
+def standardize_data(data, column):
+    """
+    Standardize data using Z-score normalization
+    """
+    mean_val = data[column].mean()
+    std_val = data[column].std()
+    if std_val == 0:
+        return data[column].apply(lambda x: 0)
+    standardized = (data[column] - mean_val) / std_val
+    return standardized
+
+def clean_missing_values(data, strategy='mean', columns=None):
+    """
+    Handle missing values with different strategies
+    """
+    if columns is None:
+        columns = data.columns
     
-    if len(df) < min_rows:
-        return False, f"DataFrame has fewer than {min_rows} rows"
+    cleaned_data = data.copy()
     
+    for col in columns:
+        if cleaned_data[col].isnull().any():
+            if strategy == 'mean':
+                fill_value = cleaned_data[col].mean()
+            elif strategy == 'median':
+                fill_value = cleaned_data[col].median()
+            elif strategy == 'mode':
+                fill_value = cleaned_data[col].mode()[0]
+            elif strategy == 'drop':
+                cleaned_data = cleaned_data.dropna(subset=[col])
+                continue
+            else:
+                fill_value = 0
+            
+            cleaned_data[col] = cleaned_data[col].fillna(fill_value)
+    
+    return cleaned_data
+
+def validate_dataframe(data, required_columns=None, dtypes=None):
+    """
+    Validate dataframe structure and data types
+    """
     if required_columns:
-        missing_cols = [col for col in required_columns if col not in df.columns]
+        missing_cols = set(required_columns) - set(data.columns)
         if missing_cols:
-            return False, f"Missing required columns: {missing_cols}"
+            raise ValueError(f"Missing required columns: {missing_cols}")
     
-    return True, "Validation passed"
+    if dtypes:
+        for col, expected_type in dtypes.items():
+            if col in data.columns:
+                actual_type = data[col].dtype
+                if actual_type != expected_type:
+                    try:
+                        data[col] = data[col].astype(expected_type)
+                    except ValueError:
+                        raise TypeError(f"Column {col} cannot be cast to {expected_type}")
+    
+    return True
