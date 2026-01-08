@@ -1,90 +1,71 @@
-import pandas as pd
+
 import numpy as np
-from typing import Optional
 
-def remove_duplicates(df: pd.DataFrame, subset: Optional[list] = None) -> pd.DataFrame:
+def remove_outliers_iqr(data, column):
     """
-    Remove duplicate rows from DataFrame.
+    Remove outliers from a specified column using the Interquartile Range method.
     
     Args:
-        df: Input DataFrame
-        subset: Columns to consider for identifying duplicates
+        data: pandas DataFrame containing the data
+        column: column name to process
     
     Returns:
-        DataFrame with duplicates removed
+        DataFrame with outliers removed
     """
-    return df.drop_duplicates(subset=subset, keep='first')
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    Q1 = data[column].quantile(0.25)
+    Q3 = data[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    
+    return filtered_data
 
-def handle_missing_values(df: pd.DataFrame, strategy: str = 'drop', fill_value: float = 0.0) -> pd.DataFrame:
+def calculate_summary_statistics(data, column):
     """
-    Handle missing values in DataFrame.
+    Calculate summary statistics for a column after outlier removal.
     
     Args:
-        df: Input DataFrame
-        strategy: 'drop' to remove rows, 'fill' to replace with value
-        fill_value: Value to use when strategy is 'fill'
+        data: pandas DataFrame
+        column: column name to analyze
     
     Returns:
-        DataFrame with handled missing values
+        Dictionary containing summary statistics
     """
-    if strategy == 'drop':
-        return df.dropna()
-    elif strategy == 'fill':
-        return df.fillna(fill_value)
-    else:
-        raise ValueError("Strategy must be 'drop' or 'fill'")
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    stats = {
+        'mean': data[column].mean(),
+        'median': data[column].median(),
+        'std': data[column].std(),
+        'min': data[column].min(),
+        'max': data[column].max(),
+        'count': data[column].count()
+    }
+    
+    return stats
 
-def normalize_column(df: pd.DataFrame, column: str) -> pd.DataFrame:
+def clean_dataset(data, numeric_columns):
     """
-    Normalize a column to range [0, 1].
+    Clean dataset by removing outliers from multiple numeric columns.
     
     Args:
-        df: Input DataFrame
-        column: Column name to normalize
-    
-    Returns:
-        DataFrame with normalized column
-    """
-    if column not in df.columns:
-        raise KeyError(f"Column '{column}' not found in DataFrame")
-    
-    df_copy = df.copy()
-    col_min = df_copy[column].min()
-    col_max = df_copy[column].max()
-    
-    if col_max == col_min:
-        df_copy[column] = 0.5
-    else:
-        df_copy[column] = (df_copy[column] - col_min) / (col_max - col_min)
-    
-    return df_copy
-
-def clean_dataframe(df: pd.DataFrame, 
-                   remove_dups: bool = True,
-                   missing_strategy: str = 'fill',
-                   normalize_cols: Optional[list] = None) -> pd.DataFrame:
-    """
-    Comprehensive data cleaning pipeline.
-    
-    Args:
-        df: Input DataFrame
-        remove_dups: Whether to remove duplicates
-        missing_strategy: Strategy for handling missing values
-        normalize_cols: List of columns to normalize
+        data: pandas DataFrame
+        numeric_columns: list of column names to clean
     
     Returns:
         Cleaned DataFrame
     """
-    cleaned_df = df.copy()
+    cleaned_data = data.copy()
     
-    if remove_dups:
-        cleaned_df = remove_duplicates(cleaned_df)
+    for column in numeric_columns:
+        if column in cleaned_data.columns:
+            cleaned_data = remove_outliers_iqr(cleaned_data, column)
     
-    cleaned_df = handle_missing_values(cleaned_df, strategy=missing_strategy)
-    
-    if normalize_cols:
-        for col in normalize_cols:
-            if col in cleaned_df.columns:
-                cleaned_df = normalize_column(cleaned_df, col)
-    
-    return cleaned_df
+    return cleaned_data
