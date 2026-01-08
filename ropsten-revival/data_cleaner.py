@@ -137,4 +137,80 @@ def validate_dataframe(df, required_columns):
     if missing_columns:
         raise ValueError(f"Missing required columns: {missing_columns}")
     
-    return True
+    return Trueimport pandas as pd
+import numpy as np
+from typing import Optional
+
+def clean_dataset(df: pd.DataFrame, 
+                  drop_duplicates: bool = True, 
+                  fillna_strategy: Optional[str] = 'mean',
+                  columns_to_clean: Optional[list] = None) -> pd.DataFrame:
+    """
+    Clean a pandas DataFrame by handling duplicates and missing values.
+    
+    Parameters:
+    df: Input DataFrame
+    drop_duplicates: Whether to drop duplicate rows
+    fillna_strategy: Strategy for filling NaN values ('mean', 'median', 'mode', or None)
+    columns_to_clean: Specific columns to apply cleaning (None for all columns)
+    
+    Returns:
+    Cleaned DataFrame
+    """
+    cleaned_df = df.copy()
+    
+    if columns_to_clean is None:
+        columns_to_clean = cleaned_df.columns.tolist()
+    
+    if drop_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates().reset_index(drop=True)
+    
+    for column in columns_to_clean:
+        if column in cleaned_df.columns:
+            if cleaned_df[column].dtype in ['int64', 'float64']:
+                if fillna_strategy == 'mean':
+                    cleaned_df[column].fillna(cleaned_df[column].mean(), inplace=True)
+                elif fillna_strategy == 'median':
+                    cleaned_df[column].fillna(cleaned_df[column].median(), inplace=True)
+                elif fillna_strategy == 'mode':
+                    cleaned_df[column].fillna(cleaned_df[column].mode()[0], inplace=True)
+            elif cleaned_df[column].dtype == 'object':
+                cleaned_df[column].fillna('Unknown', inplace=True)
+            elif cleaned_df[column].dtype == 'bool':
+                cleaned_df[column].fillna(False, inplace=True)
+    
+    return cleaned_df
+
+def remove_outliers_iqr(df: pd.DataFrame, 
+                        columns: Optional[list] = None,
+                        multiplier: float = 1.5) -> pd.DataFrame:
+    """
+    Remove outliers using the Interquartile Range method.
+    
+    Parameters:
+    df: Input DataFrame
+    columns: Columns to check for outliers (None for all numeric columns)
+    multiplier: IQR multiplier for outlier detection
+    
+    Returns:
+    DataFrame with outliers removed
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns.tolist()
+    
+    filtered_df = df.copy()
+    
+    for column in columns:
+        if column in filtered_df.columns and filtered_df[column].dtype in ['int64', 'float64']:
+            Q1 = filtered_df[column].quantile(0.25)
+            Q3 = filtered_df[column].quantile(0.75)
+            IQR = Q3 - Q1
+            lower_bound = Q1 - multiplier * IQR
+            upper_bound = Q3 + multiplier * IQR
+            
+            filtered_df = filtered_df[
+                (filtered_df[column] >= lower_bound) & 
+                (filtered_df[column] <= upper_bound)
+            ]
+    
+    return filtered_df.reset_index(drop=True)
