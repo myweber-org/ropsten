@@ -284,4 +284,39 @@ if __name__ == "__main__":
     
     validation = validate_dataframe(cleaned_df, ['id', 'value', 'category'])
     print("\nValidation results:")
-    print(validation)
+    print(validation)import pandas as pd
+import numpy as np
+from scipy import stats
+
+def load_data(filepath):
+    df = pd.read_csv(filepath)
+    return df
+
+def remove_outliers_zscore(df, column, threshold=3):
+    z_scores = np.abs(stats.zscore(df[column]))
+    filtered_df = df[z_scores < threshold]
+    return filtered_df
+
+def normalize_column(df, column):
+    min_val = df[column].min()
+    max_val = df[column].max()
+    df[column + '_normalized'] = (df[column] - min_val) / (max_val - min_val)
+    return df
+
+def clean_dataset(input_path, output_path):
+    data = load_data(input_path)
+    
+    numeric_columns = data.select_dtypes(include=[np.number]).columns
+    
+    for col in numeric_columns:
+        data = remove_outliers_zscore(data, col)
+    
+    for col in numeric_columns:
+        data = normalize_column(data, col)
+    
+    data.to_csv(output_path, index=False)
+    print(f"Cleaned data saved to {output_path}")
+    return data
+
+if __name__ == "__main__":
+    clean_dataset('raw_data.csv', 'cleaned_data.csv')
