@@ -72,3 +72,89 @@ if __name__ == "__main__":
     
     is_valid, message = validate_dataframe(cleaned, required_columns=['A', 'B'])
     print(f"\nValidation: {is_valid}, Message: {message}")
+import pandas as pd
+import re
+
+def clean_dataframe(df, text_columns=None, drop_duplicates=True, lowercase=True):
+    """
+    Clean a pandas DataFrame by removing duplicates and standardizing text columns.
+    
+    Args:
+        df: pandas DataFrame to clean
+        text_columns: list of column names to standardize (if None, auto-detect object columns)
+        drop_duplicates: whether to remove duplicate rows
+        lowercase: whether to convert text to lowercase
+    
+    Returns:
+        Cleaned pandas DataFrame
+    """
+    df_clean = df.copy()
+    
+    if drop_duplicates:
+        initial_rows = len(df_clean)
+        df_clean = df_clean.drop_duplicates()
+        removed = initial_rows - len(df_clean)
+        print(f"Removed {removed} duplicate rows")
+    
+    if text_columns is None:
+        text_columns = df_clean.select_dtypes(include=['object']).columns.tolist()
+    
+    for col in text_columns:
+        if col in df_clean.columns:
+            df_clean[col] = df_clean[col].astype(str)
+            
+            if lowercase:
+                df_clean[col] = df_clean[col].str.lower()
+            
+            df_clean[col] = df_clean[col].str.strip()
+            df_clean[col] = df_clean[col].apply(lambda x: re.sub(r'\s+', ' ', x))
+    
+    return df_clean
+
+def validate_email_column(df, email_column):
+    """
+    Validate email addresses in a DataFrame column.
+    
+    Args:
+        df: pandas DataFrame
+        email_column: name of column containing email addresses
+    
+    Returns:
+        DataFrame with additional 'email_valid' column
+    """
+    if email_column not in df.columns:
+        raise ValueError(f"Column '{email_column}' not found in DataFrame")
+    
+    df_valid = df.copy()
+    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    
+    df_valid['email_valid'] = df_valid[email_column].apply(
+        lambda x: bool(re.match(email_pattern, str(x)))
+    )
+    
+    valid_count = df_valid['email_valid'].sum()
+    total_count = len(df_valid)
+    print(f"Valid emails: {valid_count}/{total_count} ({valid_count/total_count*100:.1f}%)")
+    
+    return df_valid
+
+if __name__ == "__main__":
+    sample_data = {
+        'name': ['John Doe', 'Jane Smith', 'John Doe', 'Bob Johnson', 'ALICE WONG'],
+        'email': ['john@example.com', 'jane@test.org', 'invalid-email', 'bob@company.co', 'alice@domain.net'],
+        'notes': ['  Some   text  ', 'more text', 'SOME TEXT', '  another note  ', 'FINAL NOTE']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\n" + "="*50 + "\n")
+    
+    cleaned_df = clean_dataframe(df, drop_duplicates=True, lowercase=True)
+    print("Cleaned DataFrame:")
+    print(cleaned_df)
+    print("\n" + "="*50 + "\n")
+    
+    validated_df = validate_email_column(cleaned_df, 'email')
+    print("DataFrame with email validation:")
+    print(validated_df[['name', 'email', 'email_valid']])
