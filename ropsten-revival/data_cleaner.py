@@ -102,3 +102,87 @@ def validate_data(df, required_columns=None, allow_nan=False):
             raise ValueError(f"Dataset contains {nan_count} NaN values")
     
     return True
+import pandas as pd
+
+def clean_dataset(df, columns_to_check=None, fill_missing='mean'):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean.
+        columns_to_check (list, optional): List of column names to check for duplicates.
+            If None, checks all columns. Defaults to None.
+        fill_missing (str, optional): Method to fill missing values.
+            Options: 'mean', 'median', 'mode', or 'drop'. Defaults to 'mean'.
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame.
+    """
+    df_clean = df.copy()
+    
+    # Remove duplicates
+    if columns_to_check is None:
+        df_clean = df_clean.drop_duplicates()
+    else:
+        df_clean = df_clean.drop_duplicates(subset=columns_to_check)
+    
+    # Handle missing values
+    if fill_missing == 'drop':
+        df_clean = df_clean.dropna()
+    else:
+        for column in df_clean.columns:
+            if df_clean[column].dtype in ['int64', 'float64']:
+                if fill_missing == 'mean':
+                    df_clean[column].fillna(df_clean[column].mean(), inplace=True)
+                elif fill_missing == 'median':
+                    df_clean[column].fillna(df_clean[column].median(), inplace=True)
+                elif fill_missing == 'mode':
+                    df_clean[column].fillna(df_clean[column].mode()[0], inplace=True)
+            else:
+                # For non-numeric columns, fill with mode or empty string
+                if fill_missing == 'mode':
+                    df_clean[column].fillna(df_clean[column].mode()[0], inplace=True)
+                else:
+                    df_clean[column].fillna('', inplace=True)
+    
+    return df_clean
+
+def validate_dataset(df, required_columns=None):
+    """
+    Validate a DataFrame for required columns and data types.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate.
+        required_columns (list, optional): List of required column names.
+    
+    Returns:
+        tuple: (bool, str) indicating validation result and message.
+    """
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            return False, f"Missing required columns: {missing_columns}"
+    
+    # Check for any remaining NaN values
+    if df.isnull().any().any():
+        return False, "Dataset contains NaN values after cleaning"
+    
+    return True, "Dataset validation passed"
+
+# Example usage (commented out for production)
+# if __name__ == "__main__":
+#     # Create sample data
+#     data = {
+#         'id': [1, 2, 2, 3, 4, None],
+#         'value': [10, 20, 20, None, 40, 50],
+#         'category': ['A', 'B', 'B', 'C', None, 'A']
+#     }
+#     df = pd.DataFrame(data)
+#     
+#     # Clean the data
+#     cleaned_df = clean_dataset(df, columns_to_check=['id'], fill_missing='mean')
+#     
+#     # Validate the cleaned data
+#     is_valid, message = validate_dataset(cleaned_df, required_columns=['id', 'value'])
+#     print(f"Validation: {is_valid}, Message: {message}")
+#     print(cleaned_df)
