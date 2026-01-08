@@ -356,4 +356,78 @@ def example_usage():
     print(cleaned_df)
 
 if __name__ == "__main__":
-    example_usage()
+    example_usage()import pandas as pd
+import numpy as np
+from scipy import stats
+
+def clean_dataset(df, numeric_columns=None, z_threshold=3, normalize=True):
+    """
+    Clean dataset by handling missing values, removing outliers,
+    and optionally normalizing numeric columns.
+    """
+    df_clean = df.copy()
+    
+    if numeric_columns is None:
+        numeric_columns = df_clean.select_dtypes(include=[np.number]).columns.tolist()
+    
+    for col in numeric_columns:
+        if col in df_clean.columns:
+            median_val = df_clean[col].median()
+            df_clean[col].fillna(median_val, inplace=True)
+            
+            z_scores = np.abs(stats.zscore(df_clean[col].dropna()))
+            outlier_mask = z_scores < z_threshold
+            df_clean = df_clean[outlier_mask | df_clean[col].isna()]
+            
+            if normalize:
+                col_min = df_clean[col].min()
+                col_max = df_clean[col].max()
+                if col_max > col_min:
+                    df_clean[col] = (df_clean[col] - col_min) / (col_max - col_min)
+    
+    df_clean.reset_index(drop=True, inplace=True)
+    return df_clean
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate dataframe structure and content.
+    """
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError("Input must be a pandas DataFrame")
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            raise ValueError(f"Missing required columns: {missing_cols}")
+    
+    if df.empty:
+        raise ValueError("DataFrame is empty")
+    
+    return True
+
+def sample_data_cleaning():
+    """
+    Example usage of the data cleaning functions.
+    """
+    np.random.seed(42)
+    data = {
+        'feature_a': np.random.normal(100, 15, 50),
+        'feature_b': np.random.exponential(2, 50),
+        'category': np.random.choice(['A', 'B', 'C'], 50)
+    }
+    
+    data['feature_a'][[5, 15, 25]] = np.nan
+    data['feature_b'][[10, 30]] = 999
+    
+    df = pd.DataFrame(data)
+    print("Original shape:", df.shape)
+    
+    cleaned_df = clean_dataset(df, numeric_columns=['feature_a', 'feature_b'])
+    print("Cleaned shape:", cleaned_df.shape)
+    print("Cleaned summary:")
+    print(cleaned_df.describe())
+    
+    return cleaned_df
+
+if __name__ == "__main__":
+    cleaned_data = sample_data_cleaning()
