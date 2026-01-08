@@ -422,3 +422,59 @@ if __name__ == "__main__":
         print("Data Validation Results:")
         for key, value in validation.items():
             print(f"{key}: {value}")
+import numpy as np
+
+def remove_outliers_iqr(data, column):
+    """
+    Remove outliers from a specified column using the IQR method.
+    
+    Args:
+        data (list or np.array): Input data
+        column (int or str): Column index or name if using pandas
+    
+    Returns:
+        np.array: Data with outliers removed
+    """
+    if isinstance(data, list):
+        data = np.array(data)
+    
+    q1 = np.percentile(data, 25)
+    q3 = np.percentile(data, 75)
+    iqr = q3 - q1
+    
+    lower_bound = q1 - 1.5 * iqr
+    upper_bound = q3 + 1.5 * iqr
+    
+    filtered_data = data[(data >= lower_bound) & (data <= upper_bound)]
+    
+    return filtered_data
+
+def calculate_statistics(data):
+    """
+    Calculate basic statistics for the cleaned data.
+    
+    Args:
+        data (np.array): Input data
+        
+    Returns:
+        dict: Dictionary containing mean, median, and std
+    """
+    stats = {
+        'mean': np.mean(data),
+        'median': np.median(data),
+        'std': np.std(data),
+        'count': len(data)
+    }
+    
+    return stats
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = [10, 12, 12, 13, 12, 11, 14, 13, 15, 10, 10, 100, 12, 14, 13, 12, 11, 14, 13, 12]
+    
+    cleaned_data = remove_outliers_iqr(sample_data, 0)
+    statistics = calculate_statistics(cleaned_data)
+    
+    print(f"Original data length: {len(sample_data)}")
+    print(f"Cleaned data length: {len(cleaned_data)}")
+    print(f"Statistics: {statistics}")
