@@ -1,127 +1,49 @@
-
-import numpy as np
 import pandas as pd
-from scipy import stats
 
-def remove_outliers_iqr(data, column):
-    Q1 = data[column].quantile(0.25)
-    Q3 = data[column].quantile(0.75)
-    IQR = Q3 - Q1
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
-    return data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
-
-def remove_outliers_zscore(data, column, threshold=3):
-    z_scores = np.abs(stats.zscore(data[column]))
-    return data[z_scores < threshold]
-
-def normalize_minmax(data, column):
-    min_val = data[column].min()
-    max_val = data[column].max()
-    data[column + '_normalized'] = (data[column] - min_val) / (max_val - min_val)
-    return data
-
-def normalize_zscore(data, column):
-    mean_val = data[column].mean()
-    std_val = data[column].std()
-    data[column + '_standardized'] = (data[column] - mean_val) / std_val
-    return data
-
-def clean_dataset(df, numeric_columns, method='iqr', normalize=True):
-    cleaned_df = df.copy()
-    
-    for col in numeric_columns:
-        if method == 'iqr':
-            cleaned_df = remove_outliers_iqr(cleaned_df, col)
-        elif method == 'zscore':
-            cleaned_df = remove_outliers_zscore(cleaned_df, col)
-    
-    if normalize:
-        for col in numeric_columns:
-            cleaned_df = normalize_minmax(cleaned_df, col)
-    
-    return cleaned_df
-
-def validate_data(df, required_columns):
-    missing_columns = [col for col in required_columns if col not in df.columns]
-    if missing_columns:
-        raise ValueError(f"Missing required columns: {missing_columns}")
-    
-    numeric_cols = df.select_dtypes(include=[np.number]).columns
-    if len(numeric_cols) == 0:
-        raise ValueError("No numeric columns found in the dataset")
-    
-    return True
-
-if __name__ == "__main__":
-    sample_data = pd.DataFrame({
-        'feature1': np.random.normal(100, 15, 1000),
-        'feature2': np.random.exponential(50, 1000),
-        'feature3': np.random.uniform(0, 1, 1000)
-    })
-    
-    try:
-        validate_data(sample_data, ['feature1', 'feature2', 'feature3'])
-        cleaned_data = clean_dataset(sample_data, ['feature1', 'feature2', 'feature3'])
-        print(f"Original shape: {sample_data.shape}")
-        print(f"Cleaned shape: {cleaned_data.shape}")
-        print("Data cleaning completed successfully")
-    except ValueError as e:
-        print(f"Validation error: {e}")
-import pandas as pd
-import sys
-
-def remove_duplicates(input_file, output_file=None, subset=None):
+def clean_dataset(df, columns_to_check=None, remove_duplicates=True):
     """
-    Remove duplicate rows from a CSV file.
+    Clean a pandas DataFrame by removing null values and duplicates.
     
     Args:
-        input_file (str): Path to the input CSV file.
-        output_file (str, optional): Path to save the cleaned CSV file.
-                                     If None, overwrites the input file.
-        subset (list, optional): List of column names to consider for duplicates.
+        df (pd.DataFrame): Input DataFrame to clean.
+        columns_to_check (list, optional): Specific columns to check for nulls. 
+            If None, checks all columns.
+        remove_duplicates (bool): Whether to remove duplicate rows.
     
     Returns:
-        int: Number of duplicate rows removed.
+        pd.DataFrame: Cleaned DataFrame.
     """
-    try:
-        df = pd.read_csv(input_file)
-        initial_rows = len(df)
-        
-        if subset:
-            df_clean = df.drop_duplicates(subset=subset, keep='first')
-        else:
-            df_clean = df.drop_duplicates(keep='first')
-        
-        removed_count = initial_rows - len(df_clean)
-        
-        if output_file is None:
-            output_file = input_file
-        
-        df_clean.to_csv(output_file, index=False)
-        
-        print(f"Removed {removed_count} duplicate rows.")
-        print(f"Cleaned data saved to: {output_file}")
-        
-        return removed_count
-        
-    except FileNotFoundError:
-        print(f"Error: File '{input_file}' not found.")
-        return -1
-    except pd.errors.EmptyDataError:
-        print(f"Error: File '{input_file}' is empty.")
-        return -1
-    except Exception as e:
-        print(f"Error: {str(e)}")
-        return -1
+    cleaned_df = df.copy()
+    
+    if columns_to_check is None:
+        columns_to_check = cleaned_df.columns
+    
+    for col in columns_to_check:
+        if col in cleaned_df.columns:
+            cleaned_df = cleaned_df.dropna(subset=[col])
+    
+    if remove_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates()
+    
+    return cleaned_df.reset_index(drop=True)
 
-if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python data_cleaner.py <input_file> [output_file]")
-        print("Example: python data_cleaner.py data.csv cleaned_data.csv")
-        sys.exit(1)
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate that a DataFrame meets basic requirements.
     
-    input_file = sys.argv[1]
-    output_file = sys.argv[2] if len(sys.argv) > 2 else None
+    Args:
+        df (pd.DataFrame): DataFrame to validate.
+        required_columns (list, optional): List of columns that must be present.
     
-    remove_duplicates(input_file, output_file)
+    Returns:
+        tuple: (is_valid, message)
+    """
+    if df.empty:
+        return False, "DataFrame is empty"
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            return False, f"Missing required columns: {missing_columns}"
+    
+    return True, "DataFrame is valid"
