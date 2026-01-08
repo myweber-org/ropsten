@@ -416,3 +416,75 @@ if __name__ == "__main__":
         
     except Exception as e:
         print(f"Error during data cleaning: {e}")
+import pandas as pd
+
+def clean_dataset(df, columns_to_check=None):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    For numeric columns, fill missing values with the column median.
+    For categorical columns, fill missing values with the most frequent value.
+    """
+    # Create a copy to avoid modifying the original DataFrame
+    df_clean = df.copy()
+    
+    # Remove duplicate rows
+    initial_rows = df_clean.shape[0]
+    df_clean = df_clean.drop_duplicates()
+    removed_duplicates = initial_rows - df_clean.shape[0]
+    
+    # If no specific columns provided, use all columns
+    if columns_to_check is None:
+        columns_to_check = df_clean.columns
+    
+    # Handle missing values
+    for column in columns_to_check:
+        if column in df_clean.columns:
+            if df_clean[column].dtype in ['int64', 'float64']:
+                # For numeric columns, fill with median
+                median_value = df_clean[column].median()
+                df_clean[column].fillna(median_value, inplace=True)
+            else:
+                # For categorical/object columns, fill with mode
+                if not df_clean[column].empty:
+                    mode_value = df_clean[column].mode()
+                    if not mode_value.empty:
+                        df_clean[column].fillna(mode_value.iloc[0], inplace=True)
+    
+    return df_clean, removed_duplicates
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate that a DataFrame meets basic requirements.
+    """
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError("Input must be a pandas DataFrame")
+    
+    if df.empty:
+        raise ValueError("DataFrame is empty")
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            raise ValueError(f"Missing required columns: {missing_columns}")
+    
+    return True
+
+# Example usage (commented out for production)
+# if __name__ == "__main__":
+#     # Create sample data
+#     data = {
+#         'id': [1, 2, 2, 3, 4, None],
+#         'value': [10.5, None, 15.3, 20.1, None, 12.7],
+#         'category': ['A', 'B', 'B', None, 'A', 'C']
+#     }
+#     
+#     df = pd.DataFrame(data)
+#     print("Original DataFrame:")
+#     print(df)
+#     print(f"\nOriginal shape: {df.shape}")
+#     
+#     cleaned_df, duplicates_removed = clean_dataset(df)
+#     print(f"\nRemoved {duplicates_removed} duplicate rows")
+#     print("\nCleaned DataFrame:")
+#     print(cleaned_df)
+#     print(f"\nCleaned shape: {cleaned_df.shape}")
