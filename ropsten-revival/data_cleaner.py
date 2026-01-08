@@ -106,3 +106,115 @@ def remove_outliers(df, column, method='iqr', threshold=1.5):
     
     print(f"Removed {removed_count} outliers from column '{column}' using {method} method")
     return filtered_df
+import pandas as pd
+import numpy as np
+
+def detect_outliers_iqr(data, column):
+    """
+    Detect outliers in a specified column using the Interquartile Range method.
+    
+    Parameters:
+    data (pd.DataFrame): The input dataframe
+    column (str): The column name to analyze
+    
+    Returns:
+    pd.DataFrame: DataFrame containing outliers
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in dataframe")
+    
+    q1 = data[column].quantile(0.25)
+    q3 = data[column].quantile(0.75)
+    iqr = q3 - q1
+    
+    lower_bound = q1 - 1.5 * iqr
+    upper_bound = q3 + 1.5 * iqr
+    
+    outliers = data[(data[column] < lower_bound) | (data[column] > upper_bound)]
+    
+    return outliers
+
+def remove_outliers_iqr(data, column):
+    """
+    Remove outliers from a specified column using the Interquartile Range method.
+    
+    Parameters:
+    data (pd.DataFrame): The input dataframe
+    column (str): The column name to clean
+    
+    Returns:
+    pd.DataFrame: DataFrame with outliers removed
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in dataframe")
+    
+    q1 = data[column].quantile(0.25)
+    q3 = data[column].quantile(0.75)
+    iqr = q3 - q1
+    
+    lower_bound = q1 - 1.5 * iqr
+    upper_bound = q3 + 1.5 * iqr
+    
+    cleaned_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    
+    return cleaned_data
+
+def calculate_statistics(data, column):
+    """
+    Calculate basic statistics for a column including outlier information.
+    
+    Parameters:
+    data (pd.DataFrame): The input dataframe
+    column (str): The column name to analyze
+    
+    Returns:
+    dict: Dictionary containing statistical measures
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in dataframe")
+    
+    stats = {
+        'mean': data[column].mean(),
+        'median': data[column].median(),
+        'std': data[column].std(),
+        'min': data[column].min(),
+        'max': data[column].max(),
+        'q1': data[column].quantile(0.25),
+        'q3': data[column].quantile(0.75),
+        'count': len(data),
+        'missing': data[column].isnull().sum()
+    }
+    
+    outliers = detect_outliers_iqr(data, column)
+    stats['outlier_count'] = len(outliers)
+    stats['outlier_percentage'] = (len(outliers) / len(data)) * 100
+    
+    return stats
+
+def clean_numeric_data(data, columns=None):
+    """
+    Clean numeric data by removing outliers from specified columns.
+    If no columns specified, clean all numeric columns.
+    
+    Parameters:
+    data (pd.DataFrame): The input dataframe
+    columns (list): List of column names to clean
+    
+    Returns:
+    pd.DataFrame: Cleaned dataframe
+    """
+    if columns is None:
+        numeric_cols = data.select_dtypes(include=[np.number]).columns.tolist()
+        columns = numeric_cols
+    
+    cleaned_data = data.copy()
+    
+    for column in columns:
+        if column in cleaned_data.columns:
+            if pd.api.types.is_numeric_dtype(cleaned_data[column]):
+                original_len = len(cleaned_data)
+                cleaned_data = remove_outliers_iqr(cleaned_data, column)
+                removed_count = original_len - len(cleaned_data)
+                print(f"Removed {removed_count} outliers from column '{column}'")
+    
+    return cleaned_data
