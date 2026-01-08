@@ -1,99 +1,148 @@
 
 import numpy as np
 import pandas as pd
+from scipy import stats
 
-def remove_outliers_iqr(df, column):
+def remove_outliers_iqr(dataframe, column, threshold=1.5):
     """
-    Remove outliers from a DataFrame column using the IQR method.
+    Remove outliers from a DataFrame column using IQR method.
     
     Parameters:
-    df (pd.DataFrame): Input DataFrame
-    column (str): Column name to clean
+    dataframe (pd.DataFrame): Input DataFrame
+    column (str): Column name to process
+    threshold (float): IQR multiplier for outlier detection
     
     Returns:
     pd.DataFrame: DataFrame with outliers removed
     """
-    if column not in df.columns:
+    if column not in dataframe.columns:
         raise ValueError(f"Column '{column}' not found in DataFrame")
     
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
+    q1 = dataframe[column].quantile(0.25)
+    q3 = dataframe[column].quantile(0.75)
+    iqr = q3 - q1
     
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
+    lower_bound = q1 - threshold * iqr
+    upper_bound = q3 + threshold * iqr
     
-    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    filtered_df = dataframe[(dataframe[column] >= lower_bound) & 
+                           (dataframe[column] <= upper_bound)]
     
-    return filtered_df.reset_index(drop=True)
+    return filtered_df.copy()
 
-def calculate_basic_stats(df, column):
+def normalize_column_zscore(dataframe, column):
     """
-    Calculate basic statistics for a column.
+    Normalize a column using Z-score normalization.
     
     Parameters:
-    df (pd.DataFrame): Input DataFrame
-    column (str): Column name
+    dataframe (pd.DataFrame): Input DataFrame
+    column (str): Column name to normalize
     
     Returns:
-    dict: Dictionary containing statistics
+    pd.DataFrame: DataFrame with normalized column
     """
-    if column not in df.columns:
+    if column not in dataframe.columns:
         raise ValueError(f"Column '{column}' not found in DataFrame")
     
-    stats = {
-        'mean': df[column].mean(),
-        'median': df[column].median(),
-        'std': df[column].std(),
-        'min': df[column].min(),
-        'max': df[column].max(),
-        'count': len(df[column])
-    }
+    result_df = dataframe.copy()
+    mean_val = result_df[column].mean()
+    std_val = result_df[column].std()
     
-    return stats
+    if std_val > 0:
+        result_df[f'{column}_normalized'] = (result_df[column] - mean_val) / std_val
+    else:
+        result_df[f'{column}_normalized'] = 0
+    
+    return result_df
 
-def clean_numeric_data(df, columns=None):
+def winsorize_column(dataframe, column, limits=(0.05, 0.05)):
     """
-    Clean numeric data by removing outliers from specified columns.
+    Apply winsorization to a column to reduce outlier impact.
     
     Parameters:
-    df (pd.DataFrame): Input DataFrame
-    columns (list): List of column names to clean. If None, clean all numeric columns.
+    dataframe (pd.DataFrame): Input DataFrame
+    column (str): Column name to winsorize
+    limits (tuple): Lower and upper percentile limits
+    
+    Returns:
+    pd.DataFrame: DataFrame with winsorized column
+    """
+    if column not in dataframe.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    result_df = dataframe.copy()
+    winsorized_data = stats.mstats.winsorize(result_df[column], limits=limits)
+    result_df[f'{column}_winsorized'] = winsorized_data
+    
+    return result_df
+
+def clean_dataset(dataframe, numeric_columns, outlier_threshold=1.5, normalize=True):
+    """
+    Comprehensive data cleaning pipeline.
+    
+    Parameters:
+    dataframe (pd.DataFrame): Input DataFrame
+    numeric_columns (list): List of numeric column names to process
+    outlier_threshold (float): IQR threshold for outlier removal
+    normalize (bool): Whether to apply Z-score normalization
     
     Returns:
     pd.DataFrame: Cleaned DataFrame
     """
-    if columns is None:
-        columns = df.select_dtypes(include=[np.number]).columns.tolist()
+    if not isinstance(dataframe, pd.DataFrame):
+        raise TypeError("Input must be a pandas DataFrame")
     
-    cleaned_df = df.copy()
+    cleaned_df = dataframe.copy()
     
-    for column in columns:
-        if column in df.columns and pd.api.types.is_numeric_dtype(df[column]):
-            try:
-                cleaned_df = remove_outliers_iqr(cleaned_df, column)
-            except Exception as e:
-                print(f"Warning: Could not clean column '{column}': {e}")
+    for column in numeric_columns:
+        if column in cleaned_df.columns:
+            # Remove outliers
+            cleaned_df = remove_outliers_iqr(cleaned_df, column, outlier_threshold)
+            
+            # Apply normalization if requested
+            if normalize:
+                cleaned_df = normalize_column_zscore(cleaned_df, column)
     
-    return cleaned_df
+    return cleaned_df.reset_index(drop=True)
 
-if __name__ == "__main__":
-    # Example usage
-    np.random.seed(42)
-    sample_data = {
-        'id': range(100),
-        'value': np.random.normal(100, 15, 100),
-        'category': np.random.choice(['A', 'B', 'C'], 100)
+def validate_dataframe(dataframe, required_columns):
+    """
+    Validate DataFrame structure and content.
+    
+    Parameters:
+    dataframe (pd.DataFrame): DataFrame to validate
+    required_columns (list): List of required column names
+    
+    Returns:
+    dict: Validation results with status and messages
+    """
+    validation_result = {
+        'is_valid': True,
+        'missing_columns': [],
+        'empty_columns': [],
+        'messages': []
     }
     
-    df = pd.DataFrame(sample_data)
+    # Check required columns
+    for column in required_columns:
+        if column not in dataframe.columns:
+            validation_result['missing_columns'].append(column)
+            validation_result['is_valid'] = False
     
-    print("Original DataFrame shape:", df.shape)
-    print("\nOriginal statistics:")
-    print(calculate_basic_stats(df, 'value'))
+    # Check for empty columns
+    for column in dataframe.columns:
+        if dataframe[column].isnull().all():
+            validation_result['empty_columns'].append(column)
+            validation_result['is_valid'] = False
     
-    cleaned_df = clean_numeric_data(df, ['value'])
+    if validation_result['missing_columns']:
+        validation_result['messages'].append(
+            f"Missing columns: {validation_result['missing_columns']}"
+        )
     
-    print("\nCleaned DataFrame shape:", cleaned_df.shape)
-    print("\nCleaned statistics:")
-    print(calculate_basic_stats(cleaned_df, 'value'))
+    if validation_result['empty_columns']:
+        validation_result['messages'].append(
+            f"Empty columns: {validation_result['empty_columns']}"
+        )
+    
+    return validation_result
