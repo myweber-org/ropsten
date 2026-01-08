@@ -200,3 +200,146 @@ def clean_dataset(df, columns_to_clean=None):
             print(f"Removed {removed_count} outliers from column '{column}'")
     
     return cleaned_df
+import pandas as pd
+import numpy as np
+from scipy import stats
+
+def normalize_data(df, columns, method='zscore'):
+    """
+    Normalize specified columns in DataFrame.
+    
+    Args:
+        df: pandas DataFrame
+        columns: list of column names to normalize
+        method: 'zscore' or 'minmax'
+    
+    Returns:
+        DataFrame with normalized columns
+    """
+    df_copy = df.copy()
+    
+    for col in columns:
+        if col not in df_copy.columns:
+            continue
+            
+        if method == 'zscore':
+            df_copy[f'{col}_normalized'] = stats.zscore(df_copy[col])
+        elif method == 'minmax':
+            col_min = df_copy[col].min()
+            col_max = df_copy[col].max()
+            df_copy[f'{col}_normalized'] = (df_copy[col] - col_min) / (col_max - col_min)
+    
+    return df_copy
+
+def remove_outliers(df, columns, method='iqr', threshold=1.5):
+    """
+    Remove outliers from specified columns.
+    
+    Args:
+        df: pandas DataFrame
+        columns: list of column names to process
+        method: 'iqr' or 'zscore'
+        threshold: threshold value for outlier detection
+    
+    Returns:
+        DataFrame with outliers removed
+    """
+    df_copy = df.copy()
+    
+    for col in columns:
+        if col not in df_copy.columns:
+            continue
+            
+        if method == 'iqr':
+            Q1 = df_copy[col].quantile(0.25)
+            Q3 = df_copy[col].quantile(0.75)
+            IQR = Q3 - Q1
+            lower_bound = Q1 - threshold * IQR
+            upper_bound = Q3 + threshold * IQR
+            mask = (df_copy[col] >= lower_bound) & (df_copy[col] <= upper_bound)
+            df_copy = df_copy[mask]
+            
+        elif method == 'zscore':
+            z_scores = np.abs(stats.zscore(df_copy[col]))
+            df_copy = df_copy[z_scores < threshold]
+    
+    return df_copy.reset_index(drop=True)
+
+def clean_missing_values(df, columns, strategy='mean'):
+    """
+    Handle missing values in specified columns.
+    
+    Args:
+        df: pandas DataFrame
+        columns: list of column names to process
+        strategy: 'mean', 'median', 'mode', or 'drop'
+    
+    Returns:
+        DataFrame with handled missing values
+    """
+    df_copy = df.copy()
+    
+    for col in columns:
+        if col not in df_copy.columns:
+            continue
+            
+        if strategy == 'mean':
+            df_copy[col].fillna(df_copy[col].mean(), inplace=True)
+        elif strategy == 'median':
+            df_copy[col].fillna(df_copy[col].median(), inplace=True)
+        elif strategy == 'mode':
+            df_copy[col].fillna(df_copy[col].mode()[0], inplace=True)
+        elif strategy == 'drop':
+            df_copy = df_copy.dropna(subset=[col])
+    
+    return df_copy
+
+def validate_data(df, column_types):
+    """
+    Validate DataFrame columns against expected data types.
+    
+    Args:
+        df: pandas DataFrame
+        column_types: dict of column_name: expected_type
+    
+    Returns:
+        dict with validation results
+    """
+    results = {}
+    
+    for col, expected_type in column_types.items():
+        if col not in df.columns:
+            results[col] = {'status': 'missing', 'message': f'Column {col} not found'}
+            continue
+            
+        actual_type = str(df[col].dtype)
+        
+        if expected_type == 'numeric':
+            is_numeric = pd.api.types.is_numeric_dtype(df[col])
+            results[col] = {
+                'status': 'valid' if is_numeric else 'invalid',
+                'expected': expected_type,
+                'actual': actual_type
+            }
+        elif expected_type == 'datetime':
+            try:
+                pd.to_datetime(df[col])
+                results[col] = {
+                    'status': 'valid',
+                    'expected': expected_type,
+                    'actual': actual_type
+                }
+            except:
+                results[col] = {
+                    'status': 'invalid',
+                    'expected': expected_type,
+                    'actual': actual_type
+                }
+        else:
+            results[col] = {
+                'status': 'valid' if actual_type == expected_type else 'invalid',
+                'expected': expected_type,
+                'actual': actual_type
+            }
+    
+    return results
