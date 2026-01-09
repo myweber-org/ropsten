@@ -54,4 +54,110 @@ def validate_dataframe(df, required_columns=None):
         if missing_cols:
             return False, f"Missing required columns: {missing_cols}"
     
+    return True, "DataFrame is valid"import pandas as pd
+
+def clean_dataframe(df, drop_duplicates=True, fill_missing=False, fill_value=0):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean.
+        drop_duplicates (bool): Whether to drop duplicate rows. Default is True.
+        fill_missing (bool): Whether to fill missing values. Default is False.
+        fill_value: Value to use for filling missing values. Default is 0.
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame.
+    """
+    cleaned_df = df.copy()
+    
+    if drop_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates()
+    
+    if fill_missing:
+        cleaned_df = cleaned_df.fillna(fill_value)
+    
+    return cleaned_df
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate a DataFrame for required columns and data types.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate.
+        required_columns (list): List of required column names.
+    
+    Returns:
+        tuple: (is_valid, error_message)
+    """
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            return False, f"Missing required columns: {missing_columns}"
+    
+    if df.empty:
+        return False, "DataFrame is empty"
+    
     return True, "DataFrame is valid"
+
+def process_numeric_columns(df, columns=None):
+    """
+    Process numeric columns by converting to appropriate types and handling outliers.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame.
+        columns (list): List of column names to process. If None, process all numeric columns.
+    
+    Returns:
+        pd.DataFrame: DataFrame with processed numeric columns.
+    """
+    processed_df = df.copy()
+    
+    if columns is None:
+        numeric_cols = processed_df.select_dtypes(include=['int64', 'float64']).columns
+    else:
+        numeric_cols = [col for col in columns if col in processed_df.columns]
+    
+    for col in numeric_cols:
+        if processed_df[col].dtype in ['int64', 'float64']:
+            # Convert to float for consistency
+            processed_df[col] = processed_df[col].astype(float)
+            
+            # Simple outlier handling: cap at 3 standard deviations
+            mean = processed_df[col].mean()
+            std = processed_df[col].std()
+            if std > 0:
+                lower_bound = mean - 3 * std
+                upper_bound = mean + 3 * std
+                processed_df[col] = processed_df[col].clip(lower=lower_bound, upper=upper_bound)
+    
+    return processed_df
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'id': [1, 2, 2, 3, 4],
+        'value': [10.5, None, 20.3, 30.1, 1000.0],
+        'category': ['A', 'B', 'B', 'C', 'D']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print()
+    
+    # Clean the data
+    cleaned = clean_dataframe(df, fill_missing=True, fill_value=0)
+    print("Cleaned DataFrame:")
+    print(cleaned)
+    print()
+    
+    # Validate the data
+    is_valid, message = validate_dataframe(cleaned, required_columns=['id', 'value'])
+    print(f"Validation: {message}")
+    print()
+    
+    # Process numeric columns
+    processed = process_numeric_columns(cleaned)
+    print("Processed DataFrame:")
+    print(processed)
