@@ -1,115 +1,55 @@
 
 import pandas as pd
-import numpy as np
+import re
 
-def remove_duplicates(df):
-    """Remove duplicate rows from DataFrame."""
-    return df.drop_duplicates()
+def clean_dataframe(df, column_name):
+    """
+    Clean a specific column in a pandas DataFrame by removing duplicates,
+    stripping whitespace, and converting to lowercase.
+    """
+    if column_name not in df.columns:
+        raise ValueError(f"Column '{column_name}' not found in DataFrame")
 
-def fill_missing_values(df, strategy='mean'):
-    """Fill missing values using specified strategy."""
-    if strategy == 'mean':
-        return df.fillna(df.mean())
-    elif strategy == 'median':
-        return df.fillna(df.median())
-    elif strategy == 'mode':
-        return df.fillna(df.mode().iloc[0])
+    df_clean = df.copy()
+    df_clean[column_name] = df_clean[column_name].astype(str)
+    df_clean[column_name] = df_clean[column_name].str.strip()
+    df_clean[column_name] = df_clean[column_name].str.lower()
+    df_clean = df_clean.drop_duplicates(subset=[column_name], keep='first')
+    df_clean = df_clean.reset_index(drop=True)
+    
+    return df_clean
+
+def normalize_text(text):
+    """
+    Normalize text by removing extra spaces and special characters.
+    """
+    if not isinstance(text, str):
+        return text
+    text = re.sub(r'\s+', ' ', text)
+    text = re.sub(r'[^\w\s]', '', text)
+    return text.strip()
+
+def process_file(input_file, output_file, column_to_clean):
+    """
+    Read a CSV file, clean the specified column, and save to a new file.
+    """
+    try:
+        df = pd.read_csv(input_file)
+        df_clean = clean_dataframe(df, column_to_clean)
+        df_clean.to_csv(output_file, index=False)
+        print(f"Cleaned data saved to {output_file}")
+        return True
+    except Exception as e:
+        print(f"Error processing file: {e}")
+        return False
+
+if __name__ == "__main__":
+    input_csv = "raw_data.csv"
+    output_csv = "cleaned_data.csv"
+    target_column = "product_name"
+    
+    success = process_file(input_csv, output_csv, target_column)
+    if success:
+        print("Data cleaning completed successfully.")
     else:
-        return df.fillna(0)
-
-def normalize_column(df, column_name):
-    """Normalize specified column to range [0,1]."""
-    if column_name in df.columns:
-        col = df[column_name]
-        df[column_name] = (col - col.min()) / (col.max() - col.min())
-    return df
-
-def remove_outliers(df, column_name, threshold=3):
-    """Remove outliers using z-score method."""
-    if column_name in df.columns:
-        z_scores = np.abs((df[column_name] - df[column_name].mean()) / df[column_name].std())
-        return df[z_scores < threshold]
-    return df
-
-def clean_dataframe(df, operations=None):
-    """Apply multiple cleaning operations to DataFrame."""
-    if operations is None:
-        operations = ['remove_duplicates', 'fill_missing']
-    
-    result_df = df.copy()
-    
-    if 'remove_duplicates' in operations:
-        result_df = remove_duplicates(result_df)
-    
-    if 'fill_missing' in operations:
-        result_df = fill_missing_values(result_df)
-    
-    return result_df
-import pandas as pd
-import numpy as np
-from scipy import stats
-
-def load_data(filepath):
-    return pd.read_csv(filepath)
-
-def remove_outliers(df, column, threshold=3):
-    z_scores = np.abs(stats.zscore(df[column]))
-    return df[z_scores < threshold]
-
-def normalize_column(df, column):
-    min_val = df[column].min()
-    max_val = df[column].max()
-    df[column] = (df[column] - min_val) / (max_val - min_val)
-    return df
-
-def clean_dataset(input_file, output_file):
-    df = load_data(input_file)
-    
-    numeric_cols = df.select_dtypes(include=[np.number]).columns
-    
-    for col in numeric_cols:
-        df = remove_outliers(df, col)
-        df = normalize_column(df, col)
-    
-    df.to_csv(output_file, index=False)
-    print(f"Cleaned data saved to {output_file}")
-    return df
-
-if __name__ == "__main__":
-    cleaned_df = clean_dataset('raw_data.csv', 'cleaned_data.csv')
-import pandas as pd
-import numpy as np
-from scipy import stats
-
-def remove_outliers_iqr(df, column):
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
-    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
-
-def normalize_minmax(df, column):
-    min_val = df[column].min()
-    max_val = df[column].max()
-    df[column + '_normalized'] = (df[column] - min_val) / (max_val - min_val)
-    return df
-
-def clean_dataset(input_path, output_path):
-    df = pd.read_csv(input_path)
-    
-    numeric_columns = df.select_dtypes(include=[np.number]).columns
-    
-    for col in numeric_columns:
-        df = remove_outliers_iqr(df, col)
-    
-    for col in numeric_columns:
-        df = normalize_minmax(df, col)
-    
-    df.to_csv(output_path, index=False)
-    print(f"Cleaned data saved to {output_path}")
-    print(f"Original shape: {pd.read_csv(input_path).shape}")
-    print(f"Cleaned shape: {df.shape}")
-
-if __name__ == "__main__":
-    clean_dataset('raw_data.csv', 'cleaned_data.csv')
+        print("Data cleaning failed.")
