@@ -134,3 +134,48 @@ def clean_dataset(df, outlier_columns=None, normalize_columns=None, missing_stra
         df_clean = normalize_data(df_clean, columns=normalize_columns)
     
     return df_clean
+import pandas as pd
+import re
+
+def clean_dataframe(df, text_columns=None):
+    """
+    Clean a pandas DataFrame by removing duplicate rows and standardizing text in specified columns.
+    """
+    # Remove duplicate rows
+    df_clean = df.drop_duplicates().reset_index(drop=True)
+    
+    # If text columns are specified, clean them
+    if text_columns:
+        for col in text_columns:
+            if col in df_clean.columns:
+                df_clean[col] = df_clean[col].apply(_standardize_text)
+    
+    return df_clean
+
+def _standardize_text(text):
+    """
+    Standardize text by converting to lowercase, removing extra whitespace, and stripping special characters.
+    """
+    if pd.isna(text):
+        return text
+    
+    # Convert to string and lowercase
+    text = str(text).lower()
+    
+    # Remove extra whitespace
+    text = re.sub(r'\s+', ' ', text).strip()
+    
+    # Remove special characters (keep alphanumeric and spaces)
+    text = re.sub(r'[^a-z0-9\s]', '', text)
+    
+    return text
+
+def validate_email_column(df, email_column):
+    """
+    Validate email addresses in a specified column and return a boolean mask.
+    """
+    if email_column not in df.columns:
+        raise ValueError(f"Column '{email_column}' not found in DataFrame")
+    
+    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return df[email_column].apply(lambda x: bool(re.match(email_pattern, str(x))) if pd.notna(x) else False)
