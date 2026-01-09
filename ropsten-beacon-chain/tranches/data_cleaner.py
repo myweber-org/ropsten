@@ -339,4 +339,153 @@ if __name__ == "__main__":
     print(cleaned)
     
     is_valid = validate_data(cleaned, required_columns=['A', 'B'], min_rows=3)
-    print(f"\nData validation passed: {is_valid}")
+    print(f"\nData validation passed: {is_valid}")import numpy as np
+import pandas as pd
+
+def remove_outliers_iqr(data, column, multiplier=1.5):
+    """
+    Remove outliers using the Interquartile Range method.
+    
+    Parameters:
+    data (pd.DataFrame): Input dataframe
+    column (str): Column name to process
+    multiplier (float): IQR multiplier for outlier detection
+    
+    Returns:
+    pd.DataFrame: Dataframe with outliers removed
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in dataframe")
+    
+    q1 = data[column].quantile(0.25)
+    q3 = data[column].quantile(0.75)
+    iqr = q3 - q1
+    
+    lower_bound = q1 - multiplier * iqr
+    upper_bound = q3 + multiplier * iqr
+    
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    return filtered_data
+
+def normalize_minmax(data, column):
+    """
+    Normalize data using Min-Max scaling.
+    
+    Parameters:
+    data (pd.DataFrame): Input dataframe
+    column (str): Column name to normalize
+    
+    Returns:
+    pd.Series: Normalized values
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in dataframe")
+    
+    min_val = data[column].min()
+    max_val = data[column].max()
+    
+    if max_val == min_val:
+        return pd.Series([0.5] * len(data), index=data.index)
+    
+    normalized = (data[column] - min_val) / (max_val - min_val)
+    return normalized
+
+def standardize_zscore(data, column):
+    """
+    Standardize data using Z-score normalization.
+    
+    Parameters:
+    data (pd.DataFrame): Input dataframe
+    column (str): Column name to standardize
+    
+    Returns:
+    pd.Series: Standardized values
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in dataframe")
+    
+    mean_val = data[column].mean()
+    std_val = data[column].std()
+    
+    if std_val == 0:
+        return pd.Series([0] * len(data), index=data.index)
+    
+    standardized = (data[column] - mean_val) / std_val
+    return standardized
+
+def handle_missing_values(data, strategy='mean'):
+    """
+    Handle missing values in numeric columns.
+    
+    Parameters:
+    data (pd.DataFrame): Input dataframe
+    strategy (str): Imputation strategy ('mean', 'median', 'mode', 'drop')
+    
+    Returns:
+    pd.DataFrame: Dataframe with handled missing values
+    """
+    numeric_cols = data.select_dtypes(include=[np.number]).columns
+    
+    if strategy == 'drop':
+        return data.dropna(subset=numeric_cols)
+    
+    for col in numeric_cols:
+        if data[col].isnull().any():
+            if strategy == 'mean':
+                fill_value = data[col].mean()
+            elif strategy == 'median':
+                fill_value = data[col].median()
+            elif strategy == 'mode':
+                fill_value = data[col].mode()[0]
+            else:
+                raise ValueError(f"Unknown strategy: {strategy}")
+            
+            data[col] = data[col].fillna(fill_value)
+    
+    return data
+
+def create_data_summary(data):
+    """
+    Create a summary statistics dataframe.
+    
+    Parameters:
+    data (pd.DataFrame): Input dataframe
+    
+    Returns:
+    pd.DataFrame: Summary statistics
+    """
+    summary = pd.DataFrame({
+        'count': data.count(),
+        'mean': data.mean(numeric_only=True),
+        'std': data.std(numeric_only=True),
+        'min': data.min(numeric_only=True),
+        '25%': data.quantile(0.25, numeric_only=True),
+        '50%': data.quantile(0.5, numeric_only=True),
+        '75%': data.quantile(0.75, numeric_only=True),
+        'max': data.max(numeric_only=True),
+        'missing': data.isnull().sum(),
+        'dtype': data.dtypes
+    })
+    
+    return summary
+
+def detect_skewed_columns(data, threshold=0.5):
+    """
+    Detect columns with skewed distributions.
+    
+    Parameters:
+    data (pd.DataFrame): Input dataframe
+    threshold (float): Absolute skewness threshold
+    
+    Returns:
+    list: Column names with skewness above threshold
+    """
+    numeric_cols = data.select_dtypes(include=[np.number]).columns
+    skewed_cols = []
+    
+    for col in numeric_cols:
+        skewness = data[col].skew()
+        if abs(skewness) > threshold:
+            skewed_cols.append((col, skewness))
+    
+    return sorted(skewed_cols, key=lambda x: abs(x[1]), reverse=True)
