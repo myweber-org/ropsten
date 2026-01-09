@@ -238,3 +238,74 @@ if __name__ == "__main__":
         
         is_valid = validate_dataframe(cleaned_df, ['A', 'B', 'C'])
         print(f"\nData validation: {'Passed' if is_valid else 'Failed'}")
+import pandas as pd
+import numpy as np
+
+def remove_missing_values(df, threshold=0.5):
+    """
+    Remove columns with missing values exceeding threshold percentage.
+    """
+    missing_percent = df.isnull().sum() / len(df)
+    columns_to_drop = missing_percent[missing_percent > threshold].index
+    df_cleaned = df.drop(columns=columns_to_drop)
+    return df_cleaned
+
+def fill_missing_with_mean(df, columns=None):
+    """
+    Fill missing values with column mean for specified columns.
+    If columns is None, fill all numeric columns.
+    """
+    df_filled = df.copy()
+    if columns is None:
+        numeric_cols = df_filled.select_dtypes(include=[np.number]).columns
+        columns = numeric_cols
+    
+    for col in columns:
+        if col in df_filled.columns and df_filled[col].dtype in [np.float64, np.int64]:
+            df_filled[col].fillna(df_filled[col].mean(), inplace=True)
+    
+    return df_filled
+
+def remove_outliers_iqr(df, columns, factor=1.5):
+    """
+    Remove outliers using IQR method for specified columns.
+    """
+    df_clean = df.copy()
+    for col in columns:
+        if col in df_clean.columns:
+            Q1 = df_clean[col].quantile(0.25)
+            Q3 = df_clean[col].quantile(0.75)
+            IQR = Q3 - Q1
+            lower_bound = Q1 - factor * IQR
+            upper_bound = Q3 + factor * IQR
+            df_clean = df_clean[(df_clean[col] >= lower_bound) & (df_clean[col] <= upper_bound)]
+    
+    return df_clean.reset_index(drop=True)
+
+def standardize_columns(df, columns):
+    """
+    Standardize specified columns to have zero mean and unit variance.
+    """
+    df_standardized = df.copy()
+    for col in columns:
+        if col in df_standardized.columns:
+            mean_val = df_standardized[col].mean()
+            std_val = df_standardized[col].std()
+            if std_val > 0:
+                df_standardized[col] = (df_standardized[col] - mean_val) / std_val
+    
+    return df_standardized
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate dataframe structure and required columns.
+    """
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError("Input must be a pandas DataFrame")
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            raise ValueError(f"Missing required columns: {missing_cols}")
+    
+    return True
