@@ -88,4 +88,122 @@ if __name__ == "__main__":
         )
         save_cleaned_data(cleaned_df, output_file)
     except Exception as e:
-        print(f"Error during data cleaning: {e}")
+        print(f"Error during data cleaning: {e}")import pandas as pd
+
+def remove_duplicates(df, subset=None, keep='first'):
+    """
+    Remove duplicate rows from a DataFrame.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    subset (list, optional): Column labels to consider for duplicates
+    keep (str, optional): Which duplicates to keep ('first', 'last', False)
+    
+    Returns:
+    pd.DataFrame: DataFrame with duplicates removed
+    """
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError("Input must be a pandas DataFrame")
+    
+    cleaned_df = df.drop_duplicates(subset=subset, keep=keep)
+    
+    removed_count = len(df) - len(cleaned_df)
+    if removed_count > 0:
+        print(f"Removed {removed_count} duplicate rows")
+    
+    return cleaned_df
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate
+    required_columns (list, optional): List of required column names
+    
+    Returns:
+    bool: True if validation passes, False otherwise
+    """
+    if not isinstance(df, pd.DataFrame):
+        print("Error: Input is not a DataFrame")
+        return False
+    
+    if df.empty:
+        print("Warning: DataFrame is empty")
+        return True
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            print(f"Error: Missing required columns: {missing_columns}")
+            return False
+    
+    return True
+
+def clean_numeric_columns(df, columns=None):
+    """
+    Clean numeric columns by converting to appropriate types and handling errors.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    columns (list, optional): Specific columns to clean
+    
+    Returns:
+    pd.DataFrame: DataFrame with cleaned numeric columns
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=['object']).columns
+    
+    cleaned_df = df.copy()
+    
+    for column in columns:
+        if column in df.columns:
+            cleaned_df[column] = pd.to_numeric(cleaned_df[column], errors='coerce')
+    
+    return cleaned_df
+
+def get_data_summary(df):
+    """
+    Generate summary statistics for a DataFrame.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    
+    Returns:
+    dict: Dictionary containing summary statistics
+    """
+    summary = {
+        'rows': len(df),
+        'columns': len(df.columns),
+        'missing_values': df.isnull().sum().sum(),
+        'duplicates': df.duplicated().sum(),
+        'column_types': df.dtypes.to_dict(),
+        'memory_usage': df.memory_usage(deep=True).sum()
+    }
+    
+    return summary
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'id': [1, 2, 2, 3, 4, 4, 5],
+        'name': ['Alice', 'Bob', 'Bob', 'Charlie', 'David', 'David', 'Eve'],
+        'score': ['85', '90', '90', '78', '92', '92', '88']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print()
+    
+    # Remove duplicates
+    cleaned_df = remove_duplicates(df, subset=['id', 'name'])
+    print("Cleaned DataFrame:")
+    print(cleaned_df)
+    print()
+    
+    # Get summary
+    summary = get_data_summary(cleaned_df)
+    print("Data Summary:")
+    for key, value in summary.items():
+        print(f"{key}: {value}")
