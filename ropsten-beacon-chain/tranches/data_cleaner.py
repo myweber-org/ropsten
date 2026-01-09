@@ -229,4 +229,73 @@ def validate_dataframe(df: pd.DataFrame) -> bool:
     if df.isnull().all().any():
         return False
     
-    return True
+    return Trueimport numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(df, columns=None, threshold=1.5):
+    """
+    Remove outliers using IQR method.
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    df_clean = df.copy()
+    for col in columns:
+        Q1 = df_clean[col].quantile(0.25)
+        Q3 = df_clean[col].quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - threshold * IQR
+        upper_bound = Q3 + threshold * IQR
+        df_clean = df_clean[(df_clean[col] >= lower_bound) & (df_clean[col] <= upper_bound)]
+    
+    return df_clean.reset_index(drop=True)
+
+def normalize_minmax(df, columns=None):
+    """
+    Normalize data using min-max scaling.
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    df_normalized = df.copy()
+    for col in columns:
+        min_val = df_normalized[col].min()
+        max_val = df_normalized[col].max()
+        if max_val != min_val:
+            df_normalized[col] = (df_normalized[col] - min_val) / (max_val - min_val)
+    
+    return df_normalized
+
+def remove_missing_rows(df, threshold=0.8):
+    """
+    Remove rows with missing values above threshold.
+    """
+    missing_per_row = df.isnull().sum(axis=1) / df.shape[1]
+    df_clean = df[missing_per_row < threshold].copy()
+    return df_clean.reset_index(drop=True)
+
+def clean_dataset(df, outlier_cols=None, norm_cols=None, missing_threshold=0.8):
+    """
+    Comprehensive data cleaning pipeline.
+    """
+    df_clean = remove_missing_rows(df, threshold=missing_threshold)
+    df_clean = remove_outliers_iqr(df_clean, columns=outlier_cols)
+    df_clean = normalize_minmax(df_clean, columns=norm_cols)
+    return df_clean
+
+if __name__ == "__main__":
+    sample_data = pd.DataFrame({
+        'A': np.random.normal(100, 15, 1000),
+        'B': np.random.exponential(50, 1000),
+        'C': np.random.randint(1, 100, 1000)
+    })
+    
+    sample_data.iloc[::100, 0] = np.nan
+    sample_data.iloc[10:15, 1] = 1000
+    
+    print("Original shape:", sample_data.shape)
+    cleaned = clean_dataset(sample_data)
+    print("Cleaned shape:", cleaned.shape)
+    print("Cleaned data summary:")
+    print(cleaned.describe())
