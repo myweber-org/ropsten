@@ -206,4 +206,64 @@ if __name__ == "__main__":
     summary = get_data_summary(cleaned_df)
     print("Data Summary:")
     for key, value in summary.items():
-        print(f"{key}: {value}")
+        print(f"{key}: {value}")import pandas as pd
+import numpy as np
+
+def remove_duplicates(df, subset=None):
+    """
+    Remove duplicate rows from a DataFrame.
+    """
+    return df.drop_duplicates(subset=subset, keep='first')
+
+def fill_missing_values(df, strategy='mean', columns=None):
+    """
+    Fill missing values in specified columns using a given strategy.
+    """
+    if columns is None:
+        columns = df.columns
+    
+    df_filled = df.copy()
+    for col in columns:
+        if df[col].dtype in [np.float64, np.int64]:
+            if strategy == 'mean':
+                fill_value = df[col].mean()
+            elif strategy == 'median':
+                fill_value = df[col].median()
+            elif strategy == 'mode':
+                fill_value = df[col].mode()[0]
+            else:
+                fill_value = 0
+            df_filled[col].fillna(fill_value, inplace=True)
+        else:
+            df_filled[col].fillna('Unknown', inplace=True)
+    return df_filled
+
+def validate_data_types(df, schema):
+    """
+    Validate that DataFrame columns match expected data types.
+    """
+    errors = []
+    for col, expected_type in schema.items():
+        if col not in df.columns:
+            errors.append(f"Column '{col}' not found in DataFrame")
+        elif not np.issubdtype(df[col].dtype, expected_type):
+            errors.append(f"Column '{col}' has type {df[col].dtype}, expected {expected_type}")
+    return errors
+
+def normalize_column(df, column):
+    """
+    Normalize a numeric column to range [0, 1].
+    """
+    if df[column].dtype in [np.float64, np.int64]:
+        min_val = df[column].min()
+        max_val = df[column].max()
+        if max_val - min_val > 0:
+            df[column] = (df[column] - min_val) / (max_val - min_val)
+    return df
+
+def get_summary_stats(df):
+    """
+    Generate summary statistics for numeric columns.
+    """
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    return df[numeric_cols].describe()
