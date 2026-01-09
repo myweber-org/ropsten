@@ -1,23 +1,21 @@
 import requests
-import sys
+import json
 
-def fetch_user_repos(username):
+def fetch_github_repos(username):
+    """Fetch public repositories for a given GitHub username."""
     url = f"https://api.github.com/users/{username}/repos"
     response = requests.get(url)
+    
     if response.status_code == 200:
         repos = response.json()
+        print(f"Public repositories for user '{username}':")
         for repo in repos:
-            print(f"Name: {repo['name']}")
-            print(f"Description: {repo['description']}")
-            print(f"URL: {repo['html_url']}")
-            print(f"Stars: {repo['stargazers_count']}")
-            print("-" * 40)
+            print(f"- {repo['name']}: {repo['description'] or 'No description'}")
+        return repos
     else:
-        print(f"Error: Unable to fetch repositories (Status code: {response.status_code})")
+        print(f"Failed to fetch repositories. Status code: {response.status_code}")
+        return None
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print("Usage: python fetch_github_repos.py <github_username>")
-        sys.exit(1)
-    username = sys.argv[1]
-    fetch_user_repos(username)
+    user = input("Enter a GitHub username: ")
+    fetch_github_repos(user)
