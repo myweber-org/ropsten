@@ -266,4 +266,111 @@ def normalize_column(data, column, method='minmax'):
         raise ValueError("Method must be 'minmax' or 'zscore'")
     
     data[new_column_name] = normalized
-    return data
+    return dataimport pandas as pd
+import numpy as np
+
+def clean_dataframe(df, drop_duplicates=True, fill_missing=True, fill_strategy='mean'):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame to clean.
+    drop_duplicates (bool): Whether to drop duplicate rows. Default is True.
+    fill_missing (bool): Whether to fill missing values. Default is True.
+    fill_strategy (str): Strategy for filling missing values ('mean', 'median', 'mode', 'zero'). Default is 'mean'.
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame.
+    """
+    cleaned_df = df.copy()
+    
+    if drop_duplicates:
+        initial_rows = len(cleaned_df)
+        cleaned_df = cleaned_df.drop_duplicates()
+        removed = initial_rows - len(cleaned_df)
+        print(f"Removed {removed} duplicate rows.")
+    
+    if fill_missing and cleaned_df.isnull().sum().any():
+        numeric_cols = cleaned_df.select_dtypes(include=[np.number]).columns
+        
+        if fill_strategy == 'mean':
+            for col in numeric_cols:
+                cleaned_df[col].fillna(cleaned_df[col].mean(), inplace=True)
+        elif fill_strategy == 'median':
+            for col in numeric_cols:
+                cleaned_df[col].fillna(cleaned_df[col].median(), inplace=True)
+        elif fill_strategy == 'mode':
+            for col in numeric_cols:
+                cleaned_df[col].fillna(cleaned_df[col].mode()[0], inplace=True)
+        elif fill_strategy == 'zero':
+            cleaned_df[numeric_cols] = cleaned_df[numeric_cols].fillna(0)
+        
+        print(f"Filled missing values using {fill_strategy} strategy.")
+    
+    return cleaned_df
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate.
+    required_columns (list): List of column names that must be present.
+    
+    Returns:
+    tuple: (is_valid, message)
+    """
+    if not isinstance(df, pd.DataFrame):
+        return False, "Input is not a pandas DataFrame."
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            return False, f"Missing required columns: {missing_cols}"
+    
+    if df.empty:
+        return False, "DataFrame is empty."
+    
+    return True, "DataFrame is valid."
+
+def get_data_summary(df):
+    """
+    Generate a summary of the DataFrame.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame.
+    
+    Returns:
+    dict: Summary statistics.
+    """
+    summary = {
+        'shape': df.shape,
+        'columns': list(df.columns),
+        'dtypes': df.dtypes.to_dict(),
+        'missing_values': df.isnull().sum().to_dict(),
+        'numeric_stats': df.describe().to_dict() if not df.select_dtypes(include=[np.number]).empty else {}
+    }
+    return summary
+
+if __name__ == "__main__":
+    sample_data = {
+        'A': [1, 2, 2, 3, None, 5],
+        'B': [10, 20, 20, None, 50, 60],
+        'C': ['x', 'y', 'y', 'z', 'z', 'x']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\n" + "="*50 + "\n")
+    
+    is_valid, message = validate_dataframe(df)
+    print(f"Validation: {message}")
+    
+    summary = get_data_summary(df)
+    print(f"\nShape: {summary['shape']}")
+    print(f"Missing values: {summary['missing_values']}")
+    
+    cleaned = clean_dataframe(df, fill_strategy='median')
+    print("\nCleaned DataFrame:")
+    print(cleaned)
