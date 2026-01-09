@@ -183,3 +183,87 @@ def get_data_summary(data):
         }
     
     return summary
+import numpy as np
+
+def remove_outliers_iqr(data, column):
+    """
+    Remove outliers from a specified column using the IQR method.
+    
+    Args:
+        data: pandas DataFrame containing the data
+        column: name of the column to clean
+    
+    Returns:
+        Cleaned DataFrame with outliers removed
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    Q1 = data[column].quantile(0.25)
+    Q3 = data[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    
+    return filtered_data
+
+def calculate_summary_statistics(data, column):
+    """
+    Calculate summary statistics for a column after outlier removal.
+    
+    Args:
+        data: pandas DataFrame
+        column: name of the column to analyze
+    
+    Returns:
+        Dictionary containing summary statistics
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    stats = {
+        'mean': data[column].mean(),
+        'median': data[column].median(),
+        'std': data[column].std(),
+        'min': data[column].min(),
+        'max': data[column].max(),
+        'count': data[column].count()
+    }
+    
+    return stats
+
+def normalize_column(data, column, method='minmax'):
+    """
+    Normalize a column using specified method.
+    
+    Args:
+        data: pandas DataFrame
+        column: name of the column to normalize
+        method: normalization method ('minmax' or 'zscore')
+    
+    Returns:
+        DataFrame with normalized column added as new column
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    if method == 'minmax':
+        min_val = data[column].min()
+        max_val = data[column].max()
+        normalized = (data[column] - min_val) / (max_val - min_val)
+        new_column_name = f"{column}_normalized"
+    
+    elif method == 'zscore':
+        mean_val = data[column].mean()
+        std_val = data[column].std()
+        normalized = (data[column] - mean_val) / std_val
+        new_column_name = f"{column}_zscore"
+    
+    else:
+        raise ValueError("Method must be 'minmax' or 'zscore'")
+    
+    data[new_column_name] = normalized
+    return data
