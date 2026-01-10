@@ -1,95 +1,84 @@
-import numpy as np
+
 import pandas as pd
-from scipy import stats
+import numpy as np
 
-def remove_outliers_iqr(data, column):
-    Q1 = data[column].quantile(0.25)
-    Q3 = data[column].quantile(0.75)
-    IQR = Q3 - Q1
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
-    return data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+class DataCleaner:
+    def __init__(self, df):
+        self.df = df.copy()
+        self.original_shape = df.shape
 
-def remove_outliers_zscore(data, column, threshold=3):
-    z_scores = np.abs(stats.zscore(data[column]))
-    return data[z_scores < threshold]
+    def handle_missing_values(self, strategy='mean', columns=None):
+        if columns is None:
+            columns = self.df.columns
 
-def normalize_minmax(data, column):
-    min_val = data[column].min()
-    max_val = data[column].max()
-    data[column + '_normalized'] = (data[column] - min_val) / (max_val - min_val)
-    return data
+        for col in columns:
+            if self.df[col].dtype in ['int64', 'float64']:
+                if strategy == 'mean':
+                    fill_value = self.df[col].mean()
+                elif strategy == 'median':
+                    fill_value = self.df[col].median()
+                elif strategy == 'mode':
+                    fill_value = self.df[col].mode()[0]
+                else:
+                    fill_value = 0
+                self.df[col].fillna(fill_value, inplace=True)
+            else:
+                self.df[col].fillna('Unknown', inplace=True)
+        return self
 
-def standardize_zscore(data, column):
-    mean_val = data[column].mean()
-    std_val = data[column].std()
-    data[column + '_standardized'] = (data[column] - mean_val) / std_val
-    return data
+    def remove_outliers_iqr(self, columns=None, threshold=1.5):
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
 
-def handle_missing_values(data, strategy='mean'):
-    if strategy == 'mean':
-        return data.fillna(data.mean())
-    elif strategy == 'median':
-        return data.fillna(data.median())
-    elif strategy == 'mode':
-        return data.fillna(data.mode().iloc[0])
-    elif strategy == 'drop':
-        return data.dropna()
-    else:
-        raise ValueError("Invalid strategy. Choose from 'mean', 'median', 'mode', or 'drop'")
+        for col in columns:
+            Q1 = self.df[col].quantile(0.25)
+            Q3 = self.df[col].quantile(0.75)
+            IQR = Q3 - Q1
+            lower_bound = Q1 - threshold * IQR
+            upper_bound = Q3 + threshold * IQR
+            self.df = self.df[(self.df[col] >= lower_bound) & (self.df[col] <= upper_bound)]
+        return self
 
-def clean_dataset(data, numeric_columns, outlier_method='iqr', missing_strategy='mean'):
-    cleaned_data = data.copy()
-    
-    for col in numeric_columns:
-        if outlier_method == 'iqr':
-            cleaned_data = remove_outliers_iqr(cleaned_data, col)
-        elif outlier_method == 'zscore':
-            cleaned_data = remove_outliers_zscore(cleaned_data, col)
-    
-    cleaned_data = handle_missing_values(cleaned_data, strategy=missing_strategy)
-    
-    for col in numeric_columns:
-        cleaned_data = normalize_minmax(cleaned_data, col)
-        cleaned_data = standardize_zscore(cleaned_data, col)
-    
-    return cleaned_data
+    def standardize_columns(self, columns=None):
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
 
-def validate_data(data, required_columns):
-    missing_columns = [col for col in required_columns if col not in data.columns]
-    if missing_columns:
-        raise ValueError(f"Missing required columns: {missing_columns}")
-    
-    if data.empty:
-        raise ValueError("Dataset is empty")
-    
-    return True
+        for col in columns:
+            mean = self.df[col].mean()
+            std = self.df[col].std()
+            if std > 0:
+                self.df[col] = (self.df[col] - mean) / std
+        return self
 
-def get_data_summary(data):
-    summary = {
-        'shape': data.shape,
-        'columns': list(data.columns),
-        'dtypes': data.dtypes.to_dict(),
-        'missing_values': data.isnull().sum().to_dict(),
-        'numeric_stats': data.describe().to_dict() if data.select_dtypes(include=[np.number]).shape[1] > 0 else {}
+    def get_cleaned_data(self):
+        print(f"Original shape: {self.original_shape}")
+        print(f"Cleaned shape: {self.df.shape}")
+        print(f"Rows removed: {self.original_shape[0] - self.df.shape[0]}")
+        return self.df
+
+def create_sample_data():
+    np.random.seed(42)
+    data = {
+        'age': np.random.randint(18, 70, 100),
+        'salary': np.random.normal(50000, 15000, 100),
+        'department': np.random.choice(['Sales', 'IT', 'HR', 'Finance', None], 100),
+        'experience': np.random.randint(0, 30, 100)
     }
-    return summary
+    df = pd.DataFrame(data)
+    df.loc[np.random.choice(100, 10), 'salary'] = np.nan
+    df.loc[np.random.choice(100, 5), 'age'] = np.nan
+    df.loc[0:2, 'salary'] = 1000000
+    return df
 
 if __name__ == "__main__":
-    sample_data = pd.DataFrame({
-        'A': np.random.normal(0, 1, 100),
-        'B': np.random.exponential(1, 100),
-        'C': np.random.randint(0, 100, 100)
-    })
+    sample_df = create_sample_data()
+    cleaner = DataCleaner(sample_df)
     
-    sample_data.iloc[5, 0] = np.nan
-    sample_data.iloc[10, 1] = np.nan
+    cleaned_df = (cleaner
+                 .handle_missing_values(strategy='mean')
+                 .remove_outliers_iqr(threshold=1.5)
+                 .standardize_columns()
+                 .get_cleaned_data())
     
-    print("Original data shape:", sample_data.shape)
-    print("Data summary:")
-    print(get_data_summary(sample_data))
-    
-    cleaned = clean_dataset(sample_data, ['A', 'B', 'C'])
-    print("\nCleaned data shape:", cleaned.shape)
-    print("Cleaned data summary:")
-    print(get_data_summary(cleaned))
+    print("\nFirst 5 rows of cleaned data:")
+    print(cleaned_df.head())
