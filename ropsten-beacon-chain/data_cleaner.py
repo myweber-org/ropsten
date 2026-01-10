@@ -396,3 +396,8 @@ def clean_dataset(df, outlier_method='iqr', normalize=True):
         cleaner.normalize_data(method='standard')
     
     return cleaner.get_cleaned_data(), cleaner.get_cleaning_report()
+def filter_none_values(input_list):
+    """
+    Return a new list with all None values removed.
+    """
+    return [item for item in input_list if item is not None]
