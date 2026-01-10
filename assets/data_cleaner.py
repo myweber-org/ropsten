@@ -198,3 +198,76 @@ if __name__ == "__main__":
     no_duplicates_df = remove_duplicates(cleaned_df)
     print("DataFrame after removing duplicates:")
     print(no_duplicates_df)
+import numpy as np
+import pandas as pd
+
+def remove_outliers_iqr(df, column):
+    """
+    Remove outliers from a DataFrame column using the Interquartile Range method.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    column (str): Column name to clean
+    
+    Returns:
+    pd.DataFrame: DataFrame with outliers removed
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    
+    return filtered_df
+
+def clean_dataset(df, columns_to_clean=None):
+    """
+    Clean multiple columns in a DataFrame by removing outliers.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    columns_to_clean (list): List of column names to clean. If None, clean all numeric columns.
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame
+    """
+    if columns_to_clean is None:
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        columns_to_clean = list(numeric_cols)
+    
+    cleaned_df = df.copy()
+    
+    for column in columns_to_clean:
+        if column in cleaned_df.columns and pd.api.types.is_numeric_dtype(cleaned_df[column]):
+            original_count = len(cleaned_df)
+            cleaned_df = remove_outliers_iqr(cleaned_df, column)
+            removed_count = original_count - len(cleaned_df)
+            print(f"Removed {removed_count} outliers from column '{column}'")
+    
+    return cleaned_df
+
+if __name__ == "__main__":
+    # Example usage
+    np.random.seed(42)
+    data = {
+        'id': range(100),
+        'value': np.random.normal(100, 15, 100),
+        'temperature': np.random.normal(25, 5, 100)
+    }
+    
+    # Add some outliers
+    data['value'][10] = 500
+    data['value'][20] = -200
+    data['temperature'][30] = 100
+    
+    df = pd.DataFrame(data)
+    print(f"Original dataset shape: {df.shape}")
+    
+    cleaned_df = clean_dataset(df, ['value', 'temperature'])
+    print(f"Cleaned dataset shape: {cleaned_df.shape}")
