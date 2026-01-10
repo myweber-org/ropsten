@@ -308,4 +308,68 @@ if __name__ == "__main__":
     
     validation = validate_dataframe(cleaned_df, required_columns=['id', 'name', 'age'])
     print("\nValidation Results:")
-    print(validation)
+    print(validation)import pandas as pd
+
+def clean_dataset(df):
+    """
+    Clean a pandas DataFrame by removing null values and duplicate rows.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to be cleaned.
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame.
+    """
+    # Remove rows with any null values
+    df_cleaned = df.dropna()
+    
+    # Remove duplicate rows
+    df_cleaned = df_cleaned.drop_duplicates()
+    
+    # Reset index after cleaning
+    df_cleaned = df_cleaned.reset_index(drop=True)
+    
+    return df_cleaned
+
+def filter_by_column(df, column_name, threshold):
+    """
+    Filter DataFrame rows where column value is greater than threshold.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame.
+        column_name (str): Name of column to filter by.
+        threshold (float): Threshold value.
+    
+    Returns:
+        pd.DataFrame: Filtered DataFrame.
+    """
+    if column_name not in df.columns:
+        raise ValueError(f"Column '{column_name}' not found in DataFrame")
+    
+    filtered_df = df[df[column_name] > threshold]
+    return filtered_df
+
+def main():
+    # Example usage
+    data = {
+        'A': [1, 2, None, 4, 5, 5],
+        'B': [10, 20, 30, None, 50, 50],
+        'C': [100, 200, 300, 400, 500, 500]
+    }
+    
+    df = pd.DataFrame(data)
+    print("Original DataFrame:")
+    print(df)
+    print("\n")
+    
+    cleaned_df = clean_dataset(df)
+    print("Cleaned DataFrame:")
+    print(cleaned_df)
+    print("\n")
+    
+    filtered_df = filter_by_column(cleaned_df, 'C', 250)
+    print("Filtered DataFrame (C > 250):")
+    print(filtered_df)
+
+if __name__ == "__main__":
+    main()
