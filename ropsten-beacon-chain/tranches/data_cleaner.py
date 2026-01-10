@@ -114,3 +114,17 @@ def clean_dataset(df, numeric_columns=None, outlier_removal=True, normalization=
                 df_copy = normalize_column(df_copy, col)
     
     return df_copy
+def remove_duplicates(seq):
+    seen = set()
+    result = []
+    for item in seq:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
+
+if __name__ == "__main__":
+    sample_list = [1, 2, 2, 3, 4, 4, 5, 1, 6]
+    cleaned_list = remove_duplicates(sample_list)
+    print(f"Original list: {sample_list}")
+    print(f"List after removing duplicates: {cleaned_list}")
