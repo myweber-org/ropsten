@@ -337,3 +337,93 @@ if __name__ == "__main__":
     print(f"Cleaned rows: {len(cleaned_data)}")
     print(f"Outliers removed: {stats}")
     print(f"Summary keys: {list(summary.keys())}")
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df, columns_to_check=None, fill_missing=True):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    """
+    if df.empty:
+        return df
+    
+    df_clean = df.copy()
+    
+    df_clean = df_clean.drop_duplicates()
+    
+    if columns_to_check is None:
+        columns_to_check = df_clean.columns
+    
+    if fill_missing:
+        for col in columns_to_check:
+            if df_clean[col].dtype in [np.float64, np.int64]:
+                df_clean[col] = df_clean[col].fillna(df_clean[col].median())
+            elif df_clean[col].dtype == 'object':
+                df_clean[col] = df_clean[col].fillna(df_clean[col].mode()[0] if not df_clean[col].mode().empty else 'Unknown')
+    
+    return df_clean
+
+def remove_outliers(df, column, method='iqr', threshold=1.5):
+    """
+    Remove outliers from a specific column using IQR or Z-score method.
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    df_clean = df.copy()
+    
+    if method == 'iqr':
+        Q1 = df_clean[column].quantile(0.25)
+        Q3 = df_clean[column].quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - threshold * IQR
+        upper_bound = Q3 + threshold * IQR
+        df_clean = df_clean[(df_clean[column] >= lower_bound) & (df_clean[column] <= upper_bound)]
+    
+    elif method == 'zscore':
+        from scipy import stats
+        z_scores = np.abs(stats.zscore(df_clean[column].dropna()))
+        df_clean = df_clean[z_scores < threshold]
+    
+    return df_clean
+
+def validate_dataframe(df, required_columns=None, min_rows=1):
+    """
+    Validate DataFrame structure and content.
+    """
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError("Input must be a pandas DataFrame")
+    
+    if len(df) < min_rows:
+        raise ValueError(f"DataFrame must have at least {min_rows} rows")
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            raise ValueError(f"Missing required columns: {missing_columns}")
+    
+    return True
+
+if __name__ == "__main__":
+    sample_data = {
+        'id': [1, 2, 3, 3, 4, 5],
+        'value': [10.5, 20.3, np.nan, 30.1, 40.0, 1000.0],
+        'category': ['A', 'B', 'C', 'C', None, 'A']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\nCleaned DataFrame:")
+    cleaned_df = clean_dataset(df)
+    print(cleaned_df)
+    
+    print("\nDataFrame without outliers in 'value' column:")
+    no_outliers_df = remove_outliers(cleaned_df, 'value')
+    print(no_outliers_df)
+    
+    try:
+        validate_dataframe(no_outliers_df, required_columns=['id', 'value', 'category'])
+        print("\nData validation passed")
+    except Exception as e:
+        print(f"\nData validation failed: {e}")
