@@ -1,34 +1,116 @@
 
 import pandas as pd
+import numpy as np
 
-def clean_dataframe(df, drop_duplicates=True, fill_missing='mean'):
+def remove_outliers_iqr(df, column):
     """
-    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    Remove outliers from a DataFrame column using the Interquartile Range method.
     
-    Parameters:
-    df (pd.DataFrame): Input DataFrame to clean.
-    drop_duplicates (bool): Whether to drop duplicate rows. Default is True.
-    fill_missing (str): Method to fill missing values. Options: 'mean', 'median', 'mode', or 'drop'. Default is 'mean'.
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        column (str): Column name to process
     
     Returns:
-    pd.DataFrame: Cleaned DataFrame.
+        pd.DataFrame: DataFrame with outliers removed
     """
-    cleaned_df = df.copy()
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
     
-    if drop_duplicates:
-        cleaned_df = cleaned_df.drop_duplicates()
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
     
-    if fill_missing == 'drop':
-        cleaned_df = cleaned_df.dropna()
-    elif fill_missing in ['mean', 'median']:
-        numeric_cols = cleaned_df.select_dtypes(include=['number']).columns
-        for col in numeric_cols:
-            if fill_missing == 'mean':
-                cleaned_df[col].fillna(cleaned_df[col].mean(), inplace=True)
-            elif fill_missing == 'median':
-                cleaned_df[col].fillna(cleaned_df[col].median(), inplace=True)
-    elif fill_missing == 'mode':
-        for col in cleaned_df.columns:
-            cleaned_df[col].fillna(cleaned_df[col].mode()[0] if not cleaned_df[col].mode().empty else None, inplace=True)
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
     
-    return cleaned_df
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    
+    return filtered_df
+
+def normalize_column(df, column):
+    """
+    Normalize a column using min-max scaling.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        column (str): Column name to normalize
+    
+    Returns:
+        pd.DataFrame: DataFrame with normalized column
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    df_copy = df.copy()
+    min_val = df_copy[column].min()
+    max_val = df_copy[column].max()
+    
+    if max_val == min_val:
+        df_copy[column] = 0.5
+    else:
+        df_copy[column] = (df_copy[column] - min_val) / (max_val - min_val)
+    
+    return df_copy
+
+def handle_missing_values(df, strategy='mean'):
+    """
+    Handle missing values in numeric columns.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        strategy (str): Imputation strategy ('mean', 'median', 'mode', 'drop')
+    
+    Returns:
+        pd.DataFrame: DataFrame with handled missing values
+    """
+    df_copy = df.copy()
+    
+    numeric_cols = df_copy.select_dtypes(include=[np.number]).columns
+    
+    for col in numeric_cols:
+        if df_copy[col].isnull().any():
+            if strategy == 'mean':
+                df_copy[col].fillna(df_copy[col].mean(), inplace=True)
+            elif strategy == 'median':
+                df_copy[col].fillna(df_copy[col].median(), inplace=True)
+            elif strategy == 'mode':
+                df_copy[col].fillna(df_copy[col].mode()[0], inplace=True)
+            elif strategy == 'drop':
+                df_copy = df_copy.dropna(subset=[col])
+            else:
+                raise ValueError(f"Unknown strategy: {strategy}")
+    
+    return df_copy
+
+def clean_dataset(df, numeric_columns=None, outlier_removal=True, normalization=True, missing_strategy='mean'):
+    """
+    Comprehensive data cleaning pipeline.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        numeric_columns (list): List of numeric columns to process
+        outlier_removal (bool): Whether to remove outliers
+        normalization (bool): Whether to normalize columns
+        missing_strategy (str): Strategy for handling missing values
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame
+    """
+    df_copy = df.copy()
+    
+    if numeric_columns is None:
+        numeric_columns = df_copy.select_dtypes(include=[np.number]).columns.tolist()
+    
+    df_copy = handle_missing_values(df_copy, strategy=missing_strategy)
+    
+    if outlier_removal:
+        for col in numeric_columns:
+            if col in df_copy.columns:
+                df_copy = remove_outliers_iqr(df_copy, col)
+    
+    if normalization:
+        for col in numeric_columns:
+            if col in df_copy.columns:
+                df_copy = normalize_column(df_copy, col)
+    
+    return df_copy
