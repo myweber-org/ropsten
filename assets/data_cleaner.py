@@ -122,3 +122,93 @@ def clean_dataset(input_path, output_path):
 
 if __name__ == "__main__":
     clean_dataset('raw_data.csv', 'cleaned_data.csv')
+import pandas as pd
+
+def clean_dataframe(df, fill_strategy='drop', column_case='lower'):
+    """
+    Clean a pandas DataFrame by handling missing values and standardizing column names.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame to clean.
+    fill_strategy (str): Strategy for handling missing values. 
+                         Options: 'drop' (drop rows), 'fill_mean' (fill numeric with mean), 
+                         'fill_median' (fill numeric with median), 'fill_ffill' (forward fill).
+    column_case (str): Target case for column names. Options: 'lower', 'upper', 'title'.
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame.
+    """
+    df_clean = df.copy()
+    
+    # Standardize column names
+    if column_case == 'lower':
+        df_clean.columns = df_clean.columns.str.lower()
+    elif column_case == 'upper':
+        df_clean.columns = df_clean.columns.str.upper()
+    elif column_case == 'title':
+        df_clean.columns = df_clean.columns.str.title()
+    
+    # Handle missing values
+    if fill_strategy == 'drop':
+        df_clean = df_clean.dropna()
+    elif fill_strategy == 'fill_mean':
+        numeric_cols = df_clean.select_dtypes(include=['number']).columns
+        df_clean[numeric_cols] = df_clean[numeric_cols].fillna(df_clean[numeric_cols].mean())
+    elif fill_strategy == 'fill_median':
+        numeric_cols = df_clean.select_dtypes(include=['number']).columns
+        df_clean[numeric_cols] = df_clean[numeric_cols].fillna(df_clean[numeric_cols].median())
+    elif fill_strategy == 'fill_ffill':
+        df_clean = df_clean.fillna(method='ffill')
+    
+    # Reset index after cleaning
+    df_clean = df_clean.reset_index(drop=True)
+    
+    return df_clean
+
+def validate_dataframe(df, required_columns=None, min_rows=1):
+    """
+    Validate DataFrame structure and content.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate.
+    required_columns (list): List of column names that must be present.
+    min_rows (int): Minimum number of rows required.
+    
+    Returns:
+    tuple: (is_valid, message)
+    """
+    if df.empty:
+        return False, "DataFrame is empty"
+    
+    if len(df) < min_rows:
+        return False, f"DataFrame has fewer than {min_rows} rows"
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            return False, f"Missing required columns: {missing_cols}"
+    
+    return True, "DataFrame is valid"
+
+# Example usage (commented out for production)
+# if __name__ == "__main__":
+#     # Create sample data
+#     data = {
+#         'Name': ['Alice', 'Bob', None, 'David'],
+#         'Age': [25, None, 30, 35],
+#         'Score': [85.5, 92.0, None, 88.5]
+#     }
+#     df = pd.DataFrame(data)
+#     
+#     print("Original DataFrame:")
+#     print(df)
+#     
+#     # Clean the data
+#     cleaned_df = clean_dataframe(df, fill_strategy='fill_mean', column_case='lower')
+#     
+#     print("\nCleaned DataFrame:")
+#     print(cleaned_df)
+#     
+#     # Validate the cleaned data
+#     is_valid, message = validate_dataframe(cleaned_df, required_columns=['name', 'age'], min_rows=3)
+#     print(f"\nValidation: {is_valid}, Message: {message}")
