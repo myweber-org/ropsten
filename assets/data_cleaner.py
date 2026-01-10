@@ -112,3 +112,89 @@ def validate_data(df, required_columns, min_rows=10):
         raise ValueError(f"Dataset must have at least {min_rows} rows")
     
     return True
+import pandas as pd
+
+def clean_dataset(df, drop_na=True, column_case='lower'):
+    """
+    Clean a pandas DataFrame by handling missing values and standardizing column names.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean.
+        drop_na (bool): If True, drop rows with any null values. Default is True.
+        column_case (str): Desired case for column names ('lower', 'upper', or 'title'). Default is 'lower'.
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame.
+    """
+    df_clean = df.copy()
+    
+    if drop_na:
+        df_clean = df_clean.dropna()
+    
+    if column_case == 'lower':
+        df_clean.columns = df_clean.columns.str.lower()
+    elif column_case == 'upper':
+        df_clean.columns = df_clean.columns.str.upper()
+    elif column_case == 'title':
+        df_clean.columns = df_clean.columns.str.title()
+    
+    df_clean = df_clean.reset_index(drop=True)
+    
+    return df_clean
+
+def remove_duplicates(df, subset=None, keep='first'):
+    """
+    Remove duplicate rows from a DataFrame.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame.
+        subset (list, optional): Columns to consider for identifying duplicates.
+        keep (str): Which duplicates to keep ('first', 'last', or False). Default is 'first'.
+    
+    Returns:
+        pd.DataFrame: DataFrame with duplicates removed.
+    """
+    return df.drop_duplicates(subset=subset, keep=keep).reset_index(drop=True)
+
+def convert_data_types(df, column_types):
+    """
+    Convert data types of specified columns.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame.
+        column_types (dict): Dictionary mapping column names to desired data types.
+    
+    Returns:
+        pd.DataFrame: DataFrame with converted data types.
+    """
+    df_converted = df.copy()
+    
+    for column, dtype in column_types.items():
+        if column in df_converted.columns:
+            try:
+                df_converted[column] = df_converted[column].astype(dtype)
+            except ValueError as e:
+                print(f"Warning: Could not convert column '{column}' to {dtype}: {e}")
+    
+    return df_converted
+
+if __name__ == "__main__":
+    sample_data = {
+        'Name': ['Alice', 'Bob', 'Charlie', None, 'Eve'],
+        'Age': [25, 30, None, 40, 35],
+        'Score': [85.5, 92.0, 78.5, 88.0, 91.5]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print()
+    
+    cleaned_df = clean_dataset(df, drop_na=True, column_case='lower')
+    print("Cleaned DataFrame:")
+    print(cleaned_df)
+    print()
+    
+    no_duplicates_df = remove_duplicates(cleaned_df)
+    print("DataFrame after removing duplicates:")
+    print(no_duplicates_df)
