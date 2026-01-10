@@ -1,142 +1,86 @@
-import numpy as np
 import pandas as pd
-from scipy import stats
 
-class DataCleaner:
-    def __init__(self, df):
-        self.df = df.copy()
-        self.original_shape = df.shape
-        
-    def remove_outliers_iqr(self, columns=None, factor=1.5):
-        if columns is None:
-            columns = self.df.select_dtypes(include=[np.number]).columns
-            
-        df_clean = self.df.copy()
-        for col in columns:
-            if col in df_clean.columns:
-                Q1 = df_clean[col].quantile(0.25)
-                Q3 = df_clean[col].quantile(0.75)
-                IQR = Q3 - Q1
-                lower_bound = Q1 - factor * IQR
-                upper_bound = Q3 + factor * IQR
-                df_clean = df_clean[(df_clean[col] >= lower_bound) & (df_clean[col] <= upper_bound)]
-        
-        removed_count = len(self.df) - len(df_clean)
-        self.df = df_clean
-        return removed_count
+def remove_duplicates(dataframe, subset=None, keep='first'):
+    """
+    Remove duplicate rows from a pandas DataFrame.
     
-    def remove_outliers_zscore(self, columns=None, threshold=3):
-        if columns is None:
-            columns = self.df.select_dtypes(include=[np.number]).columns
-            
-        df_clean = self.df.copy()
-        for col in columns:
-            if col in df_clean.columns:
-                z_scores = np.abs(stats.zscore(df_clean[col].dropna()))
-                df_clean = df_clean[(z_scores < threshold) | (z_scores.isna())]
-        
-        removed_count = len(self.df) - len(df_clean)
-        self.df = df_clean
-        return removed_count
+    Args:
+        dataframe: Input DataFrame
+        subset: Column label or sequence of labels to consider for duplicates
+        keep: {'first', 'last', False} - Which duplicates to keep
     
-    def normalize_minmax(self, columns=None):
-        if columns is None:
-            columns = self.df.select_dtypes(include=[np.number]).columns
-            
-        df_normalized = self.df.copy()
-        for col in columns:
-            if col in df_normalized.columns:
-                min_val = df_normalized[col].min()
-                max_val = df_normalized[col].max()
-                if max_val > min_val:
-                    df_normalized[col] = (df_normalized[col] - min_val) / (max_val - min_val)
-        
-        self.df = df_normalized
-        return self.df
+    Returns:
+        DataFrame with duplicates removed
+    """
+    if dataframe.empty:
+        return dataframe
     
-    def normalize_zscore(self, columns=None):
-        if columns is None:
-            columns = self.df.select_dtypes(include=[np.number]).columns
-            
-        df_normalized = self.df.copy()
-        for col in columns:
-            if col in df_normalized.columns:
-                mean_val = df_normalized[col].mean()
-                std_val = df_normalized[col].std()
-                if std_val > 0:
-                    df_normalized[col] = (df_normalized[col] - mean_val) / std_val
-        
-        self.df = df_normalized
-        return self.df
+    cleaned_df = dataframe.drop_duplicates(subset=subset, keep=keep)
     
-    def handle_missing_values(self, strategy='mean', columns=None):
-        if columns is None:
-            columns = self.df.select_dtypes(include=[np.number]).columns
-            
-        df_filled = self.df.copy()
-        for col in columns:
-            if col in df_filled.columns and df_filled[col].isna().any():
-                if strategy == 'mean':
-                    fill_value = df_filled[col].mean()
-                elif strategy == 'median':
-                    fill_value = df_filled[col].median()
-                elif strategy == 'mode':
-                    fill_value = df_filled[col].mode()[0]
-                elif strategy == 'zero':
-                    fill_value = 0
-                else:
-                    continue
-                
-                df_filled[col] = df_filled[col].fillna(fill_value)
-        
-        self.df = df_filled
-        return self.df
-    
-    def get_cleaned_data(self):
-        return self.df
-    
-    def get_removal_stats(self):
-        final_shape = self.df.shape
-        rows_removed = self.original_shape[0] - final_shape[0]
-        cols_removed = self.original_shape[1] - final_shape[1]
-        return {
-            'original_rows': self.original_shape[0],
-            'current_rows': final_shape[0],
-            'rows_removed': rows_removed,
-            'original_cols': self.original_shape[1],
-            'current_cols': final_shape[1],
-            'cols_removed': cols_removed
-        }
-
-def example_usage():
-    np.random.seed(42)
-    data = {
-        'feature1': np.random.normal(100, 15, 1000),
-        'feature2': np.random.exponential(50, 1000),
-        'feature3': np.random.uniform(0, 1, 1000),
-        'category': np.random.choice(['A', 'B', 'C'], 1000)
-    }
-    
-    df = pd.DataFrame(data)
-    df.iloc[10:20, 0] = np.nan
-    df.iloc[50:60, 1] = np.nan
-    
-    cleaner = DataCleaner(df)
-    print(f"Original shape: {cleaner.original_shape}")
-    
-    removed_iqr = cleaner.remove_outliers_iqr(['feature1', 'feature2'])
-    print(f"Removed {removed_iqr} outliers using IQR method")
-    
-    cleaner.handle_missing_values(strategy='mean')
-    cleaner.normalize_minmax(['feature1', 'feature2', 'feature3'])
-    
-    cleaned_df = cleaner.get_cleaned_data()
-    stats = cleaner.get_removal_stats()
-    
-    print(f"Cleaned shape: {cleaned_df.shape}")
-    print(f"Removal stats: {stats}")
+    removed_count = len(dataframe) - len(cleaned_df)
+    print(f"Removed {removed_count} duplicate rows")
     
     return cleaned_df
 
-if __name__ == "__main__":
-    cleaned_data = example_usage()
+def clean_numeric_column(dataframe, column_name, fill_method='mean'):
+    """
+    Clean numeric column by handling missing values.
+    
+    Args:
+        dataframe: Input DataFrame
+        column_name: Name of column to clean
+        fill_method: Method to fill missing values ('mean', 'median', 'zero')
+    
+    Returns:
+        DataFrame with cleaned column
+    """
+    if column_name not in dataframe.columns:
+        raise ValueError(f"Column '{column_name}' not found in DataFrame")
+    
+    df_copy = dataframe.copy()
+    
+    if fill_method == 'mean':
+        fill_value = df_copy[column_name].mean()
+    elif fill_method == 'median':
+        fill_value = df_copy[column_name].median()
+    elif fill_method == 'zero':
+        fill_value = 0
+    else:
+        raise ValueError("fill_method must be 'mean', 'median', or 'zero'")
+    
+    missing_count = df_copy[column_name].isna().sum()
+    df_copy[column_name] = df_copy[column_name].fillna(fill_value)
+    
+    print(f"Filled {missing_count} missing values in column '{column_name}' with {fill_method}")
+    
+    return df_copy
+
+def validate_dataframe(dataframe, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Args:
+        dataframe: DataFrame to validate
+        required_columns: List of columns that must be present
+    
+    Returns:
+        Boolean indicating if DataFrame is valid
+    """
+    if dataframe.empty:
+        print("Warning: DataFrame is empty")
+        return False
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in dataframe.columns]
+        if missing_columns:
+            print(f"Missing required columns: {missing_columns}")
+            return False
+    
+    total_cells = dataframe.size
+    null_cells = dataframe.isna().sum().sum()
+    null_percentage = (null_cells / total_cells) * 100 if total_cells > 0 else 0
+    
+    print(f"DataFrame shape: {dataframe.shape}")
+    print(f"Null values: {null_cells} ({null_percentage:.2f}%)")
+    
+    return null_percentage < 50
