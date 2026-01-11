@@ -266,3 +266,107 @@ if __name__ == "__main__":
     summary = get_data_summary(df)
     print("Data summary:")
     print(summary)
+import pandas as pd
+import numpy as np
+from datetime import datetime
+
+def clean_dataframe(df):
+    """
+    Clean a pandas DataFrame by removing duplicates,
+    standardizing column names, and handling missing values.
+    """
+    # Create a copy to avoid modifying the original
+    cleaned_df = df.copy()
+    
+    # Standardize column names: lowercase and replace spaces with underscores
+    cleaned_df.columns = cleaned_df.columns.str.lower().str.replace(' ', '_')
+    
+    # Remove duplicate rows
+    cleaned_df = cleaned_df.drop_duplicates()
+    
+    # Fill missing numeric values with column median
+    numeric_cols = cleaned_df.select_dtypes(include=[np.number]).columns
+    for col in numeric_cols:
+        cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].median())
+    
+    # Fill missing categorical values with 'unknown'
+    categorical_cols = cleaned_df.select_dtypes(include=['object']).columns
+    for col in categorical_cols:
+        cleaned_df[col] = cleaned_df[col].fillna('unknown')
+    
+    # Convert date columns to datetime format
+    date_patterns = ['date', 'time', 'timestamp']
+    for col in cleaned_df.columns:
+        if any(pattern in col for pattern in date_patterns):
+            try:
+                cleaned_df[col] = pd.to_datetime(cleaned_df[col], errors='coerce')
+            except:
+                pass
+    
+    # Remove rows where all values are null
+    cleaned_df = cleaned_df.dropna(how='all')
+    
+    # Reset index after cleaning
+    cleaned_df = cleaned_df.reset_index(drop=True)
+    
+    return cleaned_df
+
+def validate_data(df, required_columns=None):
+    """
+    Validate that DataFrame meets basic quality requirements.
+    """
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            raise ValueError(f"Missing required columns: {missing_cols}")
+    
+    # Check for empty DataFrame
+    if df.empty:
+        raise ValueError("DataFrame is empty")
+    
+    # Check for excessive null values
+    null_percentage = df.isnull().sum().sum() / (df.shape[0] * df.shape[1])
+    if null_percentage > 0.5:
+        print(f"Warning: High percentage of null values: {null_percentage:.2%}")
+    
+    return True
+
+def export_cleaned_data(df, output_path, format='csv'):
+    """
+    Export cleaned DataFrame to specified format.
+    """
+    if format.lower() == 'csv':
+        df.to_csv(output_path, index=False)
+    elif format.lower() == 'excel':
+        df.to_excel(output_path, index=False)
+    elif format.lower() == 'json':
+        df.to_json(output_path, orient='records')
+    else:
+        raise ValueError(f"Unsupported format: {format}")
+    
+    print(f"Data exported successfully to {output_path}")
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'Customer ID': [1, 2, 2, 3, 4],
+        'Order Date': ['2023-01-01', '2023-01-02', '2023-01-02', None, '2023-01-04'],
+        'Product Name': ['Widget A', 'Widget B', 'Widget B', 'Widget C', None],
+        'Price': [100.0, 150.0, 150.0, None, 200.0],
+        'Quantity': [2, 1, 1, 3, 2]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\n" + "="*50 + "\n")
+    
+    cleaned_df = clean_dataframe(df)
+    print("Cleaned DataFrame:")
+    print(cleaned_df)
+    
+    try:
+        validate_data(cleaned_df, required_columns=['customer_id', 'price'])
+        print("\nData validation passed")
+    except ValueError as e:
+        print(f"\nData validation failed: {e}")
