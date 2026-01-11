@@ -1,86 +1,75 @@
 import pandas as pd
+import numpy as np
 
-def remove_duplicates(dataframe, subset=None, keep='first'):
+def clean_csv_data(filepath, fill_strategy='mean', drop_threshold=0.5):
     """
-    Remove duplicate rows from a pandas DataFrame.
+    Load and clean CSV data by handling missing values and removing invalid columns.
     
     Args:
-        dataframe: Input DataFrame
-        subset: Column label or sequence of labels to consider for duplicates
-        keep: {'first', 'last', False} - Which duplicates to keep
+        filepath (str): Path to the CSV file.
+        fill_strategy (str): Strategy for filling missing values ('mean', 'median', 'mode', or 'zero').
+        drop_threshold (float): Threshold for dropping columns with too many missing values (0.0 to 1.0).
     
     Returns:
-        DataFrame with duplicates removed
+        pandas.DataFrame: Cleaned DataFrame.
     """
-    if dataframe.empty:
-        return dataframe
+    try:
+        df = pd.read_csv(filepath)
+    except FileNotFoundError:
+        raise FileNotFoundError(f"File not found: {filepath}")
     
-    cleaned_df = dataframe.drop_duplicates(subset=subset, keep=keep)
+    # Drop columns with missing values above threshold
+    missing_ratio = df.isnull().sum() / len(df)
+    columns_to_drop = missing_ratio[missing_ratio > drop_threshold].index
+    df = df.drop(columns=columns_to_drop)
     
-    removed_count = len(dataframe) - len(cleaned_df)
-    print(f"Removed {removed_count} duplicate rows")
+    # Fill missing values based on strategy
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
     
-    return cleaned_df
-
-def clean_numeric_column(dataframe, column_name, fill_method='mean'):
-    """
-    Clean numeric column by handling missing values.
-    
-    Args:
-        dataframe: Input DataFrame
-        column_name: Name of column to clean
-        fill_method: Method to fill missing values ('mean', 'median', 'zero')
-    
-    Returns:
-        DataFrame with cleaned column
-    """
-    if column_name not in dataframe.columns:
-        raise ValueError(f"Column '{column_name}' not found in DataFrame")
-    
-    df_copy = dataframe.copy()
-    
-    if fill_method == 'mean':
-        fill_value = df_copy[column_name].mean()
-    elif fill_method == 'median':
-        fill_value = df_copy[column_name].median()
-    elif fill_method == 'zero':
-        fill_value = 0
+    if fill_strategy == 'mean':
+        df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].mean())
+    elif fill_strategy == 'median':
+        df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].median())
+    elif fill_strategy == 'mode':
+        df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].mode().iloc[0])
+    elif fill_strategy == 'zero':
+        df[numeric_cols] = df[numeric_cols].fillna(0)
     else:
-        raise ValueError("fill_method must be 'mean', 'median', or 'zero'")
+        raise ValueError("Invalid fill_strategy. Choose from 'mean', 'median', 'mode', or 'zero'.")
     
-    missing_count = df_copy[column_name].isna().sum()
-    df_copy[column_name] = df_copy[column_name].fillna(fill_value)
+    # For non-numeric columns, fill with most frequent value
+    non_numeric_cols = df.select_dtypes(exclude=[np.number]).columns
+    for col in non_numeric_cols:
+        df[col] = df[col].fillna(df[col].mode().iloc[0] if not df[col].mode().empty else 'Unknown')
     
-    print(f"Filled {missing_count} missing values in column '{column_name}' with {fill_method}")
+    # Remove duplicate rows
+    df = df.drop_duplicates()
     
-    return df_copy
+    # Reset index after cleaning
+    df = df.reset_index(drop=True)
+    
+    return df
 
-def validate_dataframe(dataframe, required_columns=None):
+def save_cleaned_data(df, output_path):
     """
-    Validate DataFrame structure and content.
+    Save cleaned DataFrame to a new CSV file.
     
     Args:
-        dataframe: DataFrame to validate
-        required_columns: List of columns that must be present
-    
-    Returns:
-        Boolean indicating if DataFrame is valid
+        df (pandas.DataFrame): Cleaned DataFrame.
+        output_path (str): Path to save the cleaned CSV file.
     """
-    if dataframe.empty:
-        print("Warning: DataFrame is empty")
-        return False
+    df.to_csv(output_path, index=False)
+    print(f"Cleaned data saved to: {output_path}")
+
+if __name__ == "__main__":
+    # Example usage
+    input_file = "raw_data.csv"
+    output_file = "cleaned_data.csv"
     
-    if required_columns:
-        missing_columns = [col for col in required_columns if col not in dataframe.columns]
-        if missing_columns:
-            print(f"Missing required columns: {missing_columns}")
-            return False
-    
-    total_cells = dataframe.size
-    null_cells = dataframe.isna().sum().sum()
-    null_percentage = (null_cells / total_cells) * 100 if total_cells > 0 else 0
-    
-    print(f"DataFrame shape: {dataframe.shape}")
-    print(f"Null values: {null_cells} ({null_percentage:.2f}%)")
-    
-    return null_percentage < 50
+    try:
+        cleaned_df = clean_csv_data(input_file, fill_strategy='median', drop_threshold=0.3)
+        save_cleaned_data(cleaned_df, output_file)
+        print(f"Original shape: {pd.read_csv(input_file).shape}")
+        print(f"Cleaned shape: {cleaned_df.shape}")
+    except Exception as e:
+        print(f"Error during data cleaning: {e}")
