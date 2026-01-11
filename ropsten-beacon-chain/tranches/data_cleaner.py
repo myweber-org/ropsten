@@ -363,4 +363,62 @@ def main():
     print(f"\nRemoved {len(df) - len(cleaned_df)} outliers")
 
 if __name__ == "__main__":
-    main()
+    main()import pandas as pd
+import numpy as np
+
+def remove_duplicates(df, subset=None):
+    """Remove duplicate rows from DataFrame."""
+    if subset is None:
+        return df.drop_duplicates()
+    else:
+        return df.drop_duplicates(subset=subset)
+
+def fill_missing_values(df, column, method='mean'):
+    """Fill missing values in specified column."""
+    if method == 'mean':
+        fill_value = df[column].mean()
+    elif method == 'median':
+        fill_value = df[column].median()
+    elif method == 'mode':
+        fill_value = df[column].mode()[0]
+    else:
+        fill_value = method
+    
+    df[column] = df[column].fillna(fill_value)
+    return df
+
+def normalize_column(df, column):
+    """Normalize column values to range [0, 1]."""
+    min_val = df[column].min()
+    max_val = df[column].max()
+    
+    if max_val - min_val == 0:
+        df[column] = 0
+    else:
+        df[column] = (df[column] - min_val) / (max_val - min_val)
+    
+    return df
+
+def clean_csv_file(input_path, output_path, cleaning_steps):
+    """Apply cleaning steps to CSV file and save result."""
+    df = pd.read_csv(input_path)
+    
+    for step in cleaning_steps:
+        if step['action'] == 'remove_duplicates':
+            df = remove_duplicates(df, step.get('subset'))
+        elif step['action'] == 'fill_missing':
+            df = fill_missing_values(df, step['column'], step.get('method', 'mean'))
+        elif step['action'] == 'normalize':
+            df = normalize_column(df, step['column'])
+    
+    df.to_csv(output_path, index=False)
+    return df
+
+def validate_dataframe(df, required_columns):
+    """Validate DataFrame contains required columns."""
+    missing_columns = [col for col in required_columns if col not in df.columns]
+    
+    if missing_columns:
+        raise ValueError(f"Missing required columns: {missing_columns}")
+    
+    return True
