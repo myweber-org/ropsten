@@ -1,161 +1,51 @@
 
-import pandas as pd
-import numpy as np
+def remove_duplicates(input_list):
+    """
+    Remove duplicate elements from a list while preserving order.
+    Returns a new list with unique elements.
+    """
+    seen = set()
+    result = []
+    for item in input_list:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
 
-def remove_outliers_iqr(df, column):
+def clean_numeric_strings(string_list):
     """
-    Remove outliers from a DataFrame column using the Interquartile Range method.
-    
-    Args:
-        df (pd.DataFrame): Input DataFrame
-        column (str): Column name to process
-    
-    Returns:
-        pd.DataFrame: DataFrame with outliers removed
+    Clean a list of strings by converting numeric strings to integers.
+    Non-numeric strings are kept as-is.
     """
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
-    
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
-    
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
-    
-    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
-    
-    return filtered_df.reset_index(drop=True)
+    cleaned = []
+    for s in string_list:
+        s = s.strip()
+        if s.isdigit():
+            cleaned.append(int(s))
+        else:
+            cleaned.append(s)
+    return cleaned
 
-def calculate_summary_statistics(df):
+def filter_by_type(data_list, data_type):
     """
-    Calculate summary statistics for numerical columns.
-    
-    Args:
-        df (pd.DataFrame): Input DataFrame
-    
-    Returns:
-        pd.DataFrame: Summary statistics
+    Filter a list to include only elements of a specific type.
     """
-    numeric_cols = df.select_dtypes(include=[np.number]).columns
-    
-    if len(numeric_cols) == 0:
-        return pd.DataFrame()
-    
-    stats = df[numeric_cols].agg(['count', 'mean', 'std', 'min', 'max']).T
-    stats['missing'] = len(df) - stats['count']
-    
-    return stats
+    return [item for item in data_list if isinstance(item, data_type)]
 
-def validate_dataframe(df, required_columns=None):
-    """
-    Validate DataFrame structure and content.
+def main():
+    # Example usage
+    sample_data = [1, 2, 2, 3, '4', '4', 'five', 5.0, 5.0]
     
-    Args:
-        df (pd.DataFrame): DataFrame to validate
-        required_columns (list): List of required column names
+    print("Original data:", sample_data)
     
-    Returns:
-        tuple: (is_valid, error_message)
-    """
-    if not isinstance(df, pd.DataFrame):
-        return False, "Input is not a pandas DataFrame"
+    unique_data = remove_duplicates(sample_data)
+    print("After removing duplicates:", unique_data)
     
-    if df.empty:
-        return False, "DataFrame is empty"
+    cleaned_data = clean_numeric_strings([str(x) for x in unique_data])
+    print("After cleaning numeric strings:", cleaned_data)
     
-    if required_columns:
-        missing_cols = [col for col in required_columns if col not in df.columns]
-        if missing_cols:
-            return False, f"Missing required columns: {missing_cols}"
-    
-    return True, "DataFrame is valid"
-
-def example_usage():
-    """
-    Example usage of the data cleaning functions.
-    """
-    np.random.seed(42)
-    
-    data = {
-        'id': range(100),
-        'value': np.random.normal(100, 15, 100),
-        'category': np.random.choice(['A', 'B', 'C'], 100)
-    }
-    
-    df = pd.DataFrame(data)
-    
-    print("Original DataFrame shape:", df.shape)
-    
-    is_valid, message = validate_dataframe(df, ['id', 'value'])
-    print(f"Validation: {message}")
-    
-    cleaned_df = remove_outliers_iqr(df, 'value')
-    print("Cleaned DataFrame shape:", cleaned_df.shape)
-    
-    stats = calculate_summary_statistics(cleaned_df)
-    print("\nSummary Statistics:")
-    print(stats)
+    integers_only = filter_by_type(cleaned_data, int)
+    print("Integers only:", integers_only)
 
 if __name__ == "__main__":
-    example_usage()
-import pandas as pd
-
-def clean_dataset(df, drop_duplicates=True, fill_missing=None):
-    """
-    Clean a pandas DataFrame by removing duplicates and handling missing values.
-    
-    Args:
-        df (pd.DataFrame): Input DataFrame to clean.
-        drop_duplicates (bool): Whether to drop duplicate rows. Default is True.
-        fill_missing (str or dict): Method to fill missing values. 
-            Options: 'mean', 'median', 'mode', or a dictionary of column:value pairs.
-            If None, rows with missing values are dropped.
-    
-    Returns:
-        pd.DataFrame: Cleaned DataFrame.
-    """
-    cleaned_df = df.copy()
-    
-    if drop_duplicates:
-        cleaned_df = cleaned_df.drop_duplicates()
-    
-    if fill_missing is not None:
-        if isinstance(fill_missing, dict):
-            cleaned_df = cleaned_df.fillna(fill_missing)
-        elif fill_missing == 'mean':
-            cleaned_df = cleaned_df.fillna(cleaned_df.mean(numeric_only=True))
-        elif fill_missing == 'median':
-            cleaned_df = cleaned_df.fillna(cleaned_df.median(numeric_only=True))
-        elif fill_missing == 'mode':
-            cleaned_df = cleaned_df.fillna(cleaned_df.mode().iloc[0])
-        else:
-            raise ValueError("Invalid fill_missing method. Use 'mean', 'median', 'mode', or a dictionary.")
-    else:
-        cleaned_df = cleaned_df.dropna()
-    
-    return cleaned_df
-
-def validate_dataset(df, required_columns=None, unique_columns=None):
-    """
-    Validate a DataFrame for required columns and unique constraints.
-    
-    Args:
-        df (pd.DataFrame): DataFrame to validate.
-        required_columns (list): List of column names that must be present.
-        unique_columns (list): List of column names that should have unique values.
-    
-    Returns:
-        tuple: (is_valid, error_message)
-    """
-    if required_columns:
-        missing_cols = [col for col in required_columns if col not in df.columns]
-        if missing_cols:
-            return False, f"Missing required columns: {missing_cols}"
-    
-    if unique_columns:
-        for col in unique_columns:
-            if col in df.columns and df[col].duplicated().any():
-                return False, f"Column '{col}' contains duplicate values"
-    
-    return True, "Dataset is valid"
+    main()
