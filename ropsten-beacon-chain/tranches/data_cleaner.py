@@ -683,4 +683,83 @@ if __name__ == "__main__":
     
     print("Original dataset shape:", sample_df.shape)
     cleaned_df = clean_dataset(sample_df, ['A', 'B', 'C'])
-    print("Cleaned dataset shape:", cleaned_df.shape)
+    print("Cleaned dataset shape:", cleaned_df.shape)import pandas as pd
+
+def clean_dataset(df):
+    """
+    Clean a pandas DataFrame by removing null values and duplicates.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to be cleaned.
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame.
+    """
+    # Remove rows with any null values
+    df_cleaned = df.dropna()
+    
+    # Remove duplicate rows
+    df_cleaned = df_cleaned.drop_duplicates()
+    
+    # Reset index after cleaning
+    df_cleaned = df_cleaned.reset_index(drop=True)
+    
+    return df_cleaned
+
+def validate_dataset(df, required_columns=None):
+    """
+    Validate the dataset for required columns and basic integrity.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate.
+        required_columns (list): List of required column names.
+    
+    Returns:
+        tuple: (is_valid, message)
+    """
+    if df.empty:
+        return False, "DataFrame is empty"
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            return False, f"Missing required columns: {missing_columns}"
+    
+    return True, "Dataset is valid"
+
+def process_data_file(file_path, required_columns=None):
+    """
+    Load and clean data from a CSV file.
+    
+    Args:
+        file_path (str): Path to the CSV file.
+        required_columns (list): List of required column names.
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame or None if error.
+    """
+    try:
+        # Load data from CSV
+        df = pd.read_csv(file_path)
+        
+        # Validate dataset
+        is_valid, message = validate_dataset(df, required_columns)
+        if not is_valid:
+            print(f"Validation failed: {message}")
+            return None
+        
+        # Clean dataset
+        df_cleaned = clean_dataset(df)
+        
+        print(f"Original shape: {df.shape}")
+        print(f"Cleaned shape: {df_cleaned.shape}")
+        print(f"Rows removed: {len(df) - len(df_cleaned)}")
+        
+        return df_cleaned
+        
+    except FileNotFoundError:
+        print(f"Error: File not found at {file_path}")
+        return None
+    except Exception as e:
+        print(f"Error processing file: {str(e)}")
+        return None
