@@ -175,4 +175,78 @@ if __name__ == "__main__":
     if result >= 0:
         print("Data cleaning completed successfully.")
     else:
-        print("Data cleaning failed.")
+        print("Data cleaning failed.")import pandas as pd
+import numpy as np
+
+def clean_dataset(df, drop_duplicates=True, fill_missing='mean'):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    """
+    original_shape = df.shape
+    
+    if drop_duplicates:
+        df = df.drop_duplicates()
+        print(f"Removed {original_shape[0] - df.shape[0]} duplicate rows")
+    
+    if fill_missing:
+        for column in df.columns:
+            if df[column].isnull().any():
+                if fill_missing == 'mean' and pd.api.types.is_numeric_dtype(df[column]):
+                    fill_value = df[column].mean()
+                elif fill_missing == 'median' and pd.api.types.is_numeric_dtype(df[column]):
+                    fill_value = df[column].median()
+                elif fill_missing == 'mode':
+                    fill_value = df[column].mode()[0] if not df[column].mode().empty else np.nan
+                else:
+                    fill_value = 0 if pd.api.types.is_numeric_dtype(df[column]) else 'Unknown'
+                
+                df[column] = df[column].fillna(fill_value)
+                print(f"Filled missing values in column '{column}' with {fill_value}")
+    
+    print(f"Dataset cleaned: {original_shape} -> {df.shape}")
+    return df
+
+def validate_dataframe(df):
+    """
+    Validate DataFrame for common data quality issues.
+    """
+    issues = []
+    
+    if df.empty:
+        issues.append("DataFrame is empty")
+    
+    for column in df.columns:
+        null_count = df[column].isnull().sum()
+        if null_count > 0:
+            issues.append(f"Column '{column}' has {null_count} missing values")
+        
+        if df[column].nunique() == 1:
+            issues.append(f"Column '{column}' has only one unique value")
+    
+    if issues:
+        print("Data validation issues found:")
+        for issue in issues:
+            print(f"  - {issue}")
+        return False
+    
+    print("Data validation passed")
+    return True
+
+if __name__ == "__main__":
+    sample_data = {
+        'A': [1, 2, 2, 3, None, 4],
+        'B': [5, None, 5, 6, 7, 8],
+        'C': ['x', 'y', 'x', 'z', None, 'y']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\n" + "="*50 + "\n")
+    
+    cleaned_df = clean_dataset(df, drop_duplicates=True, fill_missing='mean')
+    print("\nCleaned DataFrame:")
+    print(cleaned_df)
+    print("\n" + "="*50 + "\n")
+    
+    validation_result = validate_dataframe(cleaned_df)
