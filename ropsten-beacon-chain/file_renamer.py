@@ -165,3 +165,49 @@ def main():
 
 if __name__ == "__main__":
     main()
+import os
+import re
+import argparse
+
+def rename_files(directory, pattern, replacement):
+    try:
+        files = os.listdir(directory)
+        renamed_count = 0
+        
+        for filename in files:
+            file_path = os.path.join(directory, filename)
+            
+            if os.path.isfile(file_path):
+                new_name = re.sub(pattern, replacement, filename)
+                
+                if new_name != filename:
+                    new_path = os.path.join(directory, new_name)
+                    
+                    if not os.path.exists(new_path):
+                        os.rename(file_path, new_path)
+                        print(f"Renamed: {filename} -> {new_name}")
+                        renamed_count += 1
+                    else:
+                        print(f"Skipped: {new_name} already exists")
+        
+        print(f"\nTotal files renamed: {renamed_count}")
+        
+    except FileNotFoundError:
+        print(f"Error: Directory '{directory}' not found")
+    except PermissionError:
+        print(f"Error: Permission denied for directory '{directory}'")
+    except Exception as e:
+        print(f"Error: {str(e)}")
+
+def main():
+    parser = argparse.ArgumentParser(description='Rename files in a directory using regex pattern')
+    parser.add_argument('directory', help='Directory containing files to rename')
+    parser.add_argument('pattern', help='Regex pattern to match in filenames')
+    parser.add_argument('replacement', help='Replacement string for matched pattern')
+    
+    args = parser.parse_args()
+    
+    rename_files(args.directory, args.pattern, args.replacement)
+
+if __name__ == "__main__":
+    main()
