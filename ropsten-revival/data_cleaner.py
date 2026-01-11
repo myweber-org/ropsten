@@ -99,3 +99,63 @@ if __name__ == "__main__":
     print(cleaned)
     print("\nStatistics after cleaning for 'temperature':")
     print(calculate_statistics(cleaned, 'temperature'))
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df, deduplicate=True, convert_types=True):
+    """
+    Clean a pandas DataFrame by removing duplicates and converting data types.
+    """
+    df_clean = df.copy()
+    
+    if deduplicate:
+        initial_rows = len(df_clean)
+        df_clean = df_clean.drop_duplicates()
+        removed = initial_rows - len(df_clean)
+        print(f"Removed {removed} duplicate rows")
+    
+    if convert_types:
+        for col in df_clean.columns:
+            if df_clean[col].dtype == 'object':
+                try:
+                    df_clean[col] = pd.to_datetime(df_clean[col])
+                    print(f"Converted column '{col}' to datetime")
+                except (ValueError, TypeError):
+                    try:
+                        df_clean[col] = pd.to_numeric(df_clean[col])
+                        print(f"Converted column '{col}' to numeric")
+                    except (ValueError, TypeError):
+                        pass
+    
+    df_clean = df_clean.reset_index(drop=True)
+    return df_clean
+
+def validate_data(df, required_columns=None, allow_nan_columns=None):
+    """
+    Validate DataFrame structure and content.
+    """
+    if required_columns:
+        missing = set(required_columns) - set(df.columns)
+        if missing:
+            raise ValueError(f"Missing required columns: {missing}")
+    
+    if allow_nan_columns is None:
+        allow_nan_columns = []
+    
+    nan_report = {}
+    for col in df.columns:
+        if col not in allow_nan_columns:
+            nan_count = df[col].isna().sum()
+            if nan_count > 0:
+                nan_report[col] = nan_count
+    
+    return nan_report
+
+def sample_data(df, n_samples=5, random_state=42):
+    """
+    Return a random sample from the DataFrame.
+    """
+    if len(df) <= n_samples:
+        return df
+    
+    return df.sample(n=n_samples, random_state=random_state)
