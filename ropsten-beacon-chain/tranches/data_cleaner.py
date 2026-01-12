@@ -128,4 +128,133 @@ if __name__ == "__main__":
     
     print(f"Original shape: {df.shape}")
     print(f"Cleaned shape: {cleaned_df.shape}")
-    print(f"Validation results: {validation}")
+    print(f"Validation results: {validation}")import pandas as pd
+import numpy as np
+
+def remove_duplicates(df, subset=None):
+    """
+    Remove duplicate rows from DataFrame.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        subset (list, optional): Columns to consider for duplicates
+    
+    Returns:
+        pd.DataFrame: DataFrame with duplicates removed
+    """
+    return df.drop_duplicates(subset=subset, keep='first')
+
+def fill_missing_values(df, strategy='mean', columns=None):
+    """
+    Fill missing values in DataFrame.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        strategy (str): 'mean', 'median', 'mode', or 'constant'
+        columns (list, optional): Specific columns to fill
+    
+    Returns:
+        pd.DataFrame: DataFrame with filled values
+    """
+    df_filled = df.copy()
+    
+    if columns is None:
+        columns = df.columns
+    
+    for col in columns:
+        if df[col].isnull().any():
+            if strategy == 'mean':
+                df_filled[col] = df[col].fillna(df[col].mean())
+            elif strategy == 'median':
+                df_filled[col] = df[col].fillna(df[col].median())
+            elif strategy == 'mode':
+                df_filled[col] = df[col].fillna(df[col].mode()[0])
+            elif strategy == 'constant':
+                df_filled[col] = df[col].fillna(0)
+    
+    return df_filled
+
+def normalize_columns(df, columns=None):
+    """
+    Normalize specified columns to range [0, 1].
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        columns (list, optional): Columns to normalize
+    
+    Returns:
+        pd.DataFrame: DataFrame with normalized columns
+    """
+    df_normalized = df.copy()
+    
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    for col in columns:
+        if col in df.columns and df[col].dtype in [np.float64, np.int64]:
+            col_min = df[col].min()
+            col_max = df[col].max()
+            if col_max != col_min:
+                df_normalized[col] = (df[col] - col_min) / (col_max - col_min)
+    
+    return df_normalized
+
+def clean_dataframe(df, remove_dups=True, fill_na=True, normalize=True):
+    """
+    Apply multiple cleaning operations to DataFrame.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        remove_dups (bool): Whether to remove duplicates
+        fill_na (bool): Whether to fill missing values
+        normalize (bool): Whether to normalize numeric columns
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame
+    """
+    cleaned_df = df.copy()
+    
+    if remove_dups:
+        cleaned_df = remove_duplicates(cleaned_df)
+    
+    if fill_na:
+        cleaned_df = fill_missing_values(cleaned_df, strategy='mean')
+    
+    if normalize:
+        cleaned_df = normalize_columns(cleaned_df)
+    
+    return cleaned_df
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate
+        required_columns (list, optional): Required column names
+    
+    Returns:
+        dict: Validation results
+    """
+    validation_results = {
+        'is_valid': True,
+        'missing_columns': [],
+        'empty_columns': [],
+        'null_percentages': {}
+    }
+    
+    if required_columns:
+        missing = [col for col in required_columns if col not in df.columns]
+        if missing:
+            validation_results['missing_columns'] = missing
+            validation_results['is_valid'] = False
+    
+    for col in df.columns:
+        null_percent = df[col].isnull().sum() / len(df) * 100
+        validation_results['null_percentages'][col] = null_percent
+        
+        if df[col].isnull().all():
+            validation_results['empty_columns'].append(col)
+            validation_results['is_valid'] = False
+    
+    return validation_results
