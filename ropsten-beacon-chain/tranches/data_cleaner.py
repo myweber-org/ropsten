@@ -100,4 +100,108 @@ def save_cleaned_data(df, output_path):
         output_path (str): Path to save the CSV file
     """
     df.to_csv(output_path, index=False)
-    print(f"Cleaned data saved to {output_path}")
+    print(f"Cleaned data saved to {output_path}")import pandas as pd
+import numpy as np
+
+def remove_duplicates(df, subset=None):
+    """
+    Remove duplicate rows from DataFrame.
+    """
+    return df.drop_duplicates(subset=subset, keep='first')
+
+def convert_column_types(df, column_types):
+    """
+    Convert DataFrame columns to specified types.
+    """
+    for column, dtype in column_types.items():
+        if column in df.columns:
+            df[column] = df[column].astype(dtype)
+    return df
+
+def handle_missing_values(df, strategy='mean', columns=None):
+    """
+    Handle missing values in DataFrame columns.
+    """
+    if columns is None:
+        columns = df.columns
+    
+    for column in columns:
+        if column in df.columns:
+            if strategy == 'mean':
+                df[column].fillna(df[column].mean(), inplace=True)
+            elif strategy == 'median':
+                df[column].fillna(df[column].median(), inplace=True)
+            elif strategy == 'mode':
+                df[column].fillna(df[column].mode()[0], inplace=True)
+            elif strategy == 'drop':
+                df.dropna(subset=[column], inplace=True)
+    
+    return df
+
+def normalize_column(df, column):
+    """
+    Normalize a column to range [0, 1].
+    """
+    if column in df.columns:
+        col_min = df[column].min()
+        col_max = df[column].max()
+        if col_max != col_min:
+            df[column] = (df[column] - col_min) / (col_max - col_min)
+    return df
+
+def clean_dataframe(df, config):
+    """
+    Apply multiple cleaning operations based on configuration.
+    """
+    if config.get('remove_duplicates'):
+        df = remove_duplicates(df, config.get('duplicate_subset'))
+    
+    if config.get('column_types'):
+        df = convert_column_types(df, config['column_types'])
+    
+    if config.get('missing_values'):
+        missing_config = config['missing_values']
+        df = handle_missing_values(
+            df, 
+            strategy=missing_config.get('strategy', 'mean'),
+            columns=missing_config.get('columns')
+        )
+    
+    if config.get('normalize_columns'):
+        for column in config['normalize_columns']:
+            df = normalize_column(df, column)
+    
+    return df
+
+def validate_dataframe(df, rules):
+    """
+    Validate DataFrame against specified rules.
+    """
+    violations = []
+    
+    for rule in rules:
+        column = rule.get('column')
+        rule_type = rule.get('type')
+        
+        if column not in df.columns:
+            violations.append(f"Column '{column}' not found")
+            continue
+        
+        if rule_type == 'not_null':
+            null_count = df[column].isnull().sum()
+            if null_count > 0:
+                violations.append(f"Column '{column}' has {null_count} null values")
+        
+        elif rule_type == 'unique':
+            duplicate_count = df[column].duplicated().sum()
+            if duplicate_count > 0:
+                violations.append(f"Column '{column}' has {duplicate_count} duplicate values")
+        
+        elif rule_type == 'range':
+            min_val = rule.get('min')
+            max_val = rule.get('max')
+            out_of_range = df[(df[column] < min_val) | (df[column] > max_val)]
+            if len(out_of_range) > 0:
+                violations.append(f"Column '{column}' has {len(out_of_range)} values outside range [{min_val}, {max_val}]")
+    
+    return violations
