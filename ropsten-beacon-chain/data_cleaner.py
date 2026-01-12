@@ -1,60 +1,44 @@
 
 import pandas as pd
-import sys
+import numpy as np
 
-def remove_duplicates(input_file, output_file=None, subset=None):
-    """
-    Remove duplicate rows from a CSV file.
-    
-    Args:
-        input_file (str): Path to the input CSV file.
-        output_file (str, optional): Path to save the cleaned CSV file.
-                                     If None, overwrites the input file.
-        subset (list, optional): List of column names to consider for duplicates.
-    
-    Returns:
-        int: Number of duplicate rows removed.
-    """
-    try:
-        df = pd.read_csv(input_file)
-        initial_rows = len(df)
-        
-        if subset:
-            df_cleaned = df.drop_duplicates(subset=subset, keep='first')
-        else:
-            df_cleaned = df.drop_duplicates(keep='first')
-        
-        final_rows = len(df_cleaned)
-        duplicates_removed = initial_rows - final_rows
-        
-        if output_file is None:
-            output_file = input_file
-        
-        df_cleaned.to_csv(output_file, index=False)
-        
-        print(f"Removed {duplicates_removed} duplicate rows.")
-        print(f"Original rows: {initial_rows}, Cleaned rows: {final_rows}")
-        print(f"Saved to: {output_file}")
-        
-        return duplicates_removed
-        
-    except FileNotFoundError:
-        print(f"Error: File '{input_file}' not found.")
-        return -1
-    except pd.errors.EmptyDataError:
-        print(f"Error: File '{input_file}' is empty.")
-        return -1
-    except Exception as e:
-        print(f"Error: {str(e)}")
-        return -1
+def remove_missing_rows(df, columns=None):
+    if columns is None:
+        columns = df.columns
+    return df.dropna(subset=columns)
 
-if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python data_cleaner.py <input_file> [output_file]")
-        print("Example: python data_cleaner.py data.csv cleaned_data.csv")
-        sys.exit(1)
-    
-    input_file = sys.argv[1]
-    output_file = sys.argv[2] if len(sys.argv) > 2 else None
-    
-    remove_duplicates(input_file, output_file)
+def fill_missing_with_mean(df, columns=None):
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    df_filled = df.copy()
+    for col in columns:
+        if col in df.columns and df[col].dtype in [np.float64, np.int64]:
+            df_filled[col] = df[col].fillna(df[col].mean())
+    return df_filled
+
+def remove_outliers_iqr(df, columns=None, threshold=1.5):
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    df_clean = df.copy()
+    for col in columns:
+        if col in df.columns and df[col].dtype in [np.float64, np.int64]:
+            Q1 = df[col].quantile(0.25)
+            Q3 = df[col].quantile(0.75)
+            IQR = Q3 - Q1
+            lower_bound = Q1 - threshold * IQR
+            upper_bound = Q3 + threshold * IQR
+            mask = (df[col] >= lower_bound) & (df[col] <= upper_bound)
+            df_clean = df_clean[mask]
+    return df_clean.reset_index(drop=True)
+
+def standardize_columns(df, columns=None):
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    df_standardized = df.copy()
+    for col in columns:
+        if col in df.columns and df[col].dtype in [np.float64, np.int64]:
+            mean = df[col].mean()
+            std = df[col].std()
+            if std > 0:
+                df_standardized[col] = (df[col] - mean) / std
+    return df_standardized
