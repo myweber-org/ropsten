@@ -5,65 +5,80 @@ def remove_outliers_iqr(data, column):
     """
     Remove outliers from a specified column using the Interquartile Range method.
     
-    Parameters:
-    data (pd.DataFrame): Input dataframe
-    column (str): Column name to process
+    Args:
+        data (np.ndarray): Input data array
+        column (int): Column index to process
     
     Returns:
-    pd.DataFrame: Dataframe with outliers removed
+        np.ndarray: Data with outliers removed
     """
-    if column not in data.columns:
-        raise ValueError(f"Column '{column}' not found in dataframe")
+    if data.size == 0:
+        return data
     
-    Q1 = data[column].quantile(0.25)
-    Q3 = data[column].quantile(0.75)
-    IQR = Q3 - Q1
+    col_data = data[:, column]
+    q1 = np.percentile(col_data, 25)
+    q3 = np.percentile(col_data, 75)
+    iqr = q3 - q1
     
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
+    lower_bound = q1 - 1.5 * iqr
+    upper_bound = q3 + 1.5 * iqr
     
-    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
-    
-    return filtered_data.reset_index(drop=True)
+    mask = (col_data >= lower_bound) & (col_data <= upper_bound)
+    return data[mask]
 
-def calculate_basic_stats(data, column):
+def clean_dataset(data, columns_to_clean):
     """
-    Calculate basic statistics for a column after outlier removal.
+    Clean multiple columns in a dataset by removing outliers.
     
-    Parameters:
-    data (pd.DataFrame): Input dataframe
-    column (str): Column name to analyze
+    Args:
+        data (np.ndarray): Input dataset
+        columns_to_clean (list): List of column indices to clean
     
     Returns:
-    dict: Dictionary containing statistical measures
+        np.ndarray: Cleaned dataset
     """
-    if column not in data.columns:
-        raise ValueError(f"Column '{column}' not found in dataframe")
+    cleaned_data = data.copy()
     
-    stats = {
-        'mean': np.mean(data[column]),
-        'median': np.median(data[column]),
-        'std': np.std(data[column]),
-        'min': np.min(data[column]),
-        'max': np.max(data[column]),
-        'count': len(data[column])
-    }
+    for column in columns_to_clean:
+        if column < cleaned_data.shape[1]:
+            cleaned_data = remove_outliers_iqr(cleaned_data, column)
+    
+    return cleaned_data
+
+def calculate_statistics(data):
+    """
+    Calculate basic statistics for each column in the dataset.
+    
+    Args:
+        data (np.ndarray): Input dataset
+    
+    Returns:
+        dict: Dictionary containing statistics for each column
+    """
+    if data.size == 0:
+        return {}
+    
+    stats = {}
+    for i in range(data.shape[1]):
+        col_data = data[:, i]
+        stats[f'column_{i}'] = {
+            'mean': np.mean(col_data),
+            'median': np.median(col_data),
+            'std': np.std(col_data),
+            'min': np.min(col_data),
+            'max': np.max(col_data)
+        }
     
     return stats
 
-def process_numerical_column(data, column):
-    """
-    Complete processing pipeline for a numerical column.
+if __name__ == "__main__":
+    sample_data = np.random.randn(100, 3)
+    sample_data[0, 0] = 100
+    sample_data[1, 1] = -50
     
-    Parameters:
-    data (pd.DataFrame): Input dataframe
-    column (str): Column name to process
+    print("Original data shape:", sample_data.shape)
+    print("Original statistics:", calculate_statistics(sample_data))
     
-    Returns:
-    tuple: (cleaned_data, original_stats, cleaned_stats)
-    """
-    original_stats = calculate_basic_stats(data, column)
-    cleaned_data = remove_outliers_iqr(data, column)
-    cleaned_stats = calculate_basic_stats(cleaned_data, column)
-    
-    return cleaned_data, original_stats, cleaned_stats
+    cleaned = clean_dataset(sample_data, [0, 1, 2])
+    print("Cleaned data shape:", cleaned.shape)
+    print("Cleaned statistics:", calculate_statistics(cleaned))
