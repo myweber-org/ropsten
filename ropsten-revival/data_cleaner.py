@@ -111,3 +111,11 @@ if __name__ == "__main__":
     normalized_df = normalize_column(df, 'values', method='minmax')
     print("DataFrame after min-max normalization:")
     print(normalized_df)
+def remove_duplicates(sequence):
+    seen = set()
+    result = []
+    for item in sequence:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
