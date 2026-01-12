@@ -89,4 +89,69 @@ if __name__ == "__main__":
     
     cleaned_df = clean_dataset(df, ['value'])
     print("\nCleaned dataset shape:", cleaned_df.shape)
-    print("Cleaned statistics:", calculate_summary_statistics(cleaned_df, 'value'))
+    print("Cleaned statistics:", calculate_summary_statistics(cleaned_df, 'value'))import pandas as pd
+import numpy as np
+
+def remove_duplicates(df, subset=None):
+    """
+    Remove duplicate rows from DataFrame.
+    """
+    return df.drop_duplicates(subset=subset, keep='first')
+
+def convert_column_types(df, column_type_map):
+    """
+    Convert columns to specified data types.
+    """
+    for column, dtype in column_type_map.items():
+        if column in df.columns:
+            df[column] = df[column].astype(dtype)
+    return df
+
+def handle_missing_values(df, strategy='drop', fill_value=None):
+    """
+    Handle missing values in DataFrame.
+    """
+    if strategy == 'drop':
+        return df.dropna()
+    elif strategy == 'fill':
+        if fill_value is not None:
+            return df.fillna(fill_value)
+        else:
+            return df.fillna(df.mean())
+    else:
+        return df
+
+def clean_dataframe(df, deduplicate=True, type_conversions=None, missing_strategy='drop'):
+    """
+    Main function to clean DataFrame with multiple operations.
+    """
+    if deduplicate:
+        df = remove_duplicates(df)
+    
+    if type_conversions:
+        df = convert_column_types(df, type_conversions)
+    
+    df = handle_missing_values(df, strategy=missing_strategy)
+    
+    return df
+
+if __name__ == "__main__":
+    sample_data = {
+        'id': [1, 2, 2, 3, 4],
+        'value': [10.5, 20.3, 20.3, None, 40.7],
+        'category': ['A', 'B', 'B', 'C', 'A']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    
+    cleaned_df = clean_dataframe(
+        df,
+        deduplicate=True,
+        type_conversions={'id': 'int32', 'value': 'float64'},
+        missing_strategy='fill'
+    )
+    
+    print("\nCleaned DataFrame:")
+    print(cleaned_df)
