@@ -1,121 +1,79 @@
-
 import pandas as pd
 import numpy as np
+from scipy import stats
 
-def remove_outliers_iqr(df, column):
-    """
-    Remove outliers from a DataFrame column using the Interquartile Range method.
+class DataCleaner:
+    def __init__(self, df):
+        self.df = df.copy()
+        self.original_columns = df.columns.tolist()
     
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    column (str): Column name to process
+    def remove_missing(self, threshold=0.3):
+        missing_percent = self.df.isnull().sum() / len(self.df)
+        columns_to_drop = missing_percent[missing_percent > threshold].index
+        self.df = self.df.drop(columns=columns_to_drop)
+        return self
     
-    Returns:
-    pd.DataFrame: DataFrame with outliers removed
-    """
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
+    def fill_numeric_missing(self, method='median'):
+        numeric_cols = self.df.select_dtypes(include=[np.number]).columns
+        
+        if method == 'median':
+            fill_values = self.df[numeric_cols].median()
+        elif method == 'mean':
+            fill_values = self.df[numeric_cols].mean()
+        elif method == 'mode':
+            fill_values = self.df[numeric_cols].mode().iloc[0]
+        else:
+            fill_values = 0
+        
+        self.df[numeric_cols] = self.df[numeric_cols].fillna(fill_values)
+        return self
     
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
+    def remove_outliers_zscore(self, threshold=3):
+        numeric_cols = self.df.select_dtypes(include=[np.number]).columns
+        
+        for col in numeric_cols:
+            z_scores = np.abs(stats.zscore(self.df[col].dropna()))
+            outliers = z_scores > threshold
+            self.df.loc[outliers, col] = np.nan
+        
+        return self
     
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
+    def normalize_data(self, method='minmax'):
+        numeric_cols = self.df.select_dtypes(include=[np.number]).columns
+        
+        if method == 'minmax':
+            for col in numeric_cols:
+                col_min = self.df[col].min()
+                col_max = self.df[col].max()
+                if col_max != col_min:
+                    self.df[col] = (self.df[col] - col_min) / (col_max - col_min)
+        
+        elif method == 'standard':
+            for col in numeric_cols:
+                col_mean = self.df[col].mean()
+                col_std = self.df[col].std()
+                if col_std != 0:
+                    self.df[col] = (self.df[col] - col_mean) / col_std
+        
+        return self
     
-    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    def get_cleaned_data(self):
+        return self.df
     
-    return filtered_df
+    def get_removed_columns(self):
+        current_columns = self.df.columns.tolist()
+        removed = [col for col in self.original_columns if col not in current_columns]
+        return removed
 
-def calculate_statistics(df, column):
-    """
-    Calculate basic statistics for a DataFrame column.
+def clean_dataset(df, missing_threshold=0.3, outlier_threshold=3, normalize=True):
+    cleaner = DataCleaner(df)
     
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    column (str): Column name to analyze
+    cleaner.remove_missing(missing_threshold)
+    cleaner.fill_numeric_missing('median')
+    cleaner.remove_outliers_zscore(outlier_threshold)
+    cleaner.fill_numeric_missing('median')
     
-    Returns:
-    dict: Dictionary containing statistics
-    """
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
+    if normalize:
+        cleaner.normalize_data('standard')
     
-    stats = {
-        'mean': df[column].mean(),
-        'median': df[column].median(),
-        'std': df[column].std(),
-        'min': df[column].min(),
-        'max': df[column].max(),
-        'count': df[column].count(),
-        'missing': df[column].isnull().sum()
-    }
-    
-    return stats
-
-def normalize_column(df, column, method='minmax'):
-    """
-    Normalize a DataFrame column using specified method.
-    
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    column (str): Column name to normalize
-    method (str): Normalization method ('minmax' or 'zscore')
-    
-    Returns:
-    pd.DataFrame: DataFrame with normalized column
-    """
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
-    
-    df_copy = df.copy()
-    
-    if method == 'minmax':
-        min_val = df_copy[column].min()
-        max_val = df_copy[column].max()
-        if max_val != min_val:
-            df_copy[column] = (df_copy[column] - min_val) / (max_val - min_val)
-    
-    elif method == 'zscore':
-        mean_val = df_copy[column].mean()
-        std_val = df_copy[column].std()
-        if std_val != 0:
-            df_copy[column] = (df_copy[column] - mean_val) / std_val
-    
-    else:
-        raise ValueError("Method must be 'minmax' or 'zscore'")
-    
-    return df_copy
-
-if __name__ == "__main__":
-    sample_data = {
-        'values': [10, 12, 12, 13, 12, 11, 14, 13, 15, 100, 12, 11, 10, 9, 8, 12, 13, 14]
-    }
-    
-    df = pd.DataFrame(sample_data)
-    print("Original DataFrame:")
-    print(df)
-    print()
-    
-    cleaned_df = remove_outliers_iqr(df, 'values')
-    print("DataFrame after outlier removal:")
-    print(cleaned_df)
-    print()
-    
-    stats = calculate_statistics(df, 'values')
-    print("Statistics for 'values' column:")
-    for key, value in stats.items():
-        print(f"{key}: {value}")
-    print()
-    
-    normalized_df = normalize_column(df, 'values', method='minmax')
-    print("DataFrame after min-max normalization:")
-    print(normalized_df)
-def remove_duplicates(sequence):
-    seen = set()
-    result = []
-    for item in sequence:
-        if item not in seen:
-            seen.add(item)
-            result.append(item)
-    return result
+    return cleaner.get_cleaned_data()
