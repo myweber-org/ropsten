@@ -1,44 +1,63 @@
 
 import pandas as pd
-import numpy as np
 
-def remove_missing_rows(df, columns=None):
-    if columns is None:
-        columns = df.columns
-    return df.dropna(subset=columns)
+def clean_dataset(df, sort_column=None):
+    """
+    Clean a pandas DataFrame by removing duplicate rows and optionally sorting.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean.
+        sort_column (str, optional): Column name to sort by. Defaults to None.
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame with duplicates removed and sorted if specified.
+    """
+    cleaned_df = df.drop_duplicates().reset_index(drop=True)
+    
+    if sort_column and sort_column in cleaned_df.columns:
+        cleaned_df = cleaned_df.sort_values(by=sort_column).reset_index(drop=True)
+    
+    return cleaned_df
 
-def fill_missing_with_mean(df, columns=None):
-    if columns is None:
-        columns = df.select_dtypes(include=[np.number]).columns
-    df_filled = df.copy()
-    for col in columns:
-        if col in df.columns and df[col].dtype in [np.float64, np.int64]:
-            df_filled[col] = df[col].fillna(df[col].mean())
-    return df_filled
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate that the DataFrame meets basic requirements.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate.
+        required_columns (list, optional): List of required column names.
+    
+    Returns:
+        bool: True if validation passes, False otherwise.
+    """
+    if df.empty:
+        print("Warning: DataFrame is empty.")
+        return False
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            print(f"Missing required columns: {missing_columns}")
+            return False
+    
+    return True
 
-def remove_outliers_iqr(df, columns=None, threshold=1.5):
-    if columns is None:
-        columns = df.select_dtypes(include=[np.number]).columns
-    df_clean = df.copy()
-    for col in columns:
-        if col in df.columns and df[col].dtype in [np.float64, np.int64]:
-            Q1 = df[col].quantile(0.25)
-            Q3 = df[col].quantile(0.75)
-            IQR = Q3 - Q1
-            lower_bound = Q1 - threshold * IQR
-            upper_bound = Q3 + threshold * IQR
-            mask = (df[col] >= lower_bound) & (df[col] <= upper_bound)
-            df_clean = df_clean[mask]
-    return df_clean.reset_index(drop=True)
-
-def standardize_columns(df, columns=None):
-    if columns is None:
-        columns = df.select_dtypes(include=[np.number]).columns
-    df_standardized = df.copy()
-    for col in columns:
-        if col in df.columns and df[col].dtype in [np.float64, np.int64]:
-            mean = df[col].mean()
-            std = df[col].std()
-            if std > 0:
-                df_standardized[col] = (df[col] - mean) / std
-    return df_standardized
+if __name__ == "__main__":
+    sample_data = {
+        'id': [1, 2, 2, 3, 4, 4, 5],
+        'name': ['Alice', 'Bob', 'Bob', 'Charlie', 'David', 'David', 'Eve'],
+        'score': [85, 92, 92, 78, 88, 88, 95]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print()
+    
+    cleaned = clean_dataset(df, sort_column='score')
+    print("Cleaned DataFrame (sorted by score):")
+    print(cleaned)
+    print()
+    
+    is_valid = validate_dataframe(cleaned, required_columns=['id', 'name', 'score'])
+    print(f"Data validation passed: {is_valid}")
