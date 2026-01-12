@@ -60,3 +60,62 @@ def main():
 
 if __name__ == "__main__":
     main()
+def remove_duplicates(input_list):
+    """
+    Remove duplicate elements from a list while preserving order.
+    Returns a new list with unique elements.
+    """
+    seen = set()
+    unique_list = []
+    for item in input_list:
+        if item not in seen:
+            seen.add(item)
+            unique_list.append(item)
+    return unique_list
+
+def clean_data_with_threshold(data, threshold=None):
+    """
+    Clean data by removing duplicates and optionally filtering by frequency threshold.
+    If threshold is provided, only items appearing at least threshold times are kept.
+    """
+    if not data:
+        return []
+    
+    # Count frequencies
+    frequency = {}
+    for item in data:
+        frequency[item] = frequency.get(item, 0) + 1
+    
+    # Apply threshold if specified
+    if threshold is not None:
+        filtered_items = [item for item in data if frequency[item] >= threshold]
+    else:
+        filtered_items = data
+    
+    # Remove duplicates while preserving order
+    return remove_duplicates(filtered_items)
+
+def validate_data_types(data, expected_type):
+    """
+    Validate that all elements in the data list are of the expected type.
+    Returns a tuple of (is_valid, invalid_indices).
+    """
+    invalid_indices = []
+    for idx, item in enumerate(data):
+        if not isinstance(item, expected_type):
+            invalid_indices.append(idx)
+    
+    return (len(invalid_indices) == 0, invalid_indices)
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = [1, 2, 2, 3, 4, 4, 4, 5, "a", "a", "b"]
+    
+    print("Original data:", sample_data)
+    print("Cleaned data:", remove_duplicates(sample_data))
+    print("Cleaned with threshold 2:", clean_data_with_threshold(sample_data, threshold=2))
+    
+    is_valid, invalid_idx = validate_data_types(sample_data, int)
+    print(f"All integers? {is_valid}")
+    if not is_valid:
+        print(f"Invalid indices: {invalid_idx}")
