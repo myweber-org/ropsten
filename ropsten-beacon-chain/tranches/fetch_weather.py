@@ -247,4 +247,84 @@ def main():
         fetcher.display_weather(weather)
 
 if __name__ == "__main__":
+    main()import requests
+import json
+from datetime import datetime
+
+class WeatherFetcher:
+    def __init__(self, api_key):
+        self.api_key = api_key
+        self.base_url = "http://api.openweathermap.org/data/2.5/weather"
+
+    def get_weather(self, city_name):
+        params = {
+            'q': city_name,
+            'appid': self.api_key,
+            'units': 'metric'
+        }
+        
+        try:
+            response = requests.get(self.base_url, params=params, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+            
+            if data.get('cod') != 200:
+                return self._format_error(data.get('message', 'Unknown error'))
+            
+            return self._format_weather_data(data)
+            
+        except requests.exceptions.RequestException as e:
+            return f"Network error: {str(e)}"
+        except json.JSONDecodeError:
+            return "Error parsing weather data"
+        except Exception as e:
+            return f"Unexpected error: {str(e)}"
+
+    def _format_weather_data(self, data):
+        main = data['main']
+        weather = data['weather'][0]
+        wind = data['wind']
+        
+        return {
+            'city': data['name'],
+            'country': data['sys']['country'],
+            'temperature': main['temp'],
+            'feels_like': main['feels_like'],
+            'humidity': main['humidity'],
+            'pressure': main['pressure'],
+            'description': weather['description'].title(),
+            'wind_speed': wind['speed'],
+            'wind_direction': self._degrees_to_direction(wind.get('deg', 0)),
+            'timestamp': datetime.fromtimestamp(data['dt']).strftime('%Y-%m-%d %H:%M:%S')
+        }
+
+    def _degrees_to_direction(self, degrees):
+        directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
+        index = round(degrees / 45) % 8
+        return directions[index]
+
+    def _format_error(self, message):
+        return {'error': True, 'message': message}
+
+def main():
+    api_key = "your_api_key_here"
+    fetcher = WeatherFetcher(api_key)
+    
+    cities = ["London", "New York", "Tokyo", "Paris"]
+    
+    for city in cities:
+        print(f"\nFetching weather for {city}...")
+        result = fetcher.get_weather(city)
+        
+        if isinstance(result, dict) and not result.get('error'):
+            print(f"City: {result['city']}, {result['country']}")
+            print(f"Temperature: {result['temperature']}°C (Feels like: {result['feels_like']}°C)")
+            print(f"Conditions: {result['description']}")
+            print(f"Humidity: {result['humidity']}% | Pressure: {result['pressure']} hPa")
+            print(f"Wind: {result['wind_speed']} m/s from {result['wind_direction']}")
+            print(f"Last updated: {result['timestamp']}")
+        else:
+            print(f"Failed to fetch weather: {result.get('message', 'Unknown error')}")
+
+if __name__ == "__main__":
     main()
