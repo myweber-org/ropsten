@@ -192,3 +192,62 @@ if __name__ == "__main__":
     cleaned = clean_dataset(sample_data, ['feature_a', 'feature_b'])
     print("Cleaned data shape:", cleaned.shape)
     print("Data validation passed:", validate_data(cleaned, ['feature_a', 'feature_b']))
+import pandas as pd
+import sys
+
+def remove_duplicates(input_file, output_file=None, subset=None, keep='first'):
+    """
+    Remove duplicate rows from a CSV file.
+
+    Args:
+        input_file (str): Path to the input CSV file.
+        output_file (str, optional): Path to save the cleaned CSV file.
+                                     If None, overwrites the input file.
+        subset (list, optional): Column labels to consider for identifying duplicates.
+                                 If None, all columns are used.
+        keep (str, optional): Determines which duplicates to keep.
+                              'first' : Keep the first occurrence.
+                              'last'  : Keep the last occurrence.
+                              False   : Drop all duplicates.
+    Returns:
+        pandas.DataFrame: The cleaned DataFrame.
+    """
+    try:
+        df = pd.read_csv(input_file)
+        initial_count = len(df)
+        df_cleaned = df.drop_duplicates(subset=subset, keep=keep)
+        final_count = len(df_cleaned)
+        duplicates_removed = initial_count - final_count
+
+        if output_file is None:
+            output_file = input_file
+
+        df_cleaned.to_csv(output_file, index=False)
+
+        print(f"Successfully processed: {input_file}")
+        print(f"Initial rows: {initial_count}")
+        print(f"Final rows: {final_count}")
+        print(f"Duplicates removed: {duplicates_removed}")
+        print(f"Cleaned file saved to: {output_file}")
+
+        return df_cleaned
+
+    except FileNotFoundError:
+        print(f"Error: Input file '{input_file}' not found.", file=sys.stderr)
+        sys.exit(1)
+    except pd.errors.EmptyDataError:
+        print(f"Error: Input file '{input_file}' is empty.", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}", file=sys.stderr)
+        sys.exit(1)
+
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        print("Usage: python data_cleaner.py <input_csv> [output_csv]")
+        sys.exit(1)
+
+    input_csv = sys.argv[1]
+    output_csv = sys.argv[2] if len(sys.argv) > 2 else None
+
+    remove_duplicates(input_csv, output_csv)
