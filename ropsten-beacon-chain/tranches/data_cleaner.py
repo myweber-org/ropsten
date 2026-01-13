@@ -223,3 +223,53 @@ def calculate_statistics(df, column):
         'max': series.max(),
         'count': len(series)
     }
+import pandas as pd
+import re
+
+def clean_dataset(df, column_names):
+    """
+    Clean a pandas DataFrame by removing duplicate rows and normalizing
+    specified string columns (strip whitespace, convert to lowercase).
+    """
+    # Remove duplicate rows
+    df_cleaned = df.drop_duplicates().reset_index(drop=True)
+    
+    # Normalize specified string columns
+    for col in column_names:
+        if col in df_cleaned.columns:
+            df_cleaned[col] = df_cleaned[col].astype(str).str.strip().str.lower()
+    
+    return df_cleaned
+
+def remove_special_characters(df, column_name):
+    """
+    Remove special characters from a specified column using regex.
+    Keeps only alphanumeric characters and spaces.
+    """
+    if column_name in df.columns:
+        df[column_name] = df[column_name].astype(str).apply(
+            lambda x: re.sub(r'[^A-Za-z0-9\s]', '', x)
+        )
+    return df
+
+def validate_email_column(df, email_column):
+    """
+    Validate email addresses in a column and add a validation flag.
+    """
+    if email_column in df.columns:
+        email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        df['email_valid'] = df[email_column].str.match(email_pattern, na=False)
+    return df
+
+# Example usage (commented out for production)
+# if __name__ == "__main__":
+#     sample_data = pd.DataFrame({
+#         'name': ['  John  ', 'Jane', '  John  ', 'Alice '],
+#         'email': ['john@example.com', 'invalid-email', 'john@example.com', 'alice@test.org'],
+#         'notes': ['Hello!', 'Test #123', 'Hello!', 'Data; here']
+#     })
+#     
+#     cleaned = clean_dataset(sample_data, ['name'])
+#     cleaned = remove_special_characters(cleaned, 'notes')
+#     cleaned = validate_email_column(cleaned, 'email')
+#     print(cleaned)
