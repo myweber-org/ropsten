@@ -291,3 +291,140 @@ if __name__ == "__main__":
     numeric_cols = ['age', 'income', 'score']
     cleaned_data = clean_data('raw_data.csv', 'cleaned_data.csv', numeric_cols)
     print(f"Data cleaning completed. Shape: {cleaned_data.shape}")
+import numpy as np
+import pandas as pd
+
+def remove_outliers_iqr(data, column, multiplier=1.5):
+    """
+    Remove outliers using IQR method
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    q1 = data[column].quantile(0.25)
+    q3 = data[column].quantile(0.75)
+    iqr = q3 - q1
+    
+    lower_bound = q1 - multiplier * iqr
+    upper_bound = q3 + multiplier * iqr
+    
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    outliers_removed = len(data) - len(filtered_data)
+    
+    return filtered_data, outliers_removed
+
+def normalize_minmax(data, column):
+    """
+    Normalize data using min-max scaling
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    min_val = data[column].min()
+    max_val = data[column].max()
+    
+    if min_val == max_val:
+        return data[column].apply(lambda x: 0.5)
+    
+    normalized = (data[column] - min_val) / (max_val - min_val)
+    return normalized
+
+def standardize_zscore(data, column):
+    """
+    Standardize data using z-score normalization
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    mean_val = data[column].mean()
+    std_val = data[column].std()
+    
+    if std_val == 0:
+        return data[column].apply(lambda x: 0)
+    
+    standardized = (data[column] - mean_val) / std_val
+    return standardized
+
+def clean_dataset(df, numeric_columns=None, outlier_multiplier=1.5):
+    """
+    Clean dataset by handling outliers and normalizing numeric columns
+    """
+    if numeric_columns is None:
+        numeric_columns = df.select_dtypes(include=[np.number]).columns.tolist()
+    
+    cleaned_df = df.copy()
+    stats = {}
+    
+    for col in numeric_columns:
+        if col in df.columns:
+            # Remove outliers
+            cleaned_df, outliers_removed = remove_outliers_iqr(cleaned_df, col, outlier_multiplier)
+            stats[f'{col}_outliers_removed'] = outliers_removed
+            
+            # Normalize
+            cleaned_df[f'{col}_normalized'] = normalize_minmax(cleaned_df, col)
+            cleaned_df[f'{col}_standardized'] = standardize_zscore(cleaned_df, col)
+    
+    return cleaned_df, stats
+
+def validate_data(df, required_columns=None, allow_nan_columns=None):
+    """
+    Validate data structure and content
+    """
+    if required_columns is not None:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            raise ValueError(f"Missing required columns: {missing_columns}")
+    
+    validation_results = {
+        'total_rows': len(df),
+        'total_columns': len(df.columns),
+        'missing_values': df.isnull().sum().to_dict(),
+        'data_types': df.dtypes.to_dict()
+    }
+    
+    if allow_nan_columns is None:
+        allow_nan_columns = []
+    
+    nan_columns = [col for col in df.columns 
+                   if df[col].isnull().any() and col not in allow_nan_columns]
+    
+    if nan_columns:
+        validation_results['columns_with_unexpected_nan'] = nan_columns
+    
+    return validation_results
+
+def example_usage():
+    """
+    Example usage of the data cleaning utilities
+    """
+    # Create sample data
+    np.random.seed(42)
+    data = {
+        'id': range(100),
+        'feature_a': np.random.normal(100, 15, 100),
+        'feature_b': np.random.exponential(50, 100),
+        'category': np.random.choice(['A', 'B', 'C'], 100)
+    }
+    
+    df = pd.DataFrame(data)
+    
+    # Add some outliers
+    df.loc[10, 'feature_a'] = 500
+    df.loc[20, 'feature_b'] = 1000
+    
+    # Clean the data
+    cleaned_df, stats = clean_dataset(df, numeric_columns=['feature_a', 'feature_b'])
+    
+    # Validate
+    validation = validate_data(cleaned_df, required_columns=['feature_a', 'feature_b'])
+    
+    return cleaned_df, stats, validation
+
+if __name__ == "__main__":
+    cleaned_data, cleaning_stats, validation_results = example_usage()
+    print(f"Data cleaning completed:")
+    print(f"Original shape: (100, 4)")
+    print(f"Cleaned shape: {cleaned_data.shape}")
+    print(f"Outliers removed: {cleaning_stats}")
+    print(f"Validation results: {validation_results}")
