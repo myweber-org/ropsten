@@ -124,3 +124,121 @@ def example_usage():
 
 if __name__ == '__main__':
     example_usage()
+import os
+import base64
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.backends import default_backend
+
+class SecureFileCrypto:
+    def __init__(self, password: str, salt: bytes = None):
+        self.password = password.encode()
+        self.salt = salt or os.urandom(16)
+        self.backend = default_backend()
+        
+    def _derive_key(self, length: int = 32) -> bytes:
+        kdf = PBKDF2(
+            algorithm=hashes.SHA256(),
+            length=length,
+            salt=self.salt,
+            iterations=100000,
+            backend=self.backend
+        )
+        return kdf.derive(self.password)
+    
+    def encrypt_file(self, input_path: str, output_path: str = None) -> str:
+        if not output_path:
+            output_path = input_path + '.enc'
+        
+        key = self._derive_key()
+        iv = os.urandom(16)
+        
+        cipher = Cipher(
+            algorithms.AES(key),
+            modes.CBC(iv),
+            backend=self.backend
+        )
+        encryptor = cipher.encryptor()
+        
+        with open(input_path, 'rb') as f_in, open(output_path, 'wb') as f_out:
+            f_out.write(self.salt)
+            f_out.write(iv)
+            
+            while True:
+                chunk = f_in.read(1024 * 16)
+                if not chunk:
+                    break
+                if len(chunk) % 16 != 0:
+                    chunk += b' ' * (16 - len(chunk) % 16)
+                f_out.write(encryptor.update(chunk))
+            f_out.write(encryptor.finalize())
+        
+        return output_path
+    
+    def decrypt_file(self, input_path: str, output_path: str = None) -> str:
+        if not output_path:
+            if input_path.endswith('.enc'):
+                output_path = input_path[:-4]
+            else:
+                output_path = input_path + '.dec'
+        
+        with open(input_path, 'rb') as f_in:
+            self.salt = f_in.read(16)
+            iv = f_in.read(16)
+            
+            key = self._derive_key()
+            
+            cipher = Cipher(
+                algorithms.AES(key),
+                modes.CBC(iv),
+                backend=self.backend
+            )
+            decryptor = cipher.decryptor()
+            
+            with open(output_path, 'wb') as f_out:
+                while True:
+                    chunk = f_in.read(1024 * 16)
+                    if not chunk:
+                        break
+                    f_out.write(decryptor.update(chunk))
+                f_out.write(decryptor.finalize().rstrip(b' '))
+        
+        return output_path
+
+def create_secure_archive(files: list, password: str, output_name: str = 'archive.enc'):
+    import tempfile
+    import tarfile
+    
+    with tempfile.NamedTemporaryFile(suffix='.tar', delete=False) as tmp:
+        with tarfile.open(tmp.name, 'w') as tar:
+            for file_path in files:
+                if os.path.exists(file_path):
+                    tar.add(file_path)
+        
+        crypto = SecureFileCrypto(password)
+        encrypted_path = crypto.encrypt_file(tmp.name, output_name)
+        
+        os.unlink(tmp.name)
+        return encrypted_path
+
+if __name__ == '__main__':
+    test_file = 'test_document.txt'
+    with open(test_file, 'w') as f:
+        f.write('Sensitive data requiring encryption.\n' * 10)
+    
+    password = 'StrongPassw0rd!2024'
+    crypto = SecureFileCrypto(password)
+    
+    encrypted = crypto.encrypt_file(test_file)
+    print(f'Encrypted: {encrypted}')
+    
+    decrypted = crypto.decrypt_file(encrypted)
+    print(f'Decrypted: {decrypted}')
+    
+    with open(decrypted, 'r') as f:
+        print('Decrypted content preview:', f.read()[:100])
+    
+    os.remove(test_file)
+    os.remove(encrypted)
+    os.remove(decrypted)
