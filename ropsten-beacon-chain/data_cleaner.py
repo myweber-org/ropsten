@@ -242,3 +242,52 @@ def example_usage():
 
 if __name__ == "__main__":
     cleaned_data = example_usage()
+import pandas as pd
+import numpy as np
+from scipy import stats
+
+def load_dataset(filepath):
+    return pd.read_csv(filepath)
+
+def remove_outliers_iqr(df, columns):
+    cleaned_df = df.copy()
+    for col in columns:
+        Q1 = cleaned_df[col].quantile(0.25)
+        Q3 = cleaned_df[col].quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - 1.5 * IQR
+        upper_bound = Q3 + 1.5 * IQR
+        cleaned_df = cleaned_df[(cleaned_df[col] >= lower_bound) & (cleaned_df[col] <= upper_bound)]
+    return cleaned_df
+
+def normalize_minmax(df, columns):
+    normalized_df = df.copy()
+    for col in columns:
+        min_val = normalized_df[col].min()
+        max_val = normalized_df[col].max()
+        normalized_df[col] = (normalized_df[col] - min_val) / (max_val - min_val)
+    return normalized_df
+
+def handle_missing_values(df, strategy='mean'):
+    processed_df = df.copy()
+    for col in processed_df.select_dtypes(include=[np.number]).columns:
+        if strategy == 'mean':
+            processed_df[col].fillna(processed_df[col].mean(), inplace=True)
+        elif strategy == 'median':
+            processed_df[col].fillna(processed_df[col].median(), inplace=True)
+        elif strategy == 'mode':
+            processed_df[col].fillna(processed_df[col].mode()[0], inplace=True)
+    return processed_df
+
+def clean_data(input_file, output_file, numeric_columns):
+    df = load_dataset(input_file)
+    df = handle_missing_values(df, strategy='median')
+    df = remove_outliers_iqr(df, numeric_columns)
+    df = normalize_minmax(df, numeric_columns)
+    df.to_csv(output_file, index=False)
+    return df
+
+if __name__ == "__main__":
+    numeric_cols = ['age', 'income', 'score']
+    cleaned_data = clean_data('raw_data.csv', 'cleaned_data.csv', numeric_cols)
+    print(f"Data cleaning completed. Shape: {cleaned_data.shape}")
