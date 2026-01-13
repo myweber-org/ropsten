@@ -428,3 +428,11 @@ if __name__ == "__main__":
     print(f"Cleaned shape: {cleaned_data.shape}")
     print(f"Outliers removed: {cleaning_stats}")
     print(f"Validation results: {validation_results}")
+def remove_duplicates_preserve_order(sequence):
+    seen = set()
+    result = []
+    for item in sequence:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
