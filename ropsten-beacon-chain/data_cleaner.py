@@ -1,149 +1,104 @@
-import numpy as np
+
 import pandas as pd
-
-def remove_outliers_iqr(df, column):
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
-    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
-
-def normalize_minmax(df, column):
-    min_val = df[column].min()
-    max_val = df[column].max()
-    if max_val == min_val:
-        return df[column]
-    return (df[column] - min_val) / (max_val - min_val)
-
-def clean_dataset(df, numeric_columns):
-    cleaned_df = df.copy()
-    for col in numeric_columns:
-        if col in cleaned_df.columns:
-            cleaned_df = remove_outliers_iqr(cleaned_df, col)
-            cleaned_df[col] = normalize_minmax(cleaned_df, col)
-    return cleaned_df.reset_index(drop=True)
-
-def validate_data(df, required_columns):
-    missing_cols = [col for col in required_columns if col not in df.columns]
-    if missing_cols:
-        raise ValueError(f"Missing required columns: {missing_cols}")
-    return True
-
-if __name__ == "__main__":
-    sample_data = pd.DataFrame({
-        'feature_a': np.random.normal(100, 15, 50),
-        'feature_b': np.random.exponential(2, 50),
-        'category': np.random.choice(['A', 'B', 'C'], 50)
-    })
-    cleaned = clean_dataset(sample_data, ['feature_a', 'feature_b'])
-    print(f"Original shape: {sample_data.shape}")
-    print(f"Cleaned shape: {cleaned.shape}")
-    print(cleaned.head())
 import numpy as np
-import pandas as pd
+from typing import List, Optional
 
-def remove_outliers_iqr(df, column):
+def clean_dataset(df: pd.DataFrame, 
+                  drop_duplicates: bool = True,
+                  columns_to_standardize: Optional[List[str]] = None,
+                  date_columns: Optional[List[str]] = None) -> pd.DataFrame:
     """
-    Remove outliers from a DataFrame column using the Interquartile Range method.
-    
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    column (str): Column name to process
-    
-    Returns:
-    pd.DataFrame: DataFrame with outliers removed
+    Clean a pandas DataFrame by removing duplicates, standardizing text columns,
+    and converting date columns to datetime format.
     """
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
+    df_clean = df.copy()
     
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
+    if drop_duplicates:
+        initial_rows = len(df_clean)
+        df_clean = df_clean.drop_duplicates()
+        removed = initial_rows - len(df_clean)
+        print(f"Removed {removed} duplicate rows")
     
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
+    if columns_to_standardize:
+        for col in columns_to_standardize:
+            if col in df_clean.columns:
+                df_clean[col] = df_clean[col].astype(str).str.strip().str.lower()
+                df_clean[col] = df_clean[col].replace({'nan': np.nan, 'none': np.nan})
     
-    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    if date_columns:
+        for col in date_columns:
+            if col in df_clean.columns:
+                df_clean[col] = pd.to_datetime(df_clean[col], errors='coerce')
     
-    return filtered_df.reset_index(drop=True)
+    missing_values = df_clean.isnull().sum().sum()
+    if missing_values > 0:
+        print(f"Dataset contains {missing_values} missing values")
+    
+    return df_clean
 
-def calculate_summary_statistics(df, column):
+def validate_email_column(df: pd.DataFrame, email_column: str) -> pd.Series:
     """
-    Calculate summary statistics for a column after outlier removal.
-    
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    column (str): Column name to analyze
-    
-    Returns:
-    dict: Dictionary containing summary statistics
+    Validate email addresses in a specified column and return a boolean series.
     """
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
+    if email_column not in df.columns:
+        raise ValueError(f"Column '{email_column}' not found in DataFrame")
     
-    stats = {
-        'mean': df[column].mean(),
-        'median': df[column].median(),
-        'std': df[column].std(),
-        'min': df[column].min(),
-        'max': df[column].max(),
-        'count': len(df[column]),
-        'q1': df[column].quantile(0.25),
-        'q3': df[column].quantile(0.75)
-    }
-    
-    return stats
+    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return df[email_column].str.match(email_pattern, na=False)
 
-def process_dataframe(df, numeric_columns):
+def remove_outliers_iqr(df: pd.DataFrame, 
+                       numeric_columns: List[str],
+                       multiplier: float = 1.5) -> pd.DataFrame:
     """
-    Process multiple numeric columns in a DataFrame by removing outliers.
-    
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    numeric_columns (list): List of column names to process
-    
-    Returns:
-    pd.DataFrame: Cleaned DataFrame
-    dict: Dictionary of statistics for each column
+    Remove outliers from numeric columns using the Interquartile Range method.
     """
-    cleaned_df = df.copy()
-    all_stats = {}
+    df_filtered = df.copy()
     
     for col in numeric_columns:
-        if col in df.columns and pd.api.types.is_numeric_dtype(df[col]):
-            original_count = len(cleaned_df)
-            cleaned_df = remove_outliers_iqr(cleaned_df, col)
-            removed_count = original_count - len(cleaned_df)
+        if col in df_filtered.columns and pd.api.types.is_numeric_dtype(df_filtered[col]):
+            Q1 = df_filtered[col].quantile(0.25)
+            Q3 = df_filtered[col].quantile(0.75)
+            IQR = Q3 - Q1
+            lower_bound = Q1 - multiplier * IQR
+            upper_bound = Q3 + multiplier * IQR
             
-            stats = calculate_summary_statistics(cleaned_df, col)
-            stats['outliers_removed'] = removed_count
-            all_stats[col] = stats
+            mask = (df_filtered[col] >= lower_bound) & (df_filtered[col] <= upper_bound)
+            outliers_removed = len(df_filtered) - mask.sum()
+            
+            if outliers_removed > 0:
+                print(f"Removed {outliers_removed} outliers from column '{col}'")
+                df_filtered = df_filtered[mask]
     
-    return cleaned_df, all_stats
+    return df_filtered
 
 if __name__ == "__main__":
-    # Example usage
     sample_data = {
-        'temperature': [22, 23, 24, 25, 26, 27, 28, 29, 30, 100],
-        'humidity': [45, 46, 47, 48, 49, 50, 51, 52, 53, 150],
-        'pressure': [1013, 1014, 1015, 1016, 1017, 1018, 1019, 1020, 1021, 2000]
+        'name': ['John', 'Jane', 'John', 'Bob', 'Alice', 'ALICE'],
+        'email': ['john@example.com', 'jane@test.org', 'invalid', 'bob@sample.net', None, 'alice@demo.com'],
+        'age': [25, 30, 25, 150, 28, 28],
+        'join_date': ['2023-01-15', '2023-02-20', '2023-01-15', '2023-03-10', 'invalid', '2023-04-05']
     }
     
     df = pd.DataFrame(sample_data)
-    print("Original DataFrame:")
+    print("Original dataset:")
     print(df)
     print("\n" + "="*50 + "\n")
     
-    numeric_cols = ['temperature', 'humidity', 'pressure']
-    cleaned_df, stats = process_dataframe(df, numeric_cols)
+    cleaned_df = clean_dataset(
+        df,
+        columns_to_standardize=['name'],
+        date_columns=['join_date']
+    )
     
-    print("Cleaned DataFrame:")
+    print("Cleaned dataset:")
     print(cleaned_df)
     print("\n" + "="*50 + "\n")
     
-    print("Summary Statistics:")
-    for col, col_stats in stats.items():
-        print(f"\n{col}:")
-        for stat_name, stat_value in col_stats.items():
-            print(f"  {stat_name}: {stat_value:.2f}" if isinstance(stat_value, float) else f"  {stat_name}: {stat_value}")
+    email_valid = validate_email_column(cleaned_df, 'email')
+    print("Valid email addresses:")
+    print(email_valid)
+    print("\n" + "="*50 + "\n")
+    
+    filtered_df = remove_outliers_iqr(cleaned_df, ['age'])
+    print("Dataset after outlier removal:")
+    print(filtered_df)
