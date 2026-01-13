@@ -1,73 +1,109 @@
-import pandas as pd
 import numpy as np
+import pandas as pd
+from scipy import stats
 
-def remove_duplicates(df, subset=None):
+def remove_outliers_iqr(data, column, factor=1.5):
     """
-    Remove duplicate rows from DataFrame.
+    Remove outliers using the Interquartile Range method.
     """
-    return df.drop_duplicates(subset=subset, keep='first')
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in data")
+    
+    Q1 = data[column].quantile(0.25)
+    Q3 = data[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - factor * IQR
+    upper_bound = Q3 + factor * IQR
+    
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    return filtered_data
 
-def fill_missing_values(df, strategy='mean', columns=None):
+def remove_outliers_zscore(data, column, threshold=3):
     """
-    Fill missing values in specified columns.
+    Remove outliers using Z-score method.
     """
-    df_filled = df.copy()
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in data")
     
-    if columns is None:
-        columns = df.columns
+    z_scores = np.abs(stats.zscore(data[column]))
+    filtered_data = data[z_scores < threshold]
+    return filtered_data
+
+def normalize_minmax(data, column):
+    """
+    Normalize data using Min-Max scaling.
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in data")
     
-    for col in columns:
-        if df[col].dtype in [np.float64, np.int64]:
-            if strategy == 'mean':
-                fill_value = df[col].mean()
-            elif strategy == 'median':
-                fill_value = df[col].median()
-            elif strategy == 'mode':
-                fill_value = df[col].mode()[0]
-            else:
-                fill_value = 0
+    min_val = data[column].min()
+    max_val = data[column].max()
+    
+    if max_val == min_val:
+        return data[column].apply(lambda x: 0.5)
+    
+    normalized = (data[column] - min_val) / (max_val - min_val)
+    return normalized
+
+def normalize_zscore(data, column):
+    """
+    Normalize data using Z-score standardization.
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in data")
+    
+    mean_val = data[column].mean()
+    std_val = data[column].std()
+    
+    if std_val == 0:
+        return data[column].apply(lambda x: 0)
+    
+    standardized = (data[column] - mean_val) / std_val
+    return standardized
+
+def clean_dataset(data, numeric_columns, outlier_method='iqr', normalize_method='minmax'):
+    """
+    Clean dataset by removing outliers and normalizing numeric columns.
+    """
+    cleaned_data = data.copy()
+    
+    for column in numeric_columns:
+        if column not in cleaned_data.columns:
+            continue
             
-            df_filled[col] = df[col].fillna(fill_value)
-        else:
-            df_filled[col] = df[col].fillna('Unknown')
+        if outlier_method == 'iqr':
+            cleaned_data = remove_outliers_iqr(cleaned_data, column)
+        elif outlier_method == 'zscore':
+            cleaned_data = remove_outliers_zscore(cleaned_data, column)
+        
+        if normalize_method == 'minmax':
+            cleaned_data[f'{column}_normalized'] = normalize_minmax(cleaned_data, column)
+        elif normalize_method == 'zscore':
+            cleaned_data[f'{column}_standardized'] = normalize_zscore(cleaned_data, column)
     
-    return df_filled
+    return cleaned_data
 
-def normalize_column(df, column, method='minmax'):
+def get_data_summary(data):
     """
-    Normalize a column using specified method.
+    Generate statistical summary of the dataset.
     """
-    if method == 'minmax':
-        min_val = df[column].min()
-        max_val = df[column].max()
-        if max_val != min_val:
-            df[column] = (df[column] - min_val) / (max_val - min_val)
-    elif method == 'zscore':
-        mean_val = df[column].mean()
-        std_val = df[column].std()
-        if std_val != 0:
-            df[column] = (df[column] - mean_val) / std_val
+    summary = {
+        'total_rows': len(data),
+        'total_columns': len(data.columns),
+        'numeric_columns': list(data.select_dtypes(include=[np.number]).columns),
+        'categorical_columns': list(data.select_dtypes(include=['object']).columns),
+        'missing_values': data.isnull().sum().to_dict(),
+        'data_types': data.dtypes.to_dict()
+    }
     
-    return df
-
-def clean_dataframe(df, operations=None):
-    """
-    Apply multiple cleaning operations to DataFrame.
-    """
-    cleaned_df = df.copy()
+    for col in data.select_dtypes(include=[np.number]).columns:
+        summary[f'{col}_stats'] = {
+            'mean': data[col].mean(),
+            'std': data[col].std(),
+            'min': data[col].min(),
+            'max': data[col].max(),
+            'median': data[col].median()
+        }
     
-    if operations is None:
-        operations = [
-            ('remove_duplicates', {}),
-            ('fill_missing_values', {'strategy': 'mean'}),
-        ]
-    
-    for operation, params in operations:
-        if operation == 'remove_duplicates':
-            cleaned_df = remove_duplicates(cleaned_df, **params)
-        elif operation == 'fill_missing_values':
-            cleaned_df = fill_missing_values(cleaned_df, **params)
-        elif operation == 'normalize_column':
-            cleaned_df = normalize_column(cleaned_df, **params)
-    
-    return cleaned_df
+    return summary
