@@ -97,3 +97,148 @@ if __name__ == "__main__":
     for col in cleaned_df.columns:
         stats = calculate_summary_statistics(cleaned_df, col)
         print(f"{col}: {stats}")
+import pandas as pd
+import numpy as np
+
+def clean_dataframe(df, missing_strategy='mean', drop_duplicates=True):
+    """
+    Clean a pandas DataFrame by handling missing values and removing duplicates.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame to clean
+    missing_strategy (str): Strategy for handling missing values ('mean', 'median', 'mode', 'drop')
+    drop_duplicates (bool): Whether to remove duplicate rows
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame
+    """
+    
+    df_clean = df.copy()
+    
+    if drop_duplicates:
+        initial_rows = len(df_clean)
+        df_clean = df_clean.drop_duplicates()
+        removed = initial_rows - len(df_clean)
+        print(f"Removed {removed} duplicate rows")
+    
+    for column in df_clean.columns:
+        if df_clean[column].isnull().any():
+            missing_count = df_clean[column].isnull().sum()
+            print(f"Column '{column}' has {missing_count} missing values")
+            
+            if missing_strategy == 'mean' and pd.api.types.is_numeric_dtype(df_clean[column]):
+                fill_value = df_clean[column].mean()
+                df_clean[column] = df_clean[column].fillna(fill_value)
+                print(f"  Filled with mean: {fill_value:.2f}")
+                
+            elif missing_strategy == 'median' and pd.api.types.is_numeric_dtype(df_clean[column]):
+                fill_value = df_clean[column].median()
+                df_clean[column] = df_clean[column].fillna(fill_value)
+                print(f"  Filled with median: {fill_value:.2f}")
+                
+            elif missing_strategy == 'mode':
+                fill_value = df_clean[column].mode()[0] if not df_clean[column].mode().empty else None
+                if fill_value is not None:
+                    df_clean[column] = df_clean[column].fillna(fill_value)
+                    print(f"  Filled with mode: {fill_value}")
+                else:
+                    df_clean[column] = df_clean[column].fillna('Unknown')
+                    
+            elif missing_strategy == 'drop':
+                df_clean = df_clean.dropna(subset=[column])
+                print(f"  Dropped rows with missing values in column '{column}'")
+                
+            else:
+                df_clean[column] = df_clean[column].fillna('Unknown')
+                print(f"  Filled with 'Unknown'")
+    
+    return df_clean
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate
+    required_columns (list): List of required column names
+    
+    Returns:
+    dict: Dictionary with validation results
+    """
+    validation_results = {
+        'is_valid': True,
+        'issues': [],
+        'summary': {}
+    }
+    
+    if not isinstance(df, pd.DataFrame):
+        validation_results['is_valid'] = False
+        validation_results['issues'].append("Input is not a pandas DataFrame")
+        return validation_results
+    
+    validation_results['summary']['total_rows'] = len(df)
+    validation_results['summary']['total_columns'] = len(df.columns)
+    validation_results['summary']['columns'] = list(df.columns)
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            validation_results['is_valid'] = False
+            validation_results['issues'].append(f"Missing required columns: {missing_columns}")
+    
+    for column in df.columns:
+        null_count = df[column].isnull().sum()
+        unique_count = df[column].nunique()
+        dtype = str(df[column].dtype)
+        
+        column_stats = {
+            'null_count': null_count,
+            'unique_count': unique_count,
+            'dtype': dtype
+        }
+        
+        if pd.api.types.is_numeric_dtype(df[column]):
+            column_stats['min'] = float(df[column].min())
+            column_stats['max'] = float(df[column].max())
+            column_stats['mean'] = float(df[column].mean())
+        
+        validation_results['summary'][column] = column_stats
+        
+        if null_count > 0:
+            validation_results['issues'].append(f"Column '{column}' has {null_count} null values")
+    
+    return validation_results
+
+def example_usage():
+    """Example usage of the data cleaning functions."""
+    
+    sample_data = {
+        'id': [1, 2, 3, 4, 5, 5, 6],
+        'name': ['Alice', 'Bob', 'Charlie', None, 'Eve', 'Eve', None],
+        'age': [25, 30, None, 35, 40, 40, 45],
+        'score': [85.5, 92.0, 78.5, None, 88.0, 88.0, 95.5],
+        'department': ['HR', 'IT', 'IT', 'Finance', None, None, 'HR']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\n" + "="*50 + "\n")
+    
+    validation = validate_dataframe(df, required_columns=['id', 'name', 'age'])
+    print("Validation Results:")
+    print(f"Is valid: {validation['is_valid']}")
+    if validation['issues']:
+        print("Issues found:")
+        for issue in validation['issues']:
+            print(f"  - {issue}")
+    print("\n" + "="*50 + "\n")
+    
+    cleaned_df = clean_dataframe(df, missing_strategy='mean', drop_duplicates=True)
+    print("\nCleaned DataFrame:")
+    print(cleaned_df)
+    
+    return cleaned_df
+
+if __name__ == "__main__":
+    cleaned_data = example_usage()
