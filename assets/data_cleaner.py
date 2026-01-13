@@ -732,4 +732,88 @@ def sample_data(df: pd.DataFrame,
     if len(df) <= sample_size:
         return df
     
-    return df.sample(n=sample_size, random_state=random_state)
+    return df.sample(n=sample_size, random_state=random_state)import pandas as pd
+
+def clean_dataframe(df, drop_duplicates=True, fill_missing=False, fill_value=0):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean.
+        drop_duplicates (bool): Whether to drop duplicate rows. Default is True.
+        fill_missing (bool): Whether to fill missing values. Default is False.
+        fill_value: Value to use for filling missing values. Default is 0.
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame.
+    """
+    cleaned_df = df.copy()
+    
+    if drop_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates()
+    
+    if fill_missing:
+        cleaned_df = cleaned_df.fillna(fill_value)
+    
+    return cleaned_df
+
+def filter_numeric_columns(df):
+    """
+    Filter DataFrame to include only numeric columns.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame.
+    
+    Returns:
+        pd.DataFrame: DataFrame containing only numeric columns.
+    """
+    numeric_df = df.select_dtypes(include=['number'])
+    return numeric_df
+
+def calculate_basic_stats(df):
+    """
+    Calculate basic statistics for numeric columns in DataFrame.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame.
+    
+    Returns:
+        pd.DataFrame: DataFrame containing statistics for each numeric column.
+    """
+    stats = df.describe().transpose()
+    stats['range'] = stats['max'] - stats['min']
+    return stats
+
+def main():
+    # Example usage
+    data = {
+        'A': [1, 2, 2, 3, None, 5],
+        'B': [10, 20, 20, 30, 40, 50],
+        'C': ['x', 'y', 'y', 'z', 'z', 'x'],
+        'D': [1.1, 2.2, 3.3, 4.4, 5.5, 6.6]
+    }
+    
+    df = pd.DataFrame(data)
+    print("Original DataFrame:")
+    print(df)
+    print("\n")
+    
+    # Clean the data
+    cleaned = clean_dataframe(df, drop_duplicates=True, fill_missing=True, fill_value=0)
+    print("Cleaned DataFrame:")
+    print(cleaned)
+    print("\n")
+    
+    # Get numeric columns
+    numeric_cols = filter_numeric_columns(cleaned)
+    print("Numeric columns:")
+    print(numeric_cols)
+    print("\n")
+    
+    # Calculate statistics
+    stats = calculate_basic_stats(numeric_cols)
+    print("Basic statistics:")
+    print(stats)
+
+if __name__ == "__main__":
+    main()
