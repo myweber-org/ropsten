@@ -1,86 +1,70 @@
-
 import pandas as pd
-import numpy as np
-from datetime import datetime
 
-def clean_csv_data(input_path, output_path):
+def clean_dataset(df, drop_duplicates=True, fill_method=None):
     """
-    Load, clean, and save CSV data by handling missing values,
-    removing duplicates, and standardizing date formats.
+    Clean a pandas DataFrame by handling missing values and duplicates.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean.
+        drop_duplicates (bool): Whether to drop duplicate rows.
+        fill_method (str or None): Method to fill missing values.
+            Options: 'mean', 'median', 'mode', or None to drop rows.
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame.
     """
-    try:
-        df = pd.read_csv(input_path)
-        
-        # Remove duplicate rows
-        df = df.drop_duplicates()
-        
-        # Fill missing numeric values with column median
-        numeric_cols = df.select_dtypes(include=[np.number]).columns
-        for col in numeric_cols:
-            df[col] = df[col].fillna(df[col].median())
-        
-        # Fill missing categorical values with mode
-        categorical_cols = df.select_dtypes(include=['object']).columns
-        for col in categorical_cols:
-            df[col] = df[col].fillna(df[col].mode()[0] if not df[col].mode().empty else 'Unknown')
-        
-        # Standardize date columns
-        date_columns = [col for col in df.columns if 'date' in col.lower()]
-        for col in date_columns:
-            try:
-                df[col] = pd.to_datetime(df[col], errors='coerce')
-                df[col] = df[col].dt.strftime('%Y-%m-%d')
-            except:
-                continue
-        
-        # Remove rows where critical columns are null
-        critical_columns = ['id', 'name']
-        existing_critical = [col for col in critical_columns if col in df.columns]
-        if existing_critical:
-            df = df.dropna(subset=existing_critical)
-        
-        # Save cleaned data
-        df.to_csv(output_path, index=False)
-        print(f"Data cleaning complete. Cleaned data saved to: {output_path}")
-        print(f"Original rows: {len(pd.read_csv(input_path))}, Cleaned rows: {len(df)}")
-        
-        return df
-        
-    except FileNotFoundError:
-        print(f"Error: Input file not found at {input_path}")
-        return None
-    except Exception as e:
-        print(f"Error during data cleaning: {str(e)}")
-        return None
+    cleaned_df = df.copy()
+    
+    # Handle missing values
+    if fill_method is None:
+        cleaned_df = cleaned_df.dropna()
+    elif fill_method == 'mean':
+        cleaned_df = cleaned_df.fillna(cleaned_df.mean(numeric_only=True))
+    elif fill_method == 'median':
+        cleaned_df = cleaned_df.fillna(cleaned_df.median(numeric_only=True))
+    elif fill_method == 'mode':
+        cleaned_df = cleaned_df.fillna(cleaned_df.mode().iloc[0])
+    else:
+        raise ValueError(f"Unsupported fill_method: {fill_method}")
+    
+    # Remove duplicates
+    if drop_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates()
+    
+    return cleaned_df
 
-def validate_data(df):
+def validate_dataframe(df, required_columns=None):
     """
-    Perform basic data validation checks.
+    Validate DataFrame structure and content.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate.
+        required_columns (list): List of required column names.
+    
+    Returns:
+        tuple: (is_valid, error_message)
     """
-    if df is None or df.empty:
-        return False
+    if not isinstance(df, pd.DataFrame):
+        return False, "Input is not a pandas DataFrame"
     
-    validation_results = {
-        'has_duplicates': df.duplicated().any(),
-        'missing_values': df.isnull().sum().sum(),
-        'numeric_range_issues': 0
-    }
+    if df.empty:
+        return False, "DataFrame is empty"
     
-    # Check for numeric values in expected range
-    numeric_cols = df.select_dtypes(include=[np.number]).columns
-    for col in numeric_cols:
-        if df[col].min() < 0 and 'age' in col.lower():
-            validation_results['numeric_range_issues'] += 1
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            return False, f"Missing required columns: {missing_cols}"
     
-    return validation_results
+    return True, "DataFrame is valid"
 
-if __name__ == "__main__":
-    # Example usage
-    input_file = "raw_data.csv"
-    output_file = "cleaned_data.csv"
-    
-    cleaned_df = clean_csv_data(input_file, output_file)
-    
-    if cleaned_df is not None:
-        validation = validate_data(cleaned_df)
-        print("Validation results:", validation)
+# Example usage (commented out for production)
+# if __name__ == "__main__":
+#     sample_data = {
+#         'A': [1, 2, None, 4, 2],
+#         'B': [5, None, 7, 8, 5],
+#         'C': ['x', 'y', 'z', 'x', 'y']
+#     }
+#     df = pd.DataFrame(sample_data)
+#     cleaned = clean_dataset(df, fill_method='mean')
+#     print("Original shape:", df.shape)
+#     print("Cleaned shape:", cleaned.shape)
