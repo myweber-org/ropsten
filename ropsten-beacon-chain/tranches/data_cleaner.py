@@ -1,315 +1,117 @@
+
 import numpy as np
 import pandas as pd
 from scipy import stats
 
-def remove_outliers_iqr(data, column):
-    """Remove outliers using IQR method."""
-    Q1 = data[column].quantile(0.25)
-    Q3 = data[column].quantile(0.75)
-    IQR = Q3 - Q1
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
-    return data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+def remove_outliers_iqr(data, column, threshold=1.5):
+    """
+    Remove outliers using IQR method
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    q1 = data[column].quantile(0.25)
+    q3 = data[column].quantile(0.75)
+    iqr = q3 - q1
+    lower_bound = q1 - threshold * iqr
+    upper_bound = q3 + threshold * iqr
+    
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    return filtered_data
 
 def remove_outliers_zscore(data, column, threshold=3):
-    """Remove outliers using Z-score method."""
+    """
+    Remove outliers using Z-score method
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
     z_scores = np.abs(stats.zscore(data[column]))
-    return data[z_scores < threshold]
+    filtered_data = data[z_scores < threshold]
+    return filtered_data
 
 def normalize_minmax(data, column):
-    """Normalize data using Min-Max scaling."""
+    """
+    Normalize data using Min-Max scaling
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
     min_val = data[column].min()
     max_val = data[column].max()
-    data[column + '_normalized'] = (data[column] - min_val) / (max_val - min_val)
-    return data
-
-def normalize_zscore(data, column):
-    """Normalize data using Z-score standardization."""
-    mean_val = data[column].mean()
-    std_val = data[column].std()
-    data[column + '_standardized'] = (data[column] - mean_val) / std_val
-    return data
-
-def clean_dataset(df, numeric_columns, method='iqr', normalize=False):
-    """Main cleaning function with optional normalization."""
-    cleaned_df = df.copy()
     
-    for col in numeric_columns:
-        if method == 'iqr':
-            cleaned_df = remove_outliers_iqr(cleaned_df, col)
-        elif method == 'zscore':
-            cleaned_df = remove_outliers_zscore(cleaned_df, col)
-        
-        if normalize:
-            cleaned_df = normalize_minmax(cleaned_df, col)
+    if min_val == max_val:
+        return data[column].apply(lambda x: 0.5)
     
-    return cleaned_df.reset_index(drop=True)
-
-def summarize_cleaning(df_before, df_after, numeric_columns):
-    """Generate summary statistics before and after cleaning."""
-    summary = {}
-    
-    for col in numeric_columns:
-        summary[col] = {
-            'before_count': len(df_before),
-            'after_count': len(df_after),
-            'removed_percentage': ((len(df_before) - len(df_after)) / len(df_before)) * 100,
-            'before_mean': df_before[col].mean(),
-            'after_mean': df_after[col].mean(),
-            'before_std': df_before[col].std(),
-            'after_std': df_after[col].std()
-        }
-    
-    return pd.DataFrame(summary).T
-
-def validate_data(df, required_columns, numeric_ranges=None):
-    """Validate data structure and value ranges."""
-    missing_cols = [col for col in required_columns if col not in df.columns]
-    
-    if missing_cols:
-        raise ValueError(f"Missing required columns: {missing_cols}")
-    
-    if numeric_ranges:
-        for col, (min_val, max_val) in numeric_ranges.items():
-            if col in df.columns:
-                invalid_values = df[(df[col] < min_val) | (df[col] > max_val)]
-                if not invalid_values.empty:
-                    print(f"Warning: Column '{col}' contains values outside range [{min_val}, {max_val}]")
-    
-    return True
-import numpy as np
-import pandas as pd
-from scipy import stats
-
-def remove_outliers_iqr(data, column):
-    Q1 = data[column].quantile(0.25)
-    Q3 = data[column].quantile(0.75)
-    IQR = Q3 - Q1
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
-    return data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
-
-def remove_outliers_zscore(data, column, threshold=3):
-    z_scores = np.abs(stats.zscore(data[column]))
-    return data[z_scores < threshold]
-
-def normalize_minmax(data, column):
-    min_val = data[column].min()
-    max_val = data[column].max()
-    data[column + '_normalized'] = (data[column] - min_val) / (max_val - min_val)
-    return data
-
-def normalize_zscore(data, column):
-    mean_val = data[column].mean()
-    std_val = data[column].std()
-    data[column + '_standardized'] = (data[column] - mean_val) / std_val
-    return data
-
-def clean_dataset(df, numeric_columns, outlier_method='iqr', normalize_method='minmax'):
-    cleaned_df = df.copy()
-    
-    for col in numeric_columns:
-        if outlier_method == 'iqr':
-            cleaned_df = remove_outliers_iqr(cleaned_df, col)
-        elif outlier_method == 'zscore':
-            cleaned_df = remove_outliers_zscore(cleaned_df, col)
-        
-        if normalize_method == 'minmax':
-            cleaned_df = normalize_minmax(cleaned_df, col)
-        elif normalize_method == 'zscore':
-            cleaned_df = normalize_zscore(cleaned_df, col)
-    
-    return cleaned_df
-
-def validate_data(data, required_columns):
-    missing_cols = [col for col in required_columns if col not in data.columns]
-    if missing_cols:
-        raise ValueError(f"Missing required columns: {missing_cols}")
-    
-    numeric_cols = data.select_dtypes(include=[np.number]).columns
-    if len(numeric_cols) == 0:
-        raise ValueError("No numeric columns found in the dataset")
-    
-    return True
-import pandas as pd
-import re
-
-def clean_dataframe(df, column_mapping=None, drop_duplicates=True, normalize_text=True):
-    """
-    Clean a pandas DataFrame by removing duplicates and normalizing text columns.
-    
-    Args:
-        df (pd.DataFrame): Input DataFrame to clean.
-        column_mapping (dict, optional): Dictionary mapping original column names to new names.
-        drop_duplicates (bool, optional): Whether to remove duplicate rows. Defaults to True.
-        normalize_text (bool, optional): Whether to normalize text columns. Defaults to True.
-    
-    Returns:
-        pd.DataFrame: Cleaned DataFrame.
-    """
-    cleaned_df = df.copy()
-    
-    if column_mapping:
-        cleaned_df = cleaned_df.rename(columns=column_mapping)
-    
-    if drop_duplicates:
-        initial_rows = len(cleaned_df)
-        cleaned_df = cleaned_df.drop_duplicates()
-        removed = initial_rows - len(cleaned_df)
-        print(f"Removed {removed} duplicate rows.")
-    
-    if normalize_text:
-        text_columns = cleaned_df.select_dtypes(include=['object']).columns
-        for col in text_columns:
-            cleaned_df[col] = cleaned_df[col].apply(_normalize_string)
-    
-    return cleaned_df
-
-def _normalize_string(text):
-    """
-    Normalize a string by converting to lowercase, removing extra whitespace,
-    and stripping special characters.
-    
-    Args:
-        text (str): Input string to normalize.
-    
-    Returns:
-        str: Normalized string.
-    """
-    if not isinstance(text, str):
-        return text
-    
-    normalized = text.lower().strip()
-    normalized = re.sub(r'\s+', ' ', normalized)
-    normalized = re.sub(r'[^\w\s]', '', normalized)
-    
+    normalized = (data[column] - min_val) / (max_val - min_val)
     return normalized
 
-def validate_email_column(df, email_column):
+def normalize_zscore(data, column):
     """
-    Validate email addresses in a DataFrame column.
-    
-    Args:
-        df (pd.DataFrame): Input DataFrame.
-        email_column (str): Name of the column containing email addresses.
-    
-    Returns:
-        pd.DataFrame: DataFrame with an additional 'email_valid' column.
+    Normalize data using Z-score standardization
     """
-    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
     
-    df_copy = df.copy()
-    df_copy['email_valid'] = df_copy[email_column].apply(
-        lambda x: bool(re.match(email_pattern, str(x))) if pd.notnull(x) else False
-    )
+    mean_val = data[column].mean()
+    std_val = data[column].std()
     
-    valid_count = df_copy['email_valid'].sum()
-    total_count = len(df_copy)
-    print(f"Found {valid_count} valid emails out of {total_count} total.")
+    if std_val == 0:
+        return data[column].apply(lambda x: 0)
     
-    return df_copyimport pandas as pd
+    standardized = (data[column] - mean_val) / std_val
+    return standardized
 
-def remove_duplicates(df, subset=None, keep='first'):
+def clean_dataset(data, numeric_columns, outlier_method='iqr', normalize_method='minmax'):
     """
-    Remove duplicate rows from a DataFrame.
-    
-    Args:
-        df (pd.DataFrame): Input DataFrame
-        subset (list, optional): Column names to consider for duplicates
-        keep (str, optional): Which duplicates to keep ('first', 'last', False)
-    
-    Returns:
-        pd.DataFrame: DataFrame with duplicates removed
+    Main function to clean dataset by removing outliers and normalizing numeric columns
     """
-    if df.empty:
-        return df
+    cleaned_data = data.copy()
     
-    cleaned_df = df.drop_duplicates(subset=subset, keep=keep)
-    removed_count = len(df) - len(cleaned_df)
-    
-    if removed_count > 0:
-        print(f"Removed {removed_count} duplicate rows")
-    
-    return cleaned_df
-
-def clean_numeric_columns(df, columns):
-    """
-    Clean numeric columns by converting to appropriate types and handling errors.
-    
-    Args:
-        df (pd.DataFrame): Input DataFrame
-        columns (list): List of column names to clean
-    
-    Returns:
-        pd.DataFrame: DataFrame with cleaned numeric columns
-    """
-    for col in columns:
-        if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors='coerce')
-    
-    return df
-
-def validate_dataframe(df, required_columns=None):
-    """
-    Validate DataFrame structure and content.
-    
-    Args:
-        df (pd.DataFrame): DataFrame to validate
-        required_columns (list, optional): List of required column names
-    
-    Returns:
-        tuple: (is_valid, error_message)
-    """
-    if df.empty:
-        return False, "DataFrame is empty"
-    
-    if required_columns:
-        missing_columns = [col for col in required_columns if col not in df.columns]
-        if missing_columns:
-            return False, f"Missing required columns: {missing_columns}"
-    
-    return True, "DataFrame is valid"
-import pandas as pd
-import sys
-
-def remove_duplicates(input_file, output_file=None):
-    """
-    Read a CSV file, remove duplicate rows, and save the cleaned data.
-    If no output file is specified, overwrite the input file.
-    """
-    try:
-        df = pd.read_csv(input_file)
-        initial_count = len(df)
-        df_cleaned = df.drop_duplicates()
-        final_count = len(df_cleaned)
+    for column in numeric_columns:
+        if column not in cleaned_data.columns:
+            continue
+            
+        if outlier_method == 'iqr':
+            cleaned_data = remove_outliers_iqr(cleaned_data, column)
+        elif outlier_method == 'zscore':
+            cleaned_data = remove_outliers_zscore(cleaned_data, column)
         
-        if output_file is None:
-            output_file = input_file
-        
-        df_cleaned.to_csv(output_file, index=False)
-        
-        duplicates_removed = initial_count - final_count
-        print(f"Successfully removed {duplicates_removed} duplicate rows.")
-        print(f"Cleaned data saved to: {output_file}")
-        
-        return duplicates_removed
+        if normalize_method == 'minmax':
+            cleaned_data[f'{column}_normalized'] = normalize_minmax(cleaned_data, column)
+        elif normalize_method == 'zscore':
+            cleaned_data[f'{column}_normalized'] = normalize_zscore(cleaned_data, column)
     
-    except FileNotFoundError:
-        print(f"Error: File '{input_file}' not found.")
-        sys.exit(1)
-    except pd.errors.EmptyDataError:
-        print(f"Error: File '{input_file}' is empty.")
-        sys.exit(1)
-    except Exception as e:
-        print(f"An unexpected error occurred: {e}")
-        sys.exit(1)
+    return cleaned_data
 
-if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python data_cleaner.py <input_file> [output_file]")
-        sys.exit(1)
+def validate_data(data, required_columns, check_missing=True, check_duplicates=True):
+    """
+    Validate dataset for required columns, missing values, and duplicates
+    """
+    validation_report = {
+        'is_valid': True,
+        'missing_columns': [],
+        'missing_values': {},
+        'duplicate_rows': 0,
+        'total_rows': len(data)
+    }
     
-    input_file = sys.argv[1]
-    output_file = sys.argv[2] if len(sys.argv) > 2 else None
+    for column in required_columns:
+        if column not in data.columns:
+            validation_report['missing_columns'].append(column)
+            validation_report['is_valid'] = False
     
-    remove_duplicates(input_file, output_file)
+    if check_missing:
+        missing_counts = data.isnull().sum()
+        missing_columns = missing_counts[missing_counts > 0]
+        if not missing_columns.empty:
+            validation_report['missing_values'] = missing_columns.to_dict()
+            validation_report['is_valid'] = False
+    
+    if check_duplicates:
+        duplicate_count = data.duplicated().sum()
+        validation_report['duplicate_rows'] = duplicate_count
+        if duplicate_count > 0:
+            validation_report['is_valid'] = False
+    
+    return validation_report
