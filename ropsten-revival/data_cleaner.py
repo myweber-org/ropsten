@@ -121,4 +121,80 @@ def remove_duplicates_preserve_order(iterable):
         if item not in seen:
             seen.add(item)
             result.append(item)
-    return result
+    return resultimport pandas as pd
+import numpy as np
+
+def clean_csv_data(file_path, strategy='mean', fill_value=None):
+    """
+    Clean a CSV file by handling missing values.
+    
+    Args:
+        file_path (str): Path to the CSV file.
+        strategy (str): Strategy for handling missing values.
+            Options: 'mean', 'median', 'mode', 'constant', 'drop'.
+        fill_value: Value to use when strategy is 'constant'.
+    
+    Returns:
+        pandas.DataFrame: Cleaned DataFrame.
+    """
+    try:
+        df = pd.read_csv(file_path)
+    except FileNotFoundError:
+        raise FileNotFoundError(f"File not found: {file_path}")
+    
+    original_shape = df.shape
+    
+    if strategy == 'drop':
+        df_cleaned = df.dropna()
+    elif strategy in ['mean', 'median', 'mode']:
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        
+        if strategy == 'mean':
+            fill_values = df[numeric_cols].mean()
+        elif strategy == 'median':
+            fill_values = df[numeric_cols].median()
+        elif strategy == 'mode':
+            fill_values = df[numeric_cols].mode().iloc[0]
+        
+        df_cleaned = df.copy()
+        df_cleaned[numeric_cols] = df[numeric_cols].fillna(fill_values)
+        
+        non_numeric_cols = df.select_dtypes(exclude=[np.number]).columns
+        if not non_numeric_cols.empty:
+            df_cleaned[non_numeric_cols] = df[non_numeric_cols].fillna('Unknown')
+    elif strategy == 'constant':
+        if fill_value is None:
+            raise ValueError("fill_value must be provided when using 'constant' strategy")
+        df_cleaned = df.fillna(fill_value)
+    else:
+        raise ValueError(f"Unknown strategy: {strategy}")
+    
+    cleaned_shape = df_cleaned.shape
+    missing_count = df.isna().sum().sum()
+    
+    print(f"Original data shape: {original_shape}")
+    print(f"Cleaned data shape: {cleaned_shape}")
+    print(f"Missing values handled: {missing_count}")
+    
+    return df_cleaned
+
+def save_cleaned_data(df, output_path):
+    """
+    Save cleaned DataFrame to a CSV file.
+    
+    Args:
+        df (pandas.DataFrame): DataFrame to save.
+        output_path (str): Path for the output CSV file.
+    """
+    df.to_csv(output_path, index=False)
+    print(f"Cleaned data saved to: {output_path}")
+
+if __name__ == "__main__":
+    input_file = "sample_data.csv"
+    output_file = "cleaned_data.csv"
+    
+    try:
+        cleaned_df = clean_csv_data(input_file, strategy='mean')
+        save_cleaned_data(cleaned_df, output_file)
+    except Exception as e:
+        print(f"Error during data cleaning: {e}")
