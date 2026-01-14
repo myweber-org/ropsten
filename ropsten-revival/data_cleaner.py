@@ -62,3 +62,11 @@ def clean_dataset(df, missing_threshold=0.5, normalize=True, encode=True):
         df_clean = encode_categorical(df_clean)
     
     return df_clean
+def remove_duplicates(sequence):
+    seen = set()
+    result = []
+    for item in sequence:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
