@@ -1,91 +1,46 @@
-def remove_duplicates(sequence):
-    seen = set()
-    result = []
-    for item in sequence:
-        if item not in seen:
-            seen.add(item)
-            result.append(item)
-    return result
+
 import pandas as pd
-import re
+import numpy as np
+from pathlib import Path
 
-def clean_dataframe(df, columns_to_clean=None):
+def clean_dataset(input_path, output_path=None):
     """
-    Clean a pandas DataFrame by removing duplicates and normalizing string columns.
+    Load a CSV dataset, remove duplicate rows, normalize column names,
+    and save the cleaned version.
     """
-    cleaned_df = df.copy()
+    df = pd.read_csv(input_path)
     
-    # Remove duplicate rows
-    initial_rows = cleaned_df.shape[0]
-    cleaned_df = cleaned_df.drop_duplicates()
-    removed_duplicates = initial_rows - cleaned_df.shape[0]
+    original_shape = df.shape
+    print(f"Original dataset shape: {original_shape}")
     
-    if columns_to_clean is None:
-        # Automatically detect string columns
-        columns_to_clean = cleaned_df.select_dtypes(include=['object']).columns.tolist()
+    df_cleaned = df.copy()
     
-    # Normalize string columns
-    for col in columns_to_clean:
-        if col in cleaned_df.columns and cleaned_df[col].dtype == 'object':
-            cleaned_df[col] = cleaned_df[col].apply(normalize_string)
+    df_cleaned.columns = df_cleaned.columns.str.strip().str.lower().str.replace(' ', '_')
     
-    return cleaned_df, removed_duplicates
-
-def normalize_string(text):
-    """
-    Normalize a string by converting to lowercase, removing extra whitespace,
-    and stripping special characters.
-    """
-    if pd.isna(text):
-        return text
+    df_cleaned = df_cleaned.drop_duplicates()
     
-    # Convert to string if not already
-    text = str(text)
+    df_cleaned = df_cleaned.replace(r'^\s*$', np.nan, regex=True)
     
-    # Convert to lowercase
-    text = text.lower()
+    cleaned_shape = df_cleaned.shape
+    print(f"Cleaned dataset shape: {cleaned_shape}")
+    print(f"Removed {original_shape[0] - cleaned_shape[0]} duplicate rows.")
+    print(f"Removed {original_shape[1] - cleaned_shape[1]} duplicate columns.")
     
-    # Remove extra whitespace
-    text = re.sub(r'\s+', ' ', text).strip()
+    if output_path is None:
+        input_file = Path(input_path)
+        output_path = input_file.parent / f"{input_file.stem}_cleaned{input_file.suffix}"
     
-    # Remove special characters (keep alphanumeric and spaces)
-    text = re.sub(r'[^a-z0-9\s]', '', text)
+    df_cleaned.to_csv(output_path, index=False)
+    print(f"Cleaned dataset saved to: {output_path}")
     
-    return text
-
-def validate_email(email):
-    """
-    Validate email format using regex.
-    """
-    if pd.isna(email):
-        return False
-    
-    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-    return bool(re.match(pattern, str(email)))
-
-def main():
-    # Example usage
-    data = {
-        'name': ['John Doe', 'john doe', 'Jane Smith', 'Jane Smith', 'Bob Johnson'],
-        'email': ['john@example.com', 'john@example.com', 'jane@test.org', 'invalid-email', 'bob@company.net'],
-        'age': [25, 25, 30, 30, 35]
-    }
-    
-    df = pd.DataFrame(data)
-    print("Original DataFrame:")
-    print(df)
-    print()
-    
-    cleaned_df, duplicates_removed = clean_dataframe(df)
-    print(f"Removed {duplicates_removed} duplicate rows")
-    print("Cleaned DataFrame:")
-    print(cleaned_df)
-    print()
-    
-    # Validate emails
-    cleaned_df['valid_email'] = cleaned_df['email'].apply(validate_email)
-    print("DataFrame with email validation:")
-    print(cleaned_df)
+    return df_cleaned
 
 if __name__ == "__main__":
-    main()
+    import sys
+    if len(sys.argv) < 2:
+        print("Usage: python data_cleaner.py <input_csv> [output_csv]")
+        sys.exit(1)
+    
+    input_file = sys.argv[1]
+    output_file = sys.argv[2] if len(sys.argv) > 2 else None
+    clean_dataset(input_file, output_file)
