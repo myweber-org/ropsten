@@ -250,4 +250,86 @@ def clean_dataset(input_file, output_file):
     return df
 
 if __name__ == "__main__":
-    cleaned_df = clean_dataset('raw_data.csv', 'cleaned_data.csv')
+    cleaned_df = clean_dataset('raw_data.csv', 'cleaned_data.csv')import pandas as pd
+
+def remove_duplicates(df, subset=None, keep='first'):
+    """
+    Remove duplicate rows from a DataFrame.
+    
+    Args:
+        df: pandas DataFrame
+        subset: column label or sequence of labels to consider for identifying duplicates
+        keep: determines which duplicates to keep ('first', 'last', or False)
+    
+    Returns:
+        DataFrame with duplicates removed
+    """
+    if subset is None:
+        return df.drop_duplicates(keep=keep)
+    else:
+        return df.drop_duplicates(subset=subset, keep=keep)
+
+def clean_numeric_columns(df, columns):
+    """
+    Clean numeric columns by removing non-numeric characters and converting to float.
+    
+    Args:
+        df: pandas DataFrame
+        columns: list of column names to clean
+    
+    Returns:
+        DataFrame with cleaned numeric columns
+    """
+    df_clean = df.copy()
+    
+    for col in columns:
+        if col in df_clean.columns:
+            df_clean[col] = pd.to_numeric(
+                df_clean[col].astype(str).str.replace(r'[^\d.-]', '', regex=True),
+                errors='coerce'
+            )
+    
+    return df_clean
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Args:
+        df: pandas DataFrame to validate
+        required_columns: list of column names that must be present
+    
+    Returns:
+        tuple: (is_valid, error_message)
+    """
+    if df.empty:
+        return False, "DataFrame is empty"
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            return False, f"Missing required columns: {missing_columns}"
+    
+    return True, "DataFrame is valid"
+
+def get_data_summary(df):
+    """
+    Generate summary statistics for a DataFrame.
+    
+    Args:
+        df: pandas DataFrame
+    
+    Returns:
+        dict containing summary statistics
+    """
+    summary = {
+        'row_count': len(df),
+        'column_count': len(df.columns),
+        'column_names': list(df.columns),
+        'data_types': df.dtypes.to_dict(),
+        'missing_values': df.isnull().sum().to_dict(),
+        'numeric_columns': df.select_dtypes(include=['number']).columns.tolist(),
+        'categorical_columns': df.select_dtypes(include=['object', 'category']).columns.tolist()
+    }
+    
+    return summary
