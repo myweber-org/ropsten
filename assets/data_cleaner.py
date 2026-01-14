@@ -1,48 +1,97 @@
 
+import pandas as pd
 import numpy as np
 
-def remove_outliers_iqr(data, column):
+def remove_outliers_iqr(df, column):
     """
-    Remove outliers from a specified column in a dataset using the IQR method.
+    Remove outliers from a DataFrame column using the Interquartile Range method.
     
     Parameters:
-    data (numpy.ndarray): The dataset.
-    column (int): Index of the column to clean.
+    df (pd.DataFrame): Input DataFrame
+    column (str): Column name to clean
     
     Returns:
-    numpy.ndarray: Dataset with outliers removed from the specified column.
+    pd.DataFrame: DataFrame with outliers removed
     """
-    if not isinstance(data, np.ndarray):
-        raise ValueError("Input data must be a numpy array.")
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
     
-    if column >= data.shape[1] or column < 0:
-        raise IndexError("Column index out of bounds.")
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
     
-    col_data = data[:, column]
-    q1 = np.percentile(col_data, 25)
-    q3 = np.percentile(col_data, 75)
-    iqr = q3 - q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
     
-    lower_bound = q1 - 1.5 * iqr
-    upper_bound = q3 + 1.5 * iqr
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
     
-    mask = (col_data >= lower_bound) & (col_data <= upper_bound)
-    cleaned_data = data[mask]
-    
-    return cleaned_data
+    return filtered_df.reset_index(drop=True)
 
-def example_usage():
+def calculate_summary_statistics(df, column):
     """
-    Example usage of the remove_outliers_iqr function.
-    """
-    np.random.seed(42)
-    sample_data = np.random.randn(100, 3)
-    sample_data[:, 1] = sample_data[:, 1] * 10 + 50
+    Calculate summary statistics for a column after outlier removal.
     
-    print("Original data shape:", sample_data.shape)
-    cleaned = remove_outliers_iqr(sample_data, column=1)
-    print("Cleaned data shape:", cleaned.shape)
-    print("Number of outliers removed:", sample_data.shape[0] - cleaned.shape[0])
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    column (str): Column name to analyze
+    
+    Returns:
+    dict: Dictionary containing summary statistics
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    stats = {
+        'mean': df[column].mean(),
+        'median': df[column].median(),
+        'std': df[column].std(),
+        'min': df[column].min(),
+        'max': df[column].max(),
+        'count': df[column].count(),
+        'missing': df[column].isnull().sum()
+    }
+    
+    return stats
+
+def clean_dataset(df, numeric_columns=None):
+    """
+    Clean a dataset by removing outliers from all numeric columns.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    numeric_columns (list): List of numeric column names. If None, uses all numeric columns.
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame
+    """
+    if numeric_columns is None:
+        numeric_columns = df.select_dtypes(include=[np.number]).columns.tolist()
+    
+    cleaned_df = df.copy()
+    
+    for column in numeric_columns:
+        if column in df.columns:
+            cleaned_df = remove_outliers_iqr(cleaned_df, column)
+    
+    return cleaned_df
 
 if __name__ == "__main__":
-    example_usage()
+    sample_data = {
+        'A': np.random.normal(100, 15, 1000),
+        'B': np.random.exponential(50, 1000),
+        'C': np.random.uniform(0, 200, 1000)
+    }
+    
+    df = pd.DataFrame(sample_data)
+    df.loc[10, 'A'] = 500
+    df.loc[20, 'B'] = 1000
+    
+    print("Original dataset shape:", df.shape)
+    print("Original statistics for column 'A':")
+    print(calculate_summary_statistics(df, 'A'))
+    
+    cleaned = clean_dataset(df, ['A', 'B'])
+    
+    print("\nCleaned dataset shape:", cleaned.shape)
+    print("Cleaned statistics for column 'A':")
+    print(calculate_summary_statistics(cleaned, 'A'))
