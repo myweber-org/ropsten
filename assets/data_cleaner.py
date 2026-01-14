@@ -267,4 +267,179 @@ if __name__ == "__main__":
     print(cleaned)
     
     is_valid = validate_data(cleaned, required_columns=['A', 'B'], min_rows=3)
-    print(f"\nDataset valid: {is_valid}")
+    print(f"\nDataset valid: {is_valid}")import pandas as pd
+import numpy as np
+
+def remove_duplicates(df, subset=None, keep='first'):
+    """
+    Remove duplicate rows from a DataFrame.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        subset (list, optional): Columns to consider for duplicates
+        keep (str, optional): Which duplicates to keep
+    
+    Returns:
+        pd.DataFrame: DataFrame with duplicates removed
+    """
+    return df.drop_duplicates(subset=subset, keep=keep)
+
+def convert_column_types(df, column_types):
+    """
+    Convert specified columns to given data types.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        column_types (dict): Dictionary mapping columns to target types
+    
+    Returns:
+        pd.DataFrame: DataFrame with converted columns
+    """
+    df_copy = df.copy()
+    for column, dtype in column_types.items():
+        if column in df_copy.columns:
+            try:
+                df_copy[column] = df_copy[column].astype(dtype)
+            except (ValueError, TypeError):
+                df_copy[column] = pd.to_numeric(df_copy[column], errors='coerce')
+    return df_copy
+
+def handle_missing_values(df, strategy='drop', fill_value=None):
+    """
+    Handle missing values in DataFrame.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        strategy (str): 'drop', 'fill', or 'interpolate'
+        fill_value: Value to fill missing values with
+    
+    Returns:
+        pd.DataFrame: DataFrame with handled missing values
+    """
+    if strategy == 'drop':
+        return df.dropna()
+    elif strategy == 'fill':
+        return df.fillna(fill_value)
+    elif strategy == 'interpolate':
+        return df.interpolate()
+    else:
+        raise ValueError("Invalid strategy. Use 'drop', 'fill', or 'interpolate'")
+
+def normalize_column(df, column, method='minmax'):
+    """
+    Normalize a column using specified method.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        column (str): Column to normalize
+        method (str): 'minmax' or 'zscore'
+    
+    Returns:
+        pd.DataFrame: DataFrame with normalized column
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    df_copy = df.copy()
+    
+    if method == 'minmax':
+        min_val = df_copy[column].min()
+        max_val = df_copy[column].max()
+        if max_val > min_val:
+            df_copy[column] = (df_copy[column] - min_val) / (max_val - min_val)
+    
+    elif method == 'zscore':
+        mean_val = df_copy[column].mean()
+        std_val = df_copy[column].std()
+        if std_val > 0:
+            df_copy[column] = (df_copy[column] - mean_val) / std_val
+    
+    else:
+        raise ValueError("Invalid method. Use 'minmax' or 'zscore'")
+    
+    return df_copy
+
+def clean_dataframe(df, operations):
+    """
+    Apply multiple cleaning operations to DataFrame.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        operations (list): List of cleaning operations to apply
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame
+    """
+    cleaned_df = df.copy()
+    
+    for operation in operations:
+        if operation['type'] == 'remove_duplicates':
+            cleaned_df = remove_duplicates(
+                cleaned_df, 
+                subset=operation.get('subset'), 
+                keep=operation.get('keep', 'first')
+            )
+        elif operation['type'] == 'convert_types':
+            cleaned_df = convert_column_types(
+                cleaned_df, 
+                operation.get('column_types', {})
+            )
+        elif operation['type'] == 'handle_missing':
+            cleaned_df = handle_missing_values(
+                cleaned_df,
+                strategy=operation.get('strategy', 'drop'),
+                fill_value=operation.get('fill_value')
+            )
+        elif operation['type'] == 'normalize':
+            cleaned_df = normalize_column(
+                cleaned_df,
+                column=operation['column'],
+                method=operation.get('method', 'minmax')
+            )
+    
+    return cleaned_df
+
+def validate_dataframe(df, rules):
+    """
+    Validate DataFrame against specified rules.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate
+        rules (dict): Validation rules
+    
+    Returns:
+        dict: Validation results
+    """
+    results = {
+        'is_valid': True,
+        'errors': [],
+        'warnings': []
+    }
+    
+    # Check required columns
+    required_columns = rules.get('required_columns', [])
+    missing_columns = [col for col in required_columns if col not in df.columns]
+    if missing_columns:
+        results['is_valid'] = False
+        results['errors'].append(f"Missing required columns: {missing_columns}")
+    
+    # Check data types
+    expected_types = rules.get('expected_types', {})
+    for column, expected_type in expected_types.items():
+        if column in df.columns:
+            actual_type = str(df[column].dtype)
+            if not actual_type.startswith(expected_type):
+                results['warnings'].append(
+                    f"Column '{column}' has type {actual_type}, expected {expected_type}"
+                )
+    
+    # Check value ranges
+    value_ranges = rules.get('value_ranges', {})
+    for column, (min_val, max_val) in value_ranges.items():
+        if column in df.columns:
+            if df[column].min() < min_val or df[column].max() > max_val:
+                results['warnings'].append(
+                    f"Column '{column}' values outside expected range [{min_val}, {max_val}]"
+                )
+    
+    return results
