@@ -1,107 +1,64 @@
-
 import pandas as pd
 import numpy as np
-from pathlib import Path
 
-def clean_dataset(input_path, output_path=None):
+def remove_missing_values(df, threshold=0.5):
     """
-    Load a CSV dataset, remove duplicate rows, normalize column names,
-    and save the cleaned version.
+    Remove columns with missing values above threshold.
     """
-    df = pd.read_csv(input_path)
-    
-    original_shape = df.shape
-    print(f"Original dataset shape: {original_shape}")
-    
-    df_cleaned = df.copy()
-    
-    df_cleaned.columns = df_cleaned.columns.str.strip().str.lower().str.replace(' ', '_')
-    
-    df_cleaned = df_cleaned.drop_duplicates()
-    
-    df_cleaned = df_cleaned.replace(r'^\s*$', np.nan, regex=True)
-    
-    cleaned_shape = df_cleaned.shape
-    print(f"Cleaned dataset shape: {cleaned_shape}")
-    print(f"Removed {original_shape[0] - cleaned_shape[0]} duplicate rows.")
-    print(f"Removed {original_shape[1] - cleaned_shape[1]} duplicate columns.")
-    
-    if output_path is None:
-        input_file = Path(input_path)
-        output_path = input_file.parent / f"{input_file.stem}_cleaned{input_file.suffix}"
-    
-    df_cleaned.to_csv(output_path, index=False)
-    print(f"Cleaned dataset saved to: {output_path}")
-    
-    return df_cleaned
+    missing_percent = df.isnull().sum() / len(df)
+    columns_to_drop = missing_percent[missing_percent > threshold].index
+    return df.drop(columns=columns_to_drop)
 
-if __name__ == "__main__":
-    import sys
-    if len(sys.argv) < 2:
-        print("Usage: python data_cleaner.py <input_csv> [output_csv]")
-        sys.exit(1)
+def normalize_numeric_columns(df, columns=None):
+    """
+    Normalize specified numeric columns to range [0,1].
+    If columns is None, normalize all numeric columns.
+    """
+    if columns is None:
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+    else:
+        numeric_cols = columns
     
-    input_file = sys.argv[1]
-    output_file = sys.argv[2] if len(sys.argv) > 2 else None
-    clean_dataset(input_file, output_file)
-import pandas as pd
+    for col in numeric_cols:
+        if col in df.columns:
+            col_min = df[col].min()
+            col_max = df[col].max()
+            if col_max != col_min:
+                df[col] = (df[col] - col_min) / (col_max - col_min)
+    
+    return df
 
-def clean_dataset(df, drop_duplicates=True, fill_missing='mean'):
+def encode_categorical(df, columns=None, method='onehot'):
     """
-    Clean a pandas DataFrame by removing duplicates and handling missing values.
-    
-    Args:
-        df (pd.DataFrame): Input DataFrame to clean
-        drop_duplicates (bool): Whether to drop duplicate rows
-        fill_missing (str): Method to fill missing values ('mean', 'median', 'mode', or 'drop')
-    
-    Returns:
-        pd.DataFrame: Cleaned DataFrame
+    Encode categorical columns using specified method.
     """
-    cleaned_df = df.copy()
+    if columns is None:
+        categorical_cols = df.select_dtypes(include=['object']).columns
+    else:
+        categorical_cols = columns
     
-    if drop_duplicates:
-        cleaned_df = cleaned_df.drop_duplicates()
+    if method == 'onehot':
+        df = pd.get_dummies(df, columns=categorical_cols, drop_first=True)
+    elif method == 'label':
+        from sklearn.preprocessing import LabelEncoder
+        le = LabelEncoder()
+        for col in categorical_cols:
+            df[col] = le.fit_transform(df[col])
     
-    if fill_missing == 'drop':
-        cleaned_df = cleaned_df.dropna()
-    elif fill_missing in ['mean', 'median']:
-        numeric_cols = cleaned_df.select_dtypes(include=['number']).columns
-        for col in numeric_cols:
-            if fill_missing == 'mean':
-                cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].mean())
-            else:
-                cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].median())
-    elif fill_missing == 'mode':
-        for col in cleaned_df.columns:
-            cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].mode()[0] if not cleaned_df[col].mode().empty else None)
-    
-    return cleaned_df
+    return df
 
-def validate_dataset(df, required_columns=None):
+def clean_dataset(df, missing_threshold=0.5, normalize=True, encode=True):
     """
-    Validate dataset structure and content.
-    
-    Args:
-        df (pd.DataFrame): DataFrame to validate
-        required_columns (list): List of required column names
-    
-    Returns:
-        dict: Validation results
+    Main cleaning pipeline combining all steps.
     """
-    validation_results = {
-        'is_valid': True,
-        'missing_columns': [],
-        'empty_rows': 0,
-        'null_values': df.isnull().sum().sum()
-    }
+    df_clean = df.copy()
     
-    if required_columns:
-        missing = [col for col in required_columns if col not in df.columns]
-        if missing:
-            validation_results['missing_columns'] = missing
-            validation_results['is_valid'] = False
+    df_clean = remove_missing_values(df_clean, missing_threshold)
     
-    validation_results['empty_rows'] = df.isnull().all(axis=1).sum()
+    if normalize:
+        df_clean = normalize_numeric_columns(df_clean)
     
-    return validation_results
+    if encode:
+        df_clean = encode_categorical(df_clean)
+    
+    return df_clean
