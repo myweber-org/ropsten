@@ -1,72 +1,39 @@
 import pandas as pd
 import numpy as np
+from scipy import stats
 
-def remove_missing_values(df, threshold=0.5):
-    """
-    Remove columns with missing values above threshold.
-    """
-    missing_percent = df.isnull().sum() / len(df)
-    columns_to_drop = missing_percent[missing_percent > threshold].index
-    return df.drop(columns=columns_to_drop)
+def load_data(filepath):
+    """Load dataset from CSV file."""
+    return pd.read_csv(filepath)
 
-def normalize_numeric_columns(df, columns=None):
-    """
-    Normalize specified numeric columns to range [0,1].
-    If columns is None, normalize all numeric columns.
-    """
-    if columns is None:
-        numeric_cols = df.select_dtypes(include=[np.number]).columns
-    else:
-        numeric_cols = columns
+def remove_outliers_iqr(df, column):
+    """Remove outliers using IQR method."""
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+
+def normalize_column(df, column):
+    """Normalize column using min-max scaling."""
+    min_val = df[column].min()
+    max_val = df[column].max()
+    df[column] = (df[column] - min_val) / (max_val - min_val)
+    return df
+
+def clean_dataset(input_file, output_file):
+    """Main function to clean dataset."""
+    df = load_data(input_file)
+    
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
     
     for col in numeric_cols:
-        if col in df.columns:
-            col_min = df[col].min()
-            col_max = df[col].max()
-            if col_max != col_min:
-                df[col] = (df[col] - col_min) / (col_max - col_min)
+        df = remove_outliers_iqr(df, col)
+        df = normalize_column(df, col)
     
-    return df
+    df.to_csv(output_file, index=False)
+    print(f"Cleaned data saved to {output_file}")
 
-def encode_categorical(df, columns=None, method='onehot'):
-    """
-    Encode categorical columns using specified method.
-    """
-    if columns is None:
-        categorical_cols = df.select_dtypes(include=['object']).columns
-    else:
-        categorical_cols = columns
-    
-    if method == 'onehot':
-        df = pd.get_dummies(df, columns=categorical_cols, drop_first=True)
-    elif method == 'label':
-        from sklearn.preprocessing import LabelEncoder
-        le = LabelEncoder()
-        for col in categorical_cols:
-            df[col] = le.fit_transform(df[col])
-    
-    return df
-
-def clean_dataset(df, missing_threshold=0.5, normalize=True, encode=True):
-    """
-    Main cleaning pipeline combining all steps.
-    """
-    df_clean = df.copy()
-    
-    df_clean = remove_missing_values(df_clean, missing_threshold)
-    
-    if normalize:
-        df_clean = normalize_numeric_columns(df_clean)
-    
-    if encode:
-        df_clean = encode_categorical(df_clean)
-    
-    return df_clean
-def remove_duplicates(sequence):
-    seen = set()
-    result = []
-    for item in sequence:
-        if item not in seen:
-            seen.add(item)
-            result.append(item)
-    return result
+if __name__ == "__main__":
+    clean_dataset('raw_data.csv', 'cleaned_data.csv')
