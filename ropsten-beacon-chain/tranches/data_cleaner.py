@@ -96,3 +96,83 @@ if __name__ == "__main__":
     print("Rows removed:", cleaner.get_removed_count())
     print("\nCleaned statistics:")
     print(cleaned_df.describe())
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df, column_mapping=None, drop_duplicates=True, normalize_text=True):
+    """
+    Clean a pandas DataFrame by removing duplicates, handling missing values,
+    and normalizing text columns.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    column_mapping (dict): Optional column name mapping
+    drop_duplicates (bool): Whether to remove duplicate rows
+    normalize_text (bool): Whether to normalize text columns
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame
+    """
+    
+    df_clean = df.copy()
+    
+    if column_mapping:
+        df_clean = df_clean.rename(columns=column_mapping)
+    
+    if drop_duplicates:
+        df_clean = df_clean.drop_duplicates()
+    
+    for col in df_clean.columns:
+        if df_clean[col].dtype == 'object':
+            df_clean[col] = df_clean[col].fillna('')
+            if normalize_text:
+                df_clean[col] = df_clean[col].str.strip().str.lower()
+        else:
+            df_clean[col] = df_clean[col].fillna(np.nan)
+    
+    return df_clean
+
+def validate_data(df, required_columns=None, min_rows=1):
+    """
+    Validate DataFrame structure and content.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate
+    required_columns (list): List of required column names
+    min_rows (int): Minimum number of rows required
+    
+    Returns:
+    tuple: (is_valid, error_message)
+    """
+    
+    if df.empty:
+        return False, "DataFrame is empty"
+    
+    if len(df) < min_rows:
+        return False, f"DataFrame has fewer than {min_rows} rows"
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            return False, f"Missing required columns: {missing_cols}"
+    
+    return True, "Data validation passed"
+
+if __name__ == "__main__":
+    sample_data = {
+        'Name': ['John Doe', 'Jane Smith', 'John Doe', 'Bob Johnson', ''],
+        'Age': [25, 30, 25, 35, None],
+        'Email': ['JOHN@example.com', 'JANE@example.com', 'john@example.com', 'bob@example.com', '']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\n" + "="*50 + "\n")
+    
+    cleaned_df = clean_dataset(df, drop_duplicates=True, normalize_text=True)
+    print("Cleaned DataFrame:")
+    print(cleaned_df)
+    
+    is_valid, message = validate_data(cleaned_df, required_columns=['Name', 'Email'])
+    print(f"\nValidation: {is_valid} - {message}")
