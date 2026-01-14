@@ -150,3 +150,102 @@ if __name__ == "__main__":
         print(f"\nStatistics for {col}:")
         for key, value in stats_info.items():
             print(f"{key}: {value:.4f}")
+import pandas as pd
+import numpy as np
+
+def clean_csv_data(input_file, output_file, missing_strategy='mean'):
+    """
+    Clean CSV data by handling missing values and removing duplicates.
+    
+    Args:
+        input_file (str): Path to input CSV file
+        output_file (str): Path to save cleaned CSV file
+        missing_strategy (str): Strategy for handling missing values
+                               ('mean', 'median', 'drop', 'zero')
+    """
+    try:
+        df = pd.read_csv(input_file)
+        
+        print(f"Original data shape: {df.shape}")
+        print(f"Missing values per column:\n{df.isnull().sum()}")
+        
+        df_cleaned = df.copy()
+        
+        df_cleaned = df_cleaned.drop_duplicates()
+        print(f"After removing duplicates: {df_cleaned.shape}")
+        
+        numeric_cols = df_cleaned.select_dtypes(include=[np.number]).columns
+        
+        for col in numeric_cols:
+            if df_cleaned[col].isnull().any():
+                if missing_strategy == 'mean':
+                    fill_value = df_cleaned[col].mean()
+                elif missing_strategy == 'median':
+                    fill_value = df_cleaned[col].median()
+                elif missing_strategy == 'zero':
+                    fill_value = 0
+                elif missing_strategy == 'drop':
+                    df_cleaned = df_cleaned.dropna(subset=[col])
+                    continue
+                else:
+                    raise ValueError(f"Unknown strategy: {missing_strategy}")
+                
+                df_cleaned[col] = df_cleaned[col].fillna(fill_value)
+                print(f"Filled missing values in {col} with {fill_value:.2f}")
+        
+        df_cleaned.to_csv(output_file, index=False)
+        
+        print(f"Cleaned data saved to: {output_file}")
+        print(f"Final data shape: {df_cleaned.shape}")
+        print(f"Missing values after cleaning:\n{df_cleaned.isnull().sum()}")
+        
+        return df_cleaned
+        
+    except FileNotFoundError:
+        print(f"Error: Input file '{input_file}' not found.")
+        return None
+    except Exception as e:
+        print(f"Error during data cleaning: {str(e)}")
+        return None
+
+def validate_data(df, required_columns=None):
+    """
+    Validate the cleaned dataframe.
+    
+    Args:
+        df (pd.DataFrame): Dataframe to validate
+        required_columns (list): List of required column names
+    
+    Returns:
+        bool: True if validation passes, False otherwise
+    """
+    if df is None or df.empty:
+        print("Validation failed: DataFrame is empty or None")
+        return False
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            print(f"Validation failed: Missing required columns: {missing_cols}")
+            return False
+    
+    if df.isnull().any().any():
+        print("Validation failed: DataFrame contains null values")
+        return False
+    
+    print("Data validation passed")
+    return True
+
+if __name__ == "__main__":
+    input_csv = "raw_data.csv"
+    output_csv = "cleaned_data.csv"
+    
+    cleaned_df = clean_csv_data(input_csv, output_csv, missing_strategy='mean')
+    
+    if cleaned_df is not None:
+        validation_passed = validate_data(cleaned_df)
+        
+        if validation_passed:
+            print("Data cleaning completed successfully")
+        else:
+            print("Data cleaning completed but validation failed")
