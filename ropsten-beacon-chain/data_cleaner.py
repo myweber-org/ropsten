@@ -1,31 +1,57 @@
-
 import pandas as pd
 import numpy as np
 
-def remove_outliers_iqr(df, column):
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
-    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
-
-def clean_dataset(file_path, output_path):
+def clean_csv_data(input_file, output_file):
+    """
+    Load a CSV file, clean missing values, and save cleaned data.
+    """
     try:
-        df = pd.read_csv(file_path)
-        numeric_columns = df.select_dtypes(include=[np.number]).columns
+        df = pd.read_csv(input_file)
+        print(f"Original data shape: {df.shape}")
         
-        for col in numeric_columns:
-            df = remove_outliers_iqr(df, col)
+        # Check for missing values
+        missing_counts = df.isnull().sum()
+        print("Missing values per column:")
+        print(missing_counts[missing_counts > 0])
         
-        df.to_csv(output_path, index=False)
-        print(f"Cleaned data saved to {output_path}")
-        return True
+        # Fill numeric columns with median
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        for col in numeric_cols:
+            if df[col].isnull().any():
+                median_val = df[col].median()
+                df[col].fillna(median_val, inplace=True)
+                print(f"Filled missing values in {col} with median: {median_val}")
+        
+        # Fill categorical columns with mode
+        categorical_cols = df.select_dtypes(include=['object']).columns
+        for col in categorical_cols:
+            if df[col].isnull().any():
+                mode_val = df[col].mode()[0]
+                df[col].fillna(mode_val, inplace=True)
+                print(f"Filled missing values in {col} with mode: {mode_val}")
+        
+        # Remove duplicate rows
+        initial_rows = len(df)
+        df.drop_duplicates(inplace=True)
+        duplicates_removed = initial_rows - len(df)
+        print(f"Removed {duplicates_removed} duplicate rows")
+        
+        # Save cleaned data
+        df.to_csv(output_file, index=False)
+        print(f"Cleaned data saved to {output_file}")
+        print(f"Final data shape: {df.shape}")
+        
+        return df
+        
+    except FileNotFoundError:
+        print(f"Error: File {input_file} not found")
+        return None
     except Exception as e:
-        print(f"Error during cleaning: {e}")
-        return False
+        print(f"Error during data cleaning: {str(e)}")
+        return None
 
 if __name__ == "__main__":
-    input_file = "raw_data.csv"
-    output_file = "cleaned_data.csv"
-    clean_dataset(input_file, output_file)
+    # Example usage
+    input_csv = "raw_data.csv"
+    output_csv = "cleaned_data.csv"
+    cleaned_df = clean_csv_data(input_csv, output_csv)
