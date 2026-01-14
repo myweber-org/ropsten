@@ -97,3 +97,108 @@ def clean_dataset(input_file, output_file):
 
 if __name__ == "__main__":
     clean_dataset('raw_data.csv', 'cleaned_data.csv')
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+def normalize_data(data, method='zscore'):
+    """
+    Normalize data using specified method.
+    
+    Args:
+        data: numpy array or pandas Series
+        method: 'zscore', 'minmax', or 'robust'
+    
+    Returns:
+        Normalized data
+    """
+    if method == 'zscore':
+        return (data - np.mean(data)) / np.std(data)
+    elif method == 'minmax':
+        return (data - np.min(data)) / (np.max(data) - np.min(data))
+    elif method == 'robust':
+        return (data - np.median(data)) / stats.iqr(data)
+    else:
+        raise ValueError("Method must be 'zscore', 'minmax', or 'robust'")
+
+def remove_outliers_iqr(data, threshold=1.5):
+    """
+    Remove outliers using IQR method.
+    
+    Args:
+        data: numpy array or pandas Series
+        threshold: multiplier for IQR
+    
+    Returns:
+        Data with outliers removed
+    """
+    q1 = np.percentile(data, 25)
+    q3 = np.percentile(data, 75)
+    iqr = q3 - q1
+    lower_bound = q1 - threshold * iqr
+    upper_bound = q3 + threshold * iqr
+    return data[(data >= lower_bound) & (data <= upper_bound)]
+
+def clean_dataset(df, columns=None, normalize=True, remove_outliers=True):
+    """
+    Clean dataset by normalizing and removing outliers.
+    
+    Args:
+        df: pandas DataFrame
+        columns: list of columns to clean (default: all numeric columns)
+        normalize: whether to normalize data
+        remove_outliers: whether to remove outliers
+    
+    Returns:
+        Cleaned DataFrame
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    cleaned_df = df.copy()
+    
+    for col in columns:
+        if remove_outliers:
+            cleaned_df[col] = remove_outliers_iqr(cleaned_df[col])
+        
+        if normalize and not cleaned_df[col].empty:
+            cleaned_df[col] = normalize_data(cleaned_df[col], method='zscore')
+    
+    return cleaned_df.dropna()
+
+def calculate_statistics(data):
+    """
+    Calculate descriptive statistics.
+    
+    Args:
+        data: numpy array or pandas Series
+    
+    Returns:
+        Dictionary of statistics
+    """
+    return {
+        'mean': np.mean(data),
+        'median': np.median(data),
+        'std': np.std(data),
+        'min': np.min(data),
+        'max': np.max(data),
+        'q1': np.percentile(data, 25),
+        'q3': np.percentile(data, 75)
+    }
+
+if __name__ == "__main__":
+    # Example usage
+    np.random.seed(42)
+    sample_data = pd.DataFrame({
+        'feature1': np.random.normal(100, 15, 1000),
+        'feature2': np.random.exponential(50, 1000)
+    })
+    
+    print("Original data shape:", sample_data.shape)
+    print("Original statistics:")
+    print(sample_data.describe())
+    
+    cleaned_data = clean_dataset(sample_data)
+    print("\nCleaned data shape:", cleaned_data.shape)
+    print("Cleaned statistics:")
+    print(cleaned_data.describe())
