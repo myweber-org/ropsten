@@ -71,3 +71,90 @@ def example_usage():
 
 if __name__ == "__main__":
     example_usage()
+import pandas as pd
+import numpy as np
+from pathlib import Path
+
+def clean_csv_data(input_path, output_path=None):
+    """
+    Load a CSV file, perform basic cleaning operations,
+    and save the cleaned data.
+    """
+    try:
+        df = pd.read_csv(input_path)
+        
+        # Remove duplicate rows
+        df = df.drop_duplicates()
+        
+        # Fill missing numeric values with column median
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        for col in numeric_cols:
+            df[col] = df[col].fillna(df[col].median())
+        
+        # Fill missing categorical values with mode
+        categorical_cols = df.select_dtypes(include=['object']).columns
+        for col in categorical_cols:
+            df[col] = df[col].fillna(df[col].mode()[0] if not df[col].mode().empty else 'Unknown')
+        
+        # Remove rows where all values are NaN
+        df = df.dropna(how='all')
+        
+        # Reset index after cleaning
+        df = df.reset_index(drop=True)
+        
+        # Save cleaned data
+        if output_path is None:
+            input_file = Path(input_path)
+            output_path = input_file.parent / f"cleaned_{input_file.name}"
+        
+        df.to_csv(output_path, index=False)
+        print(f"Data cleaning completed. Cleaned file saved to: {output_path}")
+        
+        return df, str(output_path)
+    
+    except FileNotFoundError:
+        print(f"Error: Input file not found at {input_path}")
+        return None, None
+    except pd.errors.EmptyDataError:
+        print("Error: The input file is empty")
+        return None, None
+    except Exception as e:
+        print(f"Error during data cleaning: {str(e)}")
+        return None, None
+
+def validate_dataframe(df):
+    """
+    Perform basic validation on the dataframe.
+    """
+    if df is None or df.empty:
+        return False, "DataFrame is empty or None"
+    
+    # Check for remaining NaN values
+    nan_count = df.isna().sum().sum()
+    if nan_count > 0:
+        return False, f"DataFrame contains {nan_count} NaN values"
+    
+    # Check for infinite values in numeric columns
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    for col in numeric_cols:
+        if np.any(np.isinf(df[col])):
+            return False, f"Column {col} contains infinite values"
+    
+    return True, "Data validation passed"
+
+if __name__ == "__main__":
+    # Example usage
+    input_file = "raw_data.csv"
+    cleaned_df, output_file = clean_csv_data(input_file)
+    
+    if cleaned_df is not None:
+        is_valid, message = validate_dataframe(cleaned_df)
+        print(f"Validation result: {is_valid}")
+        print(f"Validation message: {message}")
+        
+        # Display basic statistics
+        print("\nDataFrame Info:")
+        print(cleaned_df.info())
+        
+        print("\nDataFrame Description:")
+        print(cleaned_df.describe())
