@@ -171,4 +171,16 @@ if __name__ == "__main__":
     print()
     
     is_valid, message = validate_dataframe(cleaned_df, required_columns=['A', 'B'])
-    print(f"Validation: {is_valid} - {message}")
+    print(f"Validation: {is_valid} - {message}")def remove_duplicates(input_list):
+    seen = set()
+    result = []
+    for item in input_list:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
+
+def clean_data(data):
+    if not isinstance(data, list):
+        raise TypeError("Input must be a list")
+    return remove_duplicates(data)
