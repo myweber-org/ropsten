@@ -96,4 +96,117 @@ if __name__ == "__main__":
     print(cleaned_df)
     
     is_valid = validate_dataframe(cleaned_df, ['temperature', 'humidity', 'pressure'])
-    print(f"\nData validation passed: {is_valid}")
+    print(f"\nData validation passed: {is_valid}")import re
+from typing import List, Optional
+
+def remove_special_characters(text: str, keep_spaces: bool = True) -> str:
+    """
+    Remove all non-alphanumeric characters from the input string.
+
+    Args:
+        text: The input string to clean.
+        keep_spaces: If True, spaces are preserved. If False, spaces are removed.
+
+    Returns:
+        The cleaned string containing only alphanumeric characters and optionally spaces.
+    """
+    if keep_spaces:
+        pattern = r'[^A-Za-z0-9\s]+'
+    else:
+        pattern = r'[^A-Za-z0-9]+'
+    return re.sub(pattern, '', text)
+
+def normalize_whitespace(text: str) -> str:
+    """
+    Replace multiple consecutive whitespace characters with a single space.
+
+    Args:
+        text: The input string to normalize.
+
+    Returns:
+        The string with normalized whitespace.
+    """
+    return re.sub(r'\s+', ' ', text).strip()
+
+def clean_text_pipeline(
+    text: str,
+    remove_special: bool = True,
+    normalize_space: bool = True,
+    to_lowercase: bool = False
+) -> str:
+    """
+    Apply a series of cleaning operations to the input text.
+
+    Args:
+        text: The input string to process.
+        remove_special: If True, remove special characters.
+        normalize_space: If True, normalize whitespace.
+        to_lowercase: If True, convert the text to lowercase.
+
+    Returns:
+        The cleaned text after applying the specified operations.
+    """
+    result = text
+    if remove_special:
+        result = remove_special_characters(result, keep_spaces=True)
+    if normalize_space:
+        result = normalize_whitespace(result)
+    if to_lowercase:
+        result = result.lower()
+    return result
+
+def batch_clean_texts(
+    texts: List[str],
+    remove_special: bool = True,
+    normalize_space: bool = True,
+    to_lowercase: bool = False
+) -> List[str]:
+    """
+    Apply cleaning operations to a list of text strings.
+
+    Args:
+        texts: A list of input strings to clean.
+        remove_special: If True, remove special characters from each string.
+        normalize_space: If True, normalize whitespace in each string.
+        to_lowercase: If True, convert each string to lowercase.
+
+    Returns:
+        A list of cleaned strings.
+    """
+    return [
+        clean_text_pipeline(t, remove_special, normalize_space, to_lowercase)
+        for t in texts
+    ]
+
+def extract_numbers(text: str, as_strings: bool = False) -> List:
+    """
+    Extract all numbers from the given text.
+
+    Args:
+        text: The input string to search for numbers.
+        as_strings: If True, return numbers as strings. If False, return as integers or floats.
+
+    Returns:
+        A list of extracted numbers.
+    """
+    numbers = re.findall(r'\b\d+\.?\d*\b', text)
+    if as_strings:
+        return numbers
+    result = []
+    for num in numbers:
+        try:
+            if '.' in num:
+                result.append(float(num))
+            else:
+                result.append(int(num))
+        except ValueError:
+            continue
+    return result
+
+if __name__ == "__main__":
+    sample_text = "Hello,   World! This is a test. 123.45 and 678 are numbers."
+    print("Original:", sample_text)
+    cleaned = clean_text_pipeline(sample_text, to_lowercase=True)
+    print("Cleaned:", cleaned)
+    numbers = extract_numbers(sample_text)
+    print("Numbers found:", numbers)
