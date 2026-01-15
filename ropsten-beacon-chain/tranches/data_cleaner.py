@@ -156,3 +156,103 @@ def validate_email_column(df, email_column):
     )
     
     return validated_df
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df, columns_to_check=None, fill_strategy='mean'):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    """
+    # Create a copy to avoid modifying the original DataFrame
+    df_clean = df.copy()
+    
+    # Remove duplicate rows
+    initial_rows = df_clean.shape[0]
+    df_clean.drop_duplicates(inplace=True)
+    duplicates_removed = initial_rows - df_clean.shape[0]
+    
+    # Handle missing values
+    if columns_to_check is None:
+        columns_to_check = df_clean.columns
+    
+    missing_counts = {}
+    for column in columns_to_check:
+        if column in df_clean.columns:
+            missing_count = df_clean[column].isnull().sum()
+            missing_counts[column] = missing_count
+            
+            if missing_count > 0:
+                if fill_strategy == 'mean' and pd.api.types.is_numeric_dtype(df_clean[column]):
+                    fill_value = df_clean[column].mean()
+                elif fill_strategy == 'median' and pd.api.types.is_numeric_dtype(df_clean[column]):
+                    fill_value = df_clean[column].median()
+                elif fill_strategy == 'mode':
+                    fill_value = df_clean[column].mode()[0] if not df_clean[column].mode().empty else np.nan
+                elif fill_strategy == 'ffill':
+                    df_clean[column].fillna(method='ffill', inplace=True)
+                    continue
+                elif fill_strategy == 'bfill':
+                    df_clean[column].fillna(method='bfill', inplace=True)
+                    continue
+                else:
+                    fill_value = 0 if pd.api.types.is_numeric_dtype(df_clean[column]) else 'Unknown'
+                
+                df_clean[column].fillna(fill_value, inplace=True)
+    
+    # Reset index after cleaning
+    df_clean.reset_index(drop=True, inplace=True)
+    
+    # Print cleaning summary
+    print(f"Cleaning completed:")
+    print(f"- Removed {duplicates_removed} duplicate rows")
+    print(f"- Missing values handled using '{fill_strategy}' strategy")
+    
+    for column, count in missing_counts.items():
+        if count > 0:
+            print(f"  - Column '{column}': {count} missing values filled")
+    
+    return df_clean
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    """
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError("Input must be a pandas DataFrame")
+    
+    if df.empty:
+        print("Warning: DataFrame is empty")
+        return False
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            print(f"Warning: Missing required columns: {missing_columns}")
+            return False
+    
+    return True
+
+# Example usage
+if __name__ == "__main__":
+    # Create sample data with some issues
+    data = {
+        'id': [1, 2, 2, 3, 4, 5],
+        'name': ['Alice', 'Bob', 'Bob', 'Charlie', None, 'Eve'],
+        'age': [25, 30, 30, None, 35, 40],
+        'score': [85.5, 92.0, 92.0, 78.5, None, 95.0]
+    }
+    
+    df = pd.DataFrame(data)
+    print("Original DataFrame:")
+    print(df)
+    print("\n" + "="*50 + "\n")
+    
+    # Clean the data
+    cleaned_df = clean_dataset(df, fill_strategy='mean')
+    
+    print("\nCleaned DataFrame:")
+    print(cleaned_df)
+    
+    # Validate the cleaned data
+    is_valid = validate_dataframe(cleaned_df, required_columns=['id', 'name', 'age', 'score'])
+    print(f"\nData validation: {'Passed' if is_valid else 'Failed'}")
