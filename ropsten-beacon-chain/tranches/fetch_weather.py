@@ -1,8 +1,8 @@
 import requests
-import json
 import sys
+import os
 
-def get_weather(api_key, city):
+def get_weather(city, api_key):
     base_url = "http://api.openweathermap.org/data/2.5/weather"
     params = {
         'q': city,
@@ -20,391 +20,40 @@ def get_weather(api_key, city):
 
 def display_weather(data):
     if data is None:
-        print("No data to display.")
+        print("No weather data available.")
         return
-    if data.get('cod') != 200:
-        print(f"Error: {data.get('message', 'Unknown error')}")
-        return
-
-    city = data['name']
-    country = data['sys']['country']
-    temp = data['main']['temp']
-    humidity = data['main']['humidity']
-    weather_desc = data['weather'][0]['description']
-    wind_speed = data['wind']['speed']
-
-    print(f"Weather in {city}, {country}:")
-    print(f"  Temperature: {temp}°C")
-    print(f"  Conditions: {weather_desc}")
-    print(f"  Humidity: {humidity}%")
-    print(f"  Wind Speed: {wind_speed} m/s")
-
-def main():
-    if len(sys.argv) < 3:
-        print("Usage: python fetch_weather.py <API_KEY> <CITY_NAME>")
-        sys.exit(1)
-
-    api_key = sys.argv[1]
-    city = ' '.join(sys.argv[2:])
-
-    weather_data = get_weather(api_key, city)
-    display_weather(weather_data)
-
-if __name__ == "__main__":
-    main()import requests
-import json
-import sys
-
-def get_weather(api_key, city):
-    base_url = "http://api.openweathermap.org/data/2.5/weather"
-    params = {
-        'q': city,
-        'appid': api_key,
-        'units': 'metric'
-    }
     try:
-        response = requests.get(base_url, params=params)
-        response.raise_for_status()
-        data = response.json()
-        return data
-    except requests.exceptions.RequestException as e:
-        print(f"Error fetching weather data: {e}")
-        return None
+        city = data['name']
+        country = data['sys']['country']
+        temp = data['main']['temp']
+        feels_like = data['main']['feels_like']
+        humidity = data['main']['humidity']
+        weather_desc = data['weather'][0]['description']
+        wind_speed = data['wind']['speed']
+        
+        print(f"Weather in {city}, {country}:")
+        print(f"  Temperature: {temp}°C (feels like {feels_like}°C)")
+        print(f"  Conditions: {weather_desc}")
+        print(f"  Humidity: {humidity}%")
+        print(f"  Wind Speed: {wind_speed} m/s")
+    except KeyError as e:
+        print(f"Unexpected data format: missing key {e}")
 
-def display_weather(data):
-    if data is None:
-        print("No data to display.")
-        return
-    if data.get('cod') != 200:
-        print(f"Error: {data.get('message', 'Unknown error')}")
-        return
-
-    city = data['name']
-    country = data['sys']['country']
-    temp = data['main']['temp']
-    feels_like = data['main']['feels_like']
-    humidity = data['main']['humidity']
-    weather_desc = data['weather'][0]['description']
-    wind_speed = data['wind']['speed']
-
-    print(f"Weather in {city}, {country}:")
-    print(f"  Temperature: {temp}°C (feels like {feels_like}°C)")
-    print(f"  Conditions: {weather_desc}")
-    print(f"  Humidity: {humidity}%")
-    print(f"  Wind Speed: {wind_speed} m/s")
-
-if __name__ == "__main__":
-    if len(sys.argv) < 3:
-        print("Usage: python fetch_weather.py <API_KEY> <CITY_NAME>")
+def main():
+    if len(sys.argv) < 2:
+        print("Usage: python fetch_weather.py <city_name>")
         sys.exit(1)
-
-    api_key = sys.argv[1]
-    city = ' '.join(sys.argv[2:])
-    weather_data = get_weather(api_key, city)
+    
+    city = ' '.join(sys.argv[1:])
+    api_key = os.environ.get('OWM_API_KEY')
+    
+    if not api_key:
+        print("Error: OWM_API_KEY environment variable not set.")
+        print("Please set your OpenWeatherMap API key as OWM_API_KEY.")
+        sys.exit(1)
+    
+    weather_data = get_weather(city, api_key)
     display_weather(weather_data)
-import requests
-import json
-from datetime import datetime
-
-class WeatherFetcher:
-    def __init__(self, api_key):
-        self.api_key = api_key
-        self.base_url = "http://api.openweathermap.org/data/2.5/weather"
-
-    def get_weather(self, city):
-        params = {
-            'q': city,
-            'appid': self.api_key,
-            'units': 'metric'
-        }
-        
-        try:
-            response = requests.get(self.base_url, params=params)
-            response.raise_for_status()
-            data = response.json()
-            
-            return {
-                'city': data['name'],
-                'temperature': data['main']['temp'],
-                'humidity': data['main']['humidity'],
-                'description': data['weather'][0]['description'],
-                'timestamp': datetime.fromtimestamp(data['dt']).strftime('%Y-%m-%d %H:%M:%S')
-            }
-        except requests.exceptions.RequestException as e:
-            print(f"Error fetching weather data: {e}")
-            return None
-        except KeyError as e:
-            print(f"Unexpected API response format: {e}")
-            return None
-
-def display_weather(weather_data):
-    if weather_data:
-        print("\n" + "="*40)
-        print(f"Weather Report for {weather_data['city']}")
-        print("="*40)
-        print(f"Temperature: {weather_data['temperature']}°C")
-        print(f"Humidity: {weather_data['humidity']}%")
-        print(f"Conditions: {weather_data['description'].title()}")
-        print(f"Last Updated: {weather_data['timestamp']}")
-        print("="*40)
-    else:
-        print("Unable to fetch weather data.")
-
-if __name__ == "__main__":
-    API_KEY = "your_api_key_here"
-    fetcher = WeatherFetcher(API_KEY)
-    
-    city = input("Enter city name: ").strip()
-    if city:
-        weather = fetcher.get_weather(city)
-        display_weather(weather)
-    else:
-        print("City name cannot be empty.")import requests
-import json
-from datetime import datetime
-from typing import Optional, Dict, Any
-
-class WeatherFetcher:
-    BASE_URL = "http://api.openweathermap.org/data/2.5/weather"
-    
-    def __init__(self, api_key: str):
-        self.api_key = api_key
-        
-    def get_weather(self, city: str, country_code: Optional[str] = None) -> Dict[str, Any]:
-        query = city
-        if country_code:
-            query = f"{city},{country_code}"
-            
-        params = {
-            'q': query,
-            'appid': self.api_key,
-            'units': 'metric'
-        }
-        
-        try:
-            response = requests.get(self.BASE_URL, params=params, timeout=10)
-            response.raise_for_status()
-            data = response.json()
-            
-            return {
-                'city': data['name'],
-                'country': data['sys']['country'],
-                'temperature': data['main']['temp'],
-                'feels_like': data['main']['feels_like'],
-                'humidity': data['main']['humidity'],
-                'pressure': data['main']['pressure'],
-                'description': data['weather'][0]['description'],
-                'wind_speed': data['wind']['speed'],
-                'wind_direction': data['wind']['deg'],
-                'visibility': data.get('visibility', 'N/A'),
-                'cloudiness': data['clouds']['all'],
-                'sunrise': datetime.fromtimestamp(data['sys']['sunrise']).strftime('%H:%M:%S'),
-                'sunset': datetime.fromtimestamp(data['sys']['sunset']).strftime('%H:%M:%S'),
-                'timestamp': datetime.fromtimestamp(data['dt']).strftime('%Y-%m-%d %H:%M:%S')
-            }
-            
-        except requests.exceptions.RequestException as e:
-            return {'error': f'Network error: {str(e)}'}
-        except KeyError as e:
-            return {'error': f'Invalid response format: missing key {str(e)}'}
-        except json.JSONDecodeError:
-            return {'error': 'Invalid JSON response'}
-            
-    def display_weather(self, weather_data: Dict[str, Any]) -> None:
-        if 'error' in weather_data:
-            print(f"Error: {weather_data['error']}")
-            return
-            
-        print("\n" + "="*50)
-        print(f"Weather Report for {weather_data['city']}, {weather_data['country']}")
-        print("="*50)
-        print(f"Temperature: {weather_data['temperature']}°C")
-        print(f"Feels like: {weather_data['feels_like']}°C")
-        print(f"Conditions: {weather_data['description'].title()}")
-        print(f"Humidity: {weather_data['humidity']}%")
-        print(f"Pressure: {weather_data['pressure']} hPa")
-        print(f"Wind: {weather_data['wind_speed']} m/s at {weather_data['wind_direction']}°")
-        print(f"Visibility: {weather_data['visibility']} meters")
-        print(f"Cloudiness: {weather_data['cloudiness']}%")
-        print(f"Sunrise: {weather_data['sunrise']}")
-        print(f"Sunset: {weather_data['sunset']}")
-        print(f"Last updated: {weather_data['timestamp']}")
-        print("="*50)
-
-def main():
-    api_key = "your_api_key_here"
-    fetcher = WeatherFetcher(api_key)
-    
-    cities = [
-        ("London", "UK"),
-        ("New York", "US"),
-        ("Tokyo", "JP"),
-        ("Paris", "FR")
-    ]
-    
-    for city, country in cities:
-        weather = fetcher.get_weather(city, country)
-        fetcher.display_weather(weather)
-
-if __name__ == "__main__":
-    main()import requests
-import json
-from datetime import datetime
-
-class WeatherFetcher:
-    def __init__(self, api_key):
-        self.api_key = api_key
-        self.base_url = "http://api.openweathermap.org/data/2.5/weather"
-
-    def get_weather(self, city_name):
-        params = {
-            'q': city_name,
-            'appid': self.api_key,
-            'units': 'metric'
-        }
-        
-        try:
-            response = requests.get(self.base_url, params=params, timeout=10)
-            response.raise_for_status()
-            data = response.json()
-            
-            if data.get('cod') != 200:
-                return self._format_error(data.get('message', 'Unknown error'))
-            
-            return self._format_weather_data(data)
-            
-        except requests.exceptions.RequestException as e:
-            return f"Network error: {str(e)}"
-        except json.JSONDecodeError:
-            return "Error parsing weather data"
-        except Exception as e:
-            return f"Unexpected error: {str(e)}"
-
-    def _format_weather_data(self, data):
-        main = data['main']
-        weather = data['weather'][0]
-        wind = data['wind']
-        
-        return {
-            'city': data['name'],
-            'country': data['sys']['country'],
-            'temperature': main['temp'],
-            'feels_like': main['feels_like'],
-            'humidity': main['humidity'],
-            'pressure': main['pressure'],
-            'description': weather['description'].title(),
-            'wind_speed': wind['speed'],
-            'wind_direction': self._degrees_to_direction(wind.get('deg', 0)),
-            'timestamp': datetime.fromtimestamp(data['dt']).strftime('%Y-%m-%d %H:%M:%S')
-        }
-
-    def _degrees_to_direction(self, degrees):
-        directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
-        index = round(degrees / 45) % 8
-        return directions[index]
-
-    def _format_error(self, message):
-        return {'error': True, 'message': message}
-
-def main():
-    api_key = "your_api_key_here"
-    fetcher = WeatherFetcher(api_key)
-    
-    cities = ["London", "New York", "Tokyo", "Paris"]
-    
-    for city in cities:
-        print(f"\nFetching weather for {city}...")
-        result = fetcher.get_weather(city)
-        
-        if isinstance(result, dict) and not result.get('error'):
-            print(f"City: {result['city']}, {result['country']}")
-            print(f"Temperature: {result['temperature']}°C (Feels like: {result['feels_like']}°C)")
-            print(f"Conditions: {result['description']}")
-            print(f"Humidity: {result['humidity']}% | Pressure: {result['pressure']} hPa")
-            print(f"Wind: {result['wind_speed']} m/s from {result['wind_direction']}")
-            print(f"Last updated: {result['timestamp']}")
-        else:
-            print(f"Failed to fetch weather: {result.get('message', 'Unknown error')}")
-
-if __name__ == "__main__":
-    main()
-import requests
-import json
-from datetime import datetime
-
-class WeatherFetcher:
-    def __init__(self, api_key):
-        self.api_key = api_key
-        self.base_url = "http://api.openweathermap.org/data/2.5/weather"
-        self.session = requests.Session()
-
-    def get_weather(self, city_name, units='metric'):
-        params = {
-            'q': city_name,
-            'appid': self.api_key,
-            'units': units
-        }
-        
-        try:
-            response = self.session.get(self.base_url, params=params, timeout=10)
-            response.raise_for_status()
-            return self._parse_weather_data(response.json())
-        except requests.exceptions.RequestException as e:
-            return {'error': f'Network error: {str(e)}'}
-        except json.JSONDecodeError:
-            return {'error': 'Invalid response from server'}
-        except KeyError as e:
-            return {'error': f'Missing data in response: {str(e)}'}
-
-    def _parse_weather_data(self, data):
-        return {
-            'city': data['name'],
-            'country': data['sys']['country'],
-            'temperature': data['main']['temp'],
-            'feels_like': data['main']['feels_like'],
-            'humidity': data['main']['humidity'],
-            'pressure': data['main']['pressure'],
-            'weather': data['weather'][0]['description'],
-            'wind_speed': data['wind']['speed'],
-            'wind_direction': data['wind'].get('deg', 'N/A'),
-            'visibility': data.get('visibility', 'N/A'),
-            'cloudiness': data['clouds']['all'],
-            'sunrise': datetime.fromtimestamp(data['sys']['sunrise']).strftime('%H:%M:%S'),
-            'sunset': datetime.fromtimestamp(data['sys']['sunset']).strftime('%H:%M:%S'),
-            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        }
-
-    def display_weather(self, weather_data):
-        if 'error' in weather_data:
-            print(f"Error: {weather_data['error']}")
-            return
-        
-        print("\n" + "="*50)
-        print(f"Weather Report for {weather_data['city']}, {weather_data['country']}")
-        print(f"Generated at: {weather_data['timestamp']}")
-        print("="*50)
-        print(f"Temperature: {weather_data['temperature']}°C")
-        print(f"Feels like: {weather_data['feels_like']}°C")
-        print(f"Weather: {weather_data['weather'].title()}")
-        print(f"Humidity: {weather_data['humidity']}%")
-        print(f"Pressure: {weather_data['pressure']} hPa")
-        print(f"Wind: {weather_data['wind_speed']} m/s at {weather_data['wind_direction']}°")
-        print(f"Visibility: {weather_data['visibility']} meters")
-        print(f"Cloudiness: {weather_data['cloudiness']}%")
-        print(f"Sunrise: {weather_data['sunrise']}")
-        print(f"Sunset: {weather_data['sunset']}")
-        print("="*50)
-
-def main():
-    api_key = "your_api_key_here"
-    fetcher = WeatherFetcher(api_key)
-    
-    cities = ["London", "New York", "Tokyo", "Paris"]
-    
-    for city in cities:
-        print(f"\nFetching weather for {city}...")
-        weather = fetcher.get_weather(city)
-        fetcher.display_weather(weather)
 
 if __name__ == "__main__":
     main()
