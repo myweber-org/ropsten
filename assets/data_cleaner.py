@@ -181,4 +181,127 @@ def example_usage():
     print(cleaned_df)
 
 if __name__ == "__main__":
-    example_usage()
+    example_usage()import pandas as pd
+import numpy as np
+from scipy import stats
+
+def normalize_data(df, columns, method='zscore'):
+    """
+    Normalize specified columns in DataFrame.
+    
+    Args:
+        df: pandas DataFrame
+        columns: list of column names to normalize
+        method: 'zscore' or 'minmax'
+    
+    Returns:
+        DataFrame with normalized columns
+    """
+    df_copy = df.copy()
+    
+    for col in columns:
+        if col not in df_copy.columns:
+            continue
+            
+        if method == 'zscore':
+            df_copy[col] = stats.zscore(df_copy[col])
+        elif method == 'minmax':
+            min_val = df_copy[col].min()
+            max_val = df_copy[col].max()
+            if max_val != min_val:
+                df_copy[col] = (df_copy[col] - min_val) / (max_val - min_val)
+    
+    return df_copy
+
+def remove_outliers(df, columns, method='iqr', threshold=1.5):
+    """
+    Remove outliers from specified columns.
+    
+    Args:
+        df: pandas DataFrame
+        columns: list of column names to process
+        method: 'iqr' or 'zscore'
+        threshold: threshold value for outlier detection
+    
+    Returns:
+        DataFrame with outliers removed
+    """
+    df_copy = df.copy()
+    
+    for col in columns:
+        if col not in df_copy.columns:
+            continue
+            
+        if method == 'iqr':
+            Q1 = df_copy[col].quantile(0.25)
+            Q3 = df_copy[col].quantile(0.75)
+            IQR = Q3 - Q1
+            lower_bound = Q1 - threshold * IQR
+            upper_bound = Q3 + threshold * IQR
+            mask = (df_copy[col] >= lower_bound) & (df_copy[col] <= upper_bound)
+            df_copy = df_copy[mask]
+            
+        elif method == 'zscore':
+            z_scores = np.abs(stats.zscore(df_copy[col]))
+            mask = z_scores < threshold
+            df_copy = df_copy[mask]
+    
+    return df_copy.reset_index(drop=True)
+
+def handle_missing_values(df, columns, strategy='mean'):
+    """
+    Handle missing values in specified columns.
+    
+    Args:
+        df: pandas DataFrame
+        columns: list of column names to process
+        strategy: 'mean', 'median', 'mode', or 'drop'
+    
+    Returns:
+        DataFrame with handled missing values
+    """
+    df_copy = df.copy()
+    
+    for col in columns:
+        if col not in df_copy.columns:
+            continue
+            
+        if strategy == 'mean':
+            df_copy[col].fillna(df_copy[col].mean(), inplace=True)
+        elif strategy == 'median':
+            df_copy[col].fillna(df_copy[col].median(), inplace=True)
+        elif strategy == 'mode':
+            df_copy[col].fillna(df_copy[col].mode()[0], inplace=True)
+        elif strategy == 'drop':
+            df_copy = df_copy.dropna(subset=[col])
+    
+    return df_copy
+
+def clean_dataset(df, config):
+    """
+    Apply multiple cleaning operations based on configuration.
+    
+    Args:
+        df: pandas DataFrame
+        config: dictionary with cleaning configuration
+    
+    Returns:
+        Cleaned DataFrame
+    """
+    df_clean = df.copy()
+    
+    if 'missing_values' in config:
+        for col, strategy in config['missing_values'].items():
+            df_clean = handle_missing_values(df_clean, [col], strategy)
+    
+    if 'normalize' in config:
+        for col, method in config['normalize'].items():
+            df_clean = normalize_data(df_clean, [col], method)
+    
+    if 'outliers' in config:
+        for col, params in config['outliers'].items():
+            method = params.get('method', 'iqr')
+            threshold = params.get('threshold', 1.5)
+            df_clean = remove_outliers(df_clean, [col], method, threshold)
+    
+    return df_clean
