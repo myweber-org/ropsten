@@ -1,65 +1,95 @@
+
 import pandas as pd
 import numpy as np
 
-def remove_duplicates(df, subset=None):
+def remove_outliers_iqr(df, column):
     """
-    Remove duplicate rows from DataFrame.
+    Remove outliers from a DataFrame column using the Interquartile Range method.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        column (str): Column name to process
+    
+    Returns:
+        pd.DataFrame: DataFrame with outliers removed
     """
-    return df.drop_duplicates(subset=subset, keep='first')
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    
+    return filtered_df.reset_index(drop=True)
 
-def fill_missing_values(df, strategy='mean', columns=None):
+def calculate_summary_statistics(df, column):
     """
-    Fill missing values using specified strategy.
+    Calculate summary statistics for a column after outlier removal.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        column (str): Column name to analyze
+    
+    Returns:
+        dict: Dictionary containing summary statistics
     """
-    if columns is None:
-        columns = df.columns
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
     
-    df_filled = df.copy()
+    stats = {
+        'mean': df[column].mean(),
+        'median': df[column].median(),
+        'std': df[column].std(),
+        'min': df[column].min(),
+        'max': df[column].max(),
+        'count': len(df[column])
+    }
     
-    for col in columns:
-        if df[col].dtype in [np.float64, np.int64]:
-            if strategy == 'mean':
-                fill_value = df[col].mean()
-            elif strategy == 'median':
-                fill_value = df[col].median()
-            elif strategy == 'mode':
-                fill_value = df[col].mode()[0]
-            else:
-                fill_value = 0
-            
-            df_filled[col] = df[col].fillna(fill_value)
-        else:
-            df_filled[col] = df[col].fillna('Unknown')
-    
-    return df_filled
+    return stats
 
-def normalize_column(df, column, method='minmax'):
+def clean_dataset(df, numeric_columns):
     """
-    Normalize specified column using minmax or z-score.
-    """
-    if method == 'minmax':
-        min_val = df[column].min()
-        max_val = df[column].max()
-        if max_val != min_val:
-            df[column] = (df[column] - min_val) / (max_val - min_val)
-    elif method == 'zscore':
-        mean_val = df[column].mean()
-        std_val = df[column].std()
-        if std_val != 0:
-            df[column] = (df[column] - mean_val) / std_val
+    Clean dataset by removing outliers from multiple numeric columns.
     
-    return df
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        numeric_columns (list): List of numeric column names to clean
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame
+    """
+    cleaned_df = df.copy()
+    
+    for column in numeric_columns:
+        if column in cleaned_df.columns and pd.api.types.is_numeric_dtype(cleaned_df[column]):
+            cleaned_df = remove_outliers_iqr(cleaned_df, column)
+    
+    return cleaned_df
 
-def clean_dataframe(df, duplicate_subset=None, fill_strategy='mean', normalize_cols=None):
-    """
-    Perform comprehensive data cleaning.
-    """
-    df_clean = remove_duplicates(df, duplicate_subset)
-    df_clean = fill_missing_values(df_clean, strategy=fill_strategy)
+if __name__ == "__main__":
+    sample_data = {
+        'temperature': [22, 23, 24, 25, 26, 100, 27, 28, 29, 30, -10],
+        'humidity': [45, 46, 47, 48, 49, 50, 200, 51, 52, 53, -5],
+        'location': ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K']
+    }
     
-    if normalize_cols:
-        for col in normalize_cols:
-            if col in df_clean.columns:
-                df_clean = normalize_column(df_clean, col, method='minmax')
+    df = pd.DataFrame(sample_data)
+    print("Original dataset:")
+    print(df)
+    print("\nDataset shape:", df.shape)
     
-    return df_clean
+    cleaned_df = clean_dataset(df, ['temperature', 'humidity'])
+    print("\nCleaned dataset:")
+    print(cleaned_df)
+    print("\nCleaned dataset shape:", cleaned_df.shape)
+    
+    for column in ['temperature', 'humidity']:
+        stats = calculate_summary_statistics(cleaned_df, column)
+        print(f"\nSummary statistics for {column}:")
+        for key, value in stats.items():
+            print(f"{key}: {value:.2f}")
