@@ -1,101 +1,101 @@
 
 import pandas as pd
 import numpy as np
-from scipy import stats
 
-def remove_outliers_iqr(df, column):
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
-    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+def remove_duplicates(df, subset=None, keep='first'):
+    """
+    Remove duplicate rows from a DataFrame.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    subset (list, optional): Columns to consider for duplicates
+    keep (str): Which duplicates to keep - 'first', 'last', or False
+    
+    Returns:
+    pd.DataFrame: DataFrame with duplicates removed
+    """
+    if df.empty:
+        return df
+    
+    if subset is not None:
+        if not all(col in df.columns for col in subset):
+            raise ValueError("All subset columns must exist in DataFrame")
+    
+    cleaned_df = df.drop_duplicates(subset=subset, keep=keep)
+    
+    removed_count = len(df) - len(cleaned_df)
+    if removed_count > 0:
+        print(f"Removed {removed_count} duplicate rows")
+    
+    return cleaned_df.reset_index(drop=True)
 
-def normalize_minmax(df, column):
-    min_val = df[column].min()
-    max_val = df[column].max()
-    df[column + '_normalized'] = (df[column] - min_val) / (max_val - min_val)
-    return df
-
-def z_score_normalize(df, column):
-    mean_val = df[column].mean()
-    std_val = df[column].std()
-    df[column + '_zscore'] = (df[column] - mean_val) / std_val
-    return df
-
-def clean_dataset(df, numeric_columns):
+def clean_numeric_columns(df, columns):
+    """
+    Clean numeric columns by converting to appropriate types and handling errors.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    columns (list): List of column names to clean
+    
+    Returns:
+    pd.DataFrame: DataFrame with cleaned numeric columns
+    """
     cleaned_df = df.copy()
-    for col in numeric_columns:
+    
+    for col in columns:
         if col in cleaned_df.columns:
-            cleaned_df = remove_outliers_iqr(cleaned_df, col)
-            cleaned_df = normalize_minmax(cleaned_df, col)
-            cleaned_df = z_score_normalize(cleaned_df, col)
+            cleaned_df[col] = pd.to_numeric(cleaned_df[col], errors='coerce')
+    
     return cleaned_df
 
-def main():
-    sample_data = {
-        'feature1': np.random.normal(100, 15, 200),
-        'feature2': np.random.exponential(50, 200),
-        'category': np.random.choice(['A', 'B', 'C'], 200)
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate
+    required_columns (list, optional): List of required column names
+    
+    Returns:
+    bool: True if validation passes, False otherwise
+    """
+    if not isinstance(df, pd.DataFrame):
+        print("Error: Input is not a pandas DataFrame")
+        return False
+    
+    if df.empty:
+        print("Warning: DataFrame is empty")
+        return True
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            print(f"Error: Missing required columns: {missing_columns}")
+            return False
+    
+    return True
+
+def get_data_summary(df):
+    """
+    Generate a summary of the DataFrame.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    
+    Returns:
+    dict: Dictionary containing summary statistics
+    """
+    if df.empty:
+        return {"row_count": 0, "column_count": 0}
+    
+    summary = {
+        "row_count": len(df),
+        "column_count": len(df.columns),
+        "column_names": list(df.columns),
+        "data_types": df.dtypes.to_dict(),
+        "missing_values": df.isnull().sum().to_dict(),
+        "numeric_columns": df.select_dtypes(include=[np.number]).columns.tolist(),
+        "categorical_columns": df.select_dtypes(include=['object']).columns.tolist()
     }
-    df = pd.DataFrame(sample_data)
-    numeric_cols = ['feature1', 'feature2']
-    result_df = clean_dataset(df, numeric_cols)
-    print(f"Original shape: {df.shape}")
-    print(f"Cleaned shape: {result_df.shape}")
-    print(result_df.head())
-
-if __name__ == "__main__":
-    main()
-import pandas as pd
-import numpy as np
-from scipy import stats
-
-class DataCleaner:
-    def __init__(self, df):
-        self.df = df.copy()
-        self.original_shape = df.shape
-
-    def remove_outliers_zscore(self, columns=None, threshold=3):
-        if columns is None:
-            columns = self.df.select_dtypes(include=[np.number]).columns
-        
-        df_clean = self.df.copy()
-        for col in columns:
-            if col in self.df.columns:
-                z_scores = np.abs(stats.zscore(self.df[col].dropna()))
-                mask = z_scores < threshold
-                df_clean = df_clean[mask | self.df[col].isna()]
-        
-        self.df = df_clean.reset_index(drop=True)
-        return self
-
-    def normalize_minmax(self, columns=None):
-        if columns is None:
-            columns = self.df.select_dtypes(include=[np.number]).columns
-        
-        for col in columns:
-            if col in self.df.columns:
-                col_min = self.df[col].min()
-                col_max = self.df[col].max()
-                if col_max > col_min:
-                    self.df[col] = (self.df[col] - col_min) / (col_max - col_min)
-        
-        return self
-
-    def fill_missing_median(self, columns=None):
-        if columns is None:
-            columns = self.df.select_dtypes(include=[np.number]).columns
-        
-        for col in columns:
-            if col in self.df.columns and self.df[col].isna().any():
-                median_val = self.df[col].median()
-                self.df[col] = self.df[col].fillna(median_val)
-        
-        return self
-
-    def get_cleaned_data(self):
-        return self.df
-
-    def get_removed_count(self):
-        return self.original_shape[0] - self.df.shape[0]
+    
+    return summary
