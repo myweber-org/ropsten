@@ -1,6 +1,6 @@
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 from scipy import stats
 
 class DataCleaner:
@@ -8,99 +8,110 @@ class DataCleaner:
         self.df = df.copy()
         self.original_shape = df.shape
         
-    def remove_missing(self, threshold=0.3):
-        missing_percent = self.df.isnull().sum() / len(self.df)
-        columns_to_drop = missing_percent[missing_percent > threshold].index
-        self.df = self.df.drop(columns=columns_to_drop)
-        return self
-    
-    def fill_numeric_missing(self, method='median'):
-        numeric_cols = self.df.select_dtypes(include=[np.number]).columns
-        
-        if method == 'median':
-            fill_values = self.df[numeric_cols].median()
-        elif method == 'mean':
-            fill_values = self.df[numeric_cols].mean()
-        else:
-            fill_values = 0
+    def remove_outliers_iqr(self, columns=None, factor=1.5):
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
             
-        self.df[numeric_cols] = self.df[numeric_cols].fillna(fill_values)
-        return self
+        df_clean = self.df.copy()
+        for col in columns:
+            if col in df_clean.columns:
+                Q1 = df_clean[col].quantile(0.25)
+                Q3 = df_clean[col].quantile(0.75)
+                IQR = Q3 - Q1
+                lower_bound = Q1 - factor * IQR
+                upper_bound = Q3 + factor * IQR
+                
+                mask = (df_clean[col] >= lower_bound) & (df_clean[col] <= upper_bound)
+                df_clean = df_clean[mask]
+                
+        self.df = df_clean
+        removed_count = self.original_shape[0] - self.df.shape[0]
+        return removed_count
     
-    def detect_outliers_zscore(self, threshold=3):
-        numeric_cols = self.df.select_dtypes(include=[np.number]).columns
-        z_scores = np.abs(stats.zscore(self.df[numeric_cols]))
-        outlier_mask = (z_scores > threshold).any(axis=1)
-        return outlier_mask
-    
-    def remove_outliers(self, threshold=3):
-        outlier_mask = self.detect_outliers_zscore(threshold)
-        self.df = self.df[~outlier_mask]
-        return self
-    
-    def normalize_data(self, method='minmax'):
-        numeric_cols = self.df.select_dtypes(include=[np.number]).columns
-        
-        if method == 'minmax':
-            for col in numeric_cols:
-                min_val = self.df[col].min()
-                max_val = self.df[col].max()
+    def normalize_minmax(self, columns=None):
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
+            
+        df_normalized = self.df.copy()
+        for col in columns:
+            if col in df_normalized.columns:
+                min_val = df_normalized[col].min()
+                max_val = df_normalized[col].max()
+                
                 if max_val > min_val:
-                    self.df[col] = (self.df[col] - min_val) / (max_val - min_val)
-        
-        elif method == 'standard':
-            for col in numeric_cols:
-                mean_val = self.df[col].mean()
-                std_val = self.df[col].std()
-                if std_val > 0:
-                    self.df[col] = (self.df[col] - mean_val) / std_val
-        
-        return self
-    
-    def get_cleaned_data(self):
+                    df_normalized[col] = (df_normalized[col] - min_val) / (max_val - min_val)
+                    
+        self.df = df_normalized
         return self.df
     
-    def get_summary(self):
-        cleaned_shape = self.df.shape
-        rows_removed = self.original_shape[0] - cleaned_shape[0]
-        cols_removed = self.original_shape[1] - cleaned_shape[1]
-        
-        summary = {
+    def fill_missing_median(self, columns=None):
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
+            
+        df_filled = self.df.copy()
+        for col in columns:
+            if col in df_filled.columns and df_filled[col].isnull().any():
+                median_val = df_filled[col].median()
+                df_filled[col] = df_filled[col].fillna(median_val)
+                
+        self.df = df_filled
+        filled_count = self.df.isnull().sum().sum()
+        return filled_count
+    
+    def get_clean_data(self):
+        return self.df
+    
+    def get_cleaning_stats(self):
+        stats_dict = {
             'original_rows': self.original_shape[0],
+            'current_rows': self.df.shape[0],
             'original_columns': self.original_shape[1],
-            'cleaned_rows': cleaned_shape[0],
-            'cleaned_columns': cleaned_shape[1],
-            'rows_removed': rows_removed,
-            'columns_removed': cols_removed,
+            'current_columns': self.df.shape[1],
+            'rows_removed': self.original_shape[0] - self.df.shape[0],
             'missing_values': self.df.isnull().sum().sum()
         }
-        return summary
+        return stats_dict
 
-def example_usage():
-    np.random.seed(42)
-    data = {
-        'feature_a': np.random.normal(100, 15, 100),
-        'feature_b': np.random.uniform(0, 1, 100),
-        'feature_c': np.random.exponential(2, 100)
-    }
-    
-    df = pd.DataFrame(data)
-    df.iloc[5:10, 0] = np.nan
-    df.iloc[15:20, 1] = np.nan
-    df.iloc[0, 0] = 500
-    
-    cleaner = DataCleaner(df)
-    cleaned_df = (cleaner
-                  .remove_missing(threshold=0.2)
-                  .fill_numeric_missing('median')
-                  .remove_outliers(threshold=3)
-                  .normalize_data('minmax')
-                  .get_cleaned_data())
-    
-    summary = cleaner.get_summary()
-    return cleaned_df, summary
+def process_dataset(filepath):
+    try:
+        df = pd.read_csv(filepath)
+        cleaner = DataCleaner(df)
+        
+        print(f"Original dataset shape: {df.shape}")
+        
+        outliers_removed = cleaner.remove_outliers_iqr()
+        print(f"Removed {outliers_removed} outliers using IQR method")
+        
+        missing_filled = cleaner.fill_missing_median()
+        print(f"Filled {missing_filled} missing values with median")
+        
+        cleaner.normalize_minmax()
+        print("Applied min-max normalization to numerical columns")
+        
+        stats = cleaner.get_cleaning_stats()
+        print(f"Final dataset shape: {cleaner.df.shape}")
+        print(f"Missing values remaining: {stats['missing_values']}")
+        
+        return cleaner.get_clean_data()
+        
+    except Exception as e:
+        print(f"Error processing dataset: {e}")
+        return None
 
 if __name__ == "__main__":
-    result_df, stats_summary = example_usage()
-    print(f"Cleaned data shape: {result_df.shape}")
-    print(f"Processing summary: {stats_summary}")
+    sample_data = pd.DataFrame({
+        'feature_a': np.random.normal(100, 15, 1000),
+        'feature_b': np.random.exponential(50, 1000),
+        'feature_c': np.random.randint(1, 100, 1000)
+    })
+    
+    sample_data.iloc[10:20, 0] = np.nan
+    sample_data.iloc[100:110, 1] = 1000
+    
+    cleaner = DataCleaner(sample_data)
+    cleaned_data = process_dataset('sample_data.csv')
+    
+    if cleaned_data is not None:
+        print("Data cleaning completed successfully")
+        print(f"Cleaned data shape: {cleaned_data.shape}")
+        print(f"Cleaned data summary:\n{cleaned_data.describe()}")
