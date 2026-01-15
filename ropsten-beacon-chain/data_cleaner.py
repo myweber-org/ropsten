@@ -1,212 +1,95 @@
+
 import pandas as pd
 import numpy as np
 
-def remove_outliers_iqr(df, column):
+def remove_outliers_iqr(df, columns=None):
     """
-    Remove outliers from a DataFrame column using the Interquartile Range method.
+    Remove outliers from specified columns using IQR method.
     
-    Args:
-        df (pd.DataFrame): Input DataFrame
-        column (str): Column name to process
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    columns (list): List of column names to process. If None, process all numeric columns.
     
     Returns:
-        pd.DataFrame: DataFrame with outliers removed
-    """
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
-    
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
-    
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
-    
-    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
-    
-    return filtered_df
-
-def clean_numeric_data(df, columns=None):
-    """
-    Clean numeric data by removing outliers from specified columns.
-    If no columns specified, clean all numeric columns.
-    
-    Args:
-        df (pd.DataFrame): Input DataFrame
-        columns (list, optional): List of column names to clean
-    
-    Returns:
-        pd.DataFrame: Cleaned DataFrame
+    pd.DataFrame: DataFrame with outliers removed
     """
     if columns is None:
-        numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
-        columns = numeric_cols
+        columns = df.select_dtypes(include=[np.number]).columns.tolist()
     
-    cleaned_df = df.copy()
+    df_clean = df.copy()
     
     for col in columns:
-        if col in cleaned_df.columns:
-            try:
-                cleaned_df = remove_outliers_iqr(cleaned_df, col)
-            except Exception as e:
-                print(f"Warning: Could not clean column '{col}': {e}")
-    
-    return cleaned_df
-
-def validate_dataframe(df, required_columns=None):
-    """
-    Validate DataFrame structure and content.
-    
-    Args:
-        df (pd.DataFrame): DataFrame to validate
-        required_columns (list, optional): List of required column names
-    
-    Returns:
-        bool: True if validation passes, False otherwise
-    """
-    if not isinstance(df, pd.DataFrame):
-        return False
-    
-    if df.empty:
-        return False
-    
-    if required_columns:
-        missing_cols = [col for col in required_columns if col not in df.columns]
-        if missing_cols:
-            print(f"Missing required columns: {missing_cols}")
-            return False
-    
-    return True
-
-if __name__ == "__main__":
-    sample_data = {
-        'temperature': [22, 23, 24, 25, 26, 100, 27, 28, 29, -10],
-        'humidity': [45, 46, 47, 48, 49, 50, 51, 52, 53, 54],
-        'pressure': [1013, 1014, 1015, 1016, 1017, 2000, 1018, 1019, 1020, 500]
-    }
-    
-    df = pd.DataFrame(sample_data)
-    print("Original data shape:", df.shape)
-    print("Original data:")
-    print(df)
-    
-    cleaned_df = clean_numeric_data(df)
-    print("\nCleaned data shape:", cleaned_df.shape)
-    print("Cleaned data:")
-    print(cleaned_df)
-    
-    is_valid = validate_dataframe(cleaned_df, ['temperature', 'humidity', 'pressure'])
-    print(f"\nData validation passed: {is_valid}")import re
-from typing import List, Optional
-
-def remove_special_characters(text: str, keep_spaces: bool = True) -> str:
-    """
-    Remove all non-alphanumeric characters from the input string.
-
-    Args:
-        text: The input string to clean.
-        keep_spaces: If True, spaces are preserved. If False, spaces are removed.
-
-    Returns:
-        The cleaned string containing only alphanumeric characters and optionally spaces.
-    """
-    if keep_spaces:
-        pattern = r'[^A-Za-z0-9\s]+'
-    else:
-        pattern = r'[^A-Za-z0-9]+'
-    return re.sub(pattern, '', text)
-
-def normalize_whitespace(text: str) -> str:
-    """
-    Replace multiple consecutive whitespace characters with a single space.
-
-    Args:
-        text: The input string to normalize.
-
-    Returns:
-        The string with normalized whitespace.
-    """
-    return re.sub(r'\s+', ' ', text).strip()
-
-def clean_text_pipeline(
-    text: str,
-    remove_special: bool = True,
-    normalize_space: bool = True,
-    to_lowercase: bool = False
-) -> str:
-    """
-    Apply a series of cleaning operations to the input text.
-
-    Args:
-        text: The input string to process.
-        remove_special: If True, remove special characters.
-        normalize_space: If True, normalize whitespace.
-        to_lowercase: If True, convert the text to lowercase.
-
-    Returns:
-        The cleaned text after applying the specified operations.
-    """
-    result = text
-    if remove_special:
-        result = remove_special_characters(result, keep_spaces=True)
-    if normalize_space:
-        result = normalize_whitespace(result)
-    if to_lowercase:
-        result = result.lower()
-    return result
-
-def batch_clean_texts(
-    texts: List[str],
-    remove_special: bool = True,
-    normalize_space: bool = True,
-    to_lowercase: bool = False
-) -> List[str]:
-    """
-    Apply cleaning operations to a list of text strings.
-
-    Args:
-        texts: A list of input strings to clean.
-        remove_special: If True, remove special characters from each string.
-        normalize_space: If True, normalize whitespace in each string.
-        to_lowercase: If True, convert each string to lowercase.
-
-    Returns:
-        A list of cleaned strings.
-    """
-    return [
-        clean_text_pipeline(t, remove_special, normalize_space, to_lowercase)
-        for t in texts
-    ]
-
-def extract_numbers(text: str, as_strings: bool = False) -> List:
-    """
-    Extract all numbers from the given text.
-
-    Args:
-        text: The input string to search for numbers.
-        as_strings: If True, return numbers as strings. If False, return as integers or floats.
-
-    Returns:
-        A list of extracted numbers.
-    """
-    numbers = re.findall(r'\b\d+\.?\d*\b', text)
-    if as_strings:
-        return numbers
-    result = []
-    for num in numbers:
-        try:
-            if '.' in num:
-                result.append(float(num))
-            else:
-                result.append(int(num))
-        except ValueError:
+        if col not in df.columns:
             continue
-    return result
+            
+        Q1 = df[col].quantile(0.25)
+        Q3 = df[col].quantile(0.75)
+        IQR = Q3 - Q1
+        
+        lower_bound = Q1 - 1.5 * IQR
+        upper_bound = Q3 + 1.5 * IQR
+        
+        mask = (df[col] >= lower_bound) & (df[col] <= upper_bound)
+        df_clean = df_clean[mask]
+    
+    return df_clean.reset_index(drop=True)
+
+def calculate_summary_statistics(df, columns=None):
+    """
+    Calculate summary statistics for specified columns.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    columns (list): List of column names to process. If None, process all numeric columns.
+    
+    Returns:
+    pd.DataFrame: Summary statistics
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns.tolist()
+    
+    stats = pd.DataFrame()
+    
+    for col in columns:
+        if col not in df.columns:
+            continue
+            
+        col_stats = {
+            'mean': df[col].mean(),
+            'median': df[col].median(),
+            'std': df[col].std(),
+            'min': df[col].min(),
+            'max': df[col].max(),
+            'q1': df[col].quantile(0.25),
+            'q3': df[col].quantile(0.75),
+            'count': df[col].count(),
+            'missing': df[col].isnull().sum()
+        }
+        
+        stats[col] = pd.Series(col_stats)
+    
+    return stats.T
 
 if __name__ == "__main__":
-    sample_text = "Hello,   World! This is a test. 123.45 and 678 are numbers."
-    print("Original:", sample_text)
-    cleaned = clean_text_pipeline(sample_text, to_lowercase=True)
-    print("Cleaned:", cleaned)
-    numbers = extract_numbers(sample_text)
-    print("Numbers found:", numbers)
+    # Example usage
+    np.random.seed(42)
+    data = pd.DataFrame({
+        'A': np.random.normal(100, 15, 1000),
+        'B': np.random.exponential(50, 1000),
+        'C': np.random.uniform(0, 200, 1000)
+    })
+    
+    # Add some outliers
+    data.loc[10, 'A'] = 500
+    data.loc[20, 'B'] = 1000
+    data.loc[30, 'C'] = -50
+    
+    print("Original data shape:", data.shape)
+    print("\nOriginal summary statistics:")
+    print(calculate_summary_statistics(data))
+    
+    cleaned_data = remove_outliers_iqr(data)
+    
+    print("\nCleaned data shape:", cleaned_data.shape)
+    print("\nCleaned summary statistics:")
+    print(calculate_summary_statistics(cleaned_data))
