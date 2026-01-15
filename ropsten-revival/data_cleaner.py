@@ -129,3 +129,146 @@ if __name__ == "__main__":
     normalized = normalize_data(cleaned, method='minmax')
     print("Normalized DataFrame:")
     print(normalized)
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df, drop_duplicates=True, handle_nulls='drop', null_threshold=0.5):
+    """
+    Clean a pandas DataFrame by handling duplicates and null values.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    drop_duplicates (bool): Whether to drop duplicate rows
+    handle_nulls (str): Strategy for handling nulls - 'drop', 'fill', or 'threshold'
+    null_threshold (float): Threshold for column null percentage when handle_nulls='threshold'
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame
+    """
+    cleaned_df = df.copy()
+    
+    if drop_duplicates:
+        initial_rows = len(cleaned_df)
+        cleaned_df = cleaned_df.drop_duplicates()
+        removed = initial_rows - len(cleaned_df)
+        print(f"Removed {removed} duplicate rows")
+    
+    null_counts = cleaned_df.isnull().sum()
+    total_nulls = null_counts.sum()
+    
+    if total_nulls > 0:
+        print(f"Found {total_nulls} null values in dataset")
+        
+        if handle_nulls == 'drop':
+            cleaned_df = cleaned_df.dropna()
+            print("Dropped rows with null values")
+            
+        elif handle_nulls == 'fill':
+            for column in cleaned_df.columns:
+                if cleaned_df[column].dtype in ['int64', 'float64']:
+                    cleaned_df[column] = cleaned_df[column].fillna(cleaned_df[column].median())
+                else:
+                    cleaned_df[column] = cleaned_df[column].fillna(cleaned_df[column].mode()[0] if not cleaned_df[column].mode().empty else 'Unknown')
+            print("Filled null values with appropriate replacements")
+            
+        elif handle_nulls == 'threshold':
+            columns_to_drop = []
+            for column in cleaned_df.columns:
+                null_percentage = null_counts[column] / len(cleaned_df)
+                if null_percentage > null_threshold:
+                    columns_to_drop.append(column)
+            
+            if columns_to_drop:
+                cleaned_df = cleaned_df.drop(columns=columns_to_drop)
+                print(f"Dropped columns with >{null_threshold*100}% nulls: {columns_to_drop}")
+            
+            cleaned_df = cleaned_df.dropna()
+            print("Dropped remaining rows with null values")
+    
+    print(f"Cleaning complete. Original shape: {df.shape}, Cleaned shape: {cleaned_df.shape}")
+    return cleaned_df
+
+def validate_dataframe(df, required_columns=None, min_rows=1):
+    """
+    Validate DataFrame structure and content.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate
+    required_columns (list): List of required column names
+    min_rows (int): Minimum number of rows required
+    
+    Returns:
+    bool: True if validation passes, False otherwise
+    """
+    if not isinstance(df, pd.DataFrame):
+        print("Error: Input is not a pandas DataFrame")
+        return False
+    
+    if len(df) < min_rows:
+        print(f"Error: DataFrame has fewer than {min_rows} rows")
+        return False
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            print(f"Error: Missing required columns: {missing_columns}")
+            return False
+    
+    return True
+
+def get_data_summary(df):
+    """
+    Generate a summary of the DataFrame.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    
+    Returns:
+    dict: Summary statistics
+    """
+    summary = {
+        'shape': df.shape,
+        'columns': list(df.columns),
+        'dtypes': df.dtypes.to_dict(),
+        'null_counts': df.isnull().sum().to_dict(),
+        'numeric_stats': {}
+    }
+    
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    for col in numeric_cols:
+        summary['numeric_stats'][col] = {
+            'mean': df[col].mean(),
+            'std': df[col].std(),
+            'min': df[col].min(),
+            'max': df[col].max(),
+            'median': df[col].median()
+        }
+    
+    return summary
+
+if __name__ == "__main__":
+    sample_data = {
+        'id': [1, 2, 2, 3, 4, 5],
+        'name': ['Alice', 'Bob', 'Bob', None, 'Eve', None],
+        'age': [25, 30, 30, None, 35, 40],
+        'score': [85.5, 92.0, 92.0, 78.5, None, 88.0]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\n" + "="*50 + "\n")
+    
+    cleaned = clean_dataset(df, handle_nulls='fill')
+    print("\nCleaned DataFrame:")
+    print(cleaned)
+    
+    print("\nData Summary:")
+    summary = get_data_summary(cleaned)
+    for key, value in summary.items():
+        if key != 'numeric_stats':
+            print(f"{key}: {value}")
+    
+    print("\nValidation check:")
+    is_valid = validate_dataframe(cleaned, required_columns=['id', 'name', 'age'])
+    print(f"DataFrame is valid: {is_valid}")
