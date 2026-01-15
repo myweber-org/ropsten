@@ -1,88 +1,65 @@
-
-import numpy as np
 import pandas as pd
+import numpy as np
 
-def remove_outliers_iqr(df, column):
+def remove_duplicates(df, subset=None):
     """
-    Remove outliers from a DataFrame column using the Interquartile Range method.
-    
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    column (str): Column name to clean
-    
-    Returns:
-    pd.DataFrame: DataFrame with outliers removed
+    Remove duplicate rows from DataFrame.
     """
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
-    
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
-    
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
-    
-    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
-    
-    return filtered_df
+    return df.drop_duplicates(subset=subset, keep='first')
 
-def calculate_summary_stats(df, column):
+def fill_missing_values(df, strategy='mean', columns=None):
     """
-    Calculate summary statistics for a DataFrame column.
-    
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    column (str): Column name to analyze
-    
-    Returns:
-    dict: Dictionary containing summary statistics
+    Fill missing values using specified strategy.
     """
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
+    if columns is None:
+        columns = df.columns
     
-    stats = {
-        'mean': df[column].mean(),
-        'median': df[column].median(),
-        'std': df[column].std(),
-        'min': df[column].min(),
-        'max': df[column].max(),
-        'count': df[column].count(),
-        'missing': df[column].isnull().sum()
-    }
+    df_filled = df.copy()
     
-    return stats
+    for col in columns:
+        if df[col].dtype in [np.float64, np.int64]:
+            if strategy == 'mean':
+                fill_value = df[col].mean()
+            elif strategy == 'median':
+                fill_value = df[col].median()
+            elif strategy == 'mode':
+                fill_value = df[col].mode()[0]
+            else:
+                fill_value = 0
+            
+            df_filled[col] = df[col].fillna(fill_value)
+        else:
+            df_filled[col] = df[col].fillna('Unknown')
+    
+    return df_filled
 
 def normalize_column(df, column, method='minmax'):
     """
-    Normalize a DataFrame column using specified method.
-    
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    column (str): Column name to normalize
-    method (str): Normalization method ('minmax' or 'zscore')
-    
-    Returns:
-    pd.DataFrame: DataFrame with normalized column
+    Normalize specified column using minmax or z-score.
     """
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
-    
-    df_copy = df.copy()
-    
     if method == 'minmax':
-        min_val = df_copy[column].min()
-        max_val = df_copy[column].max()
+        min_val = df[column].min()
+        max_val = df[column].max()
         if max_val != min_val:
-            df_copy[column] = (df_copy[column] - min_val) / (max_val - min_val)
-    
+            df[column] = (df[column] - min_val) / (max_val - min_val)
     elif method == 'zscore':
-        mean_val = df_copy[column].mean()
-        std_val = df_copy[column].std()
+        mean_val = df[column].mean()
+        std_val = df[column].std()
         if std_val != 0:
-            df_copy[column] = (df_copy[column] - mean_val) / std_val
+            df[column] = (df[column] - mean_val) / std_val
     
-    else:
-        raise ValueError("Method must be 'minmax' or 'zscore'")
+    return df
+
+def clean_dataframe(df, duplicate_subset=None, fill_strategy='mean', normalize_cols=None):
+    """
+    Perform comprehensive data cleaning.
+    """
+    df_clean = remove_duplicates(df, duplicate_subset)
+    df_clean = fill_missing_values(df_clean, strategy=fill_strategy)
     
-    return df_copy
+    if normalize_cols:
+        for col in normalize_cols:
+            if col in df_clean.columns:
+                df_clean = normalize_column(df_clean, col, method='minmax')
+    
+    return df_clean
