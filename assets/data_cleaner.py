@@ -1,277 +1,99 @@
 
+import pandas as pd
 import numpy as np
-import pandas as pd
+from scipy import stats
 
-def remove_outliers_iqr(df, column):
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
-    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
-
-def normalize_minmax(df, column):
-    min_val = df[column].min()
-    max_val = df[column].max()
-    df[column + '_normalized'] = (df[column] - min_val) / (max_val - min_val)
-    return df
-
-def standardize_zscore(df, column):
-    mean_val = df[column].mean()
-    std_val = df[column].std()
-    df[column + '_standardized'] = (df[column] - mean_val) / std_val
-    return df
-
-def handle_missing_values(df, strategy='mean'):
-    if strategy == 'mean':
-        return df.fillna(df.mean())
-    elif strategy == 'median':
-        return df.fillna(df.median())
-    elif strategy == 'mode':
-        return df.fillna(df.mode().iloc[0])
-    else:
-        return df.dropna()
-
-def clean_dataset(df, numeric_columns):
-    cleaned_df = df.copy()
-    for col in numeric_columns:
-        cleaned_df = remove_outliers_iqr(cleaned_df, col)
-        cleaned_df = normalize_minmax(cleaned_df, col)
-    cleaned_df = handle_missing_values(cleaned_df)
-    return cleaned_df
-def deduplicate_list(original_list):
-    seen = set()
-    deduplicated = []
-    for item in original_list:
-        if item not in seen:
-            seen.add(item)
-            deduplicated.append(item)
-    return deduplicated
-import pandas as pd
-import re
-
-def clean_dataframe(df, columns_to_clean=None, remove_duplicates=True, case_sensitive=False):
-    """
-    Clean a pandas DataFrame by removing duplicates and normalizing string columns.
-    """
-    cleaned_df = df.copy()
+class DataCleaner:
+    def __init__(self, df):
+        self.df = df.copy()
+        self.original_shape = df.shape
+        
+    def remove_missing(self, threshold=0.3):
+        missing_percent = self.df.isnull().sum() / len(self.df)
+        columns_to_drop = missing_percent[missing_percent > threshold].index
+        self.df = self.df.drop(columns=columns_to_drop)
+        return self
     
-    if remove_duplicates:
-        cleaned_df = cleaned_df.drop_duplicates()
+    def fill_numeric_missing(self, method='median'):
+        numeric_cols = self.df.select_dtypes(include=[np.number]).columns
+        
+        for col in numeric_cols:
+            if self.df[col].isnull().any():
+                if method == 'median':
+                    fill_value = self.df[col].median()
+                elif method == 'mean':
+                    fill_value = self.df[col].mean()
+                elif method == 'mode':
+                    fill_value = self.df[col].mode()[0]
+                else:
+                    fill_value = 0
+                
+                self.df[col] = self.df[col].fillna(fill_value)
+        
+        return self
     
-    if columns_to_clean is None:
-        columns_to_clean = cleaned_df.select_dtypes(include=['object']).columns
+    def detect_outliers_zscore(self, threshold=3):
+        numeric_cols = self.df.select_dtypes(include=[np.number]).columns
+        outliers_mask = pd.Series([False] * len(self.df))
+        
+        for col in numeric_cols:
+            z_scores = np.abs(stats.zscore(self.df[col].dropna()))
+            col_outliers = (z_scores > threshold)
+            outliers_mask = outliers_mask | col_outliers.reindex(self.df.index, fill_value=False)
+        
+        return outliers_mask
     
-    for col in columns_to_clean:
-        if col in cleaned_df.columns and cleaned_df[col].dtype == 'object':
-            cleaned_df[col] = cleaned_df[col].apply(lambda x: normalize_string(x, case_sensitive))
+    def remove_outliers(self, threshold=3):
+        outliers_mask = self.detect_outliers_zscore(threshold)
+        self.df = self.df[~outliers_mask]
+        return self
     
-    return cleaned_df
-
-def normalize_string(s, case_sensitive=False):
-    """
-    Normalize a string by stripping whitespace and optionally converting to lowercase.
-    """
-    if not isinstance(s, str):
-        return s
-    
-    s = s.strip()
-    
-    if not case_sensitive:
-        s = s.lower()
-    
-    s = re.sub(r'\s+', ' ', s)
-    
-    return s
-
-def validate_email(email):
-    """
-    Validate an email address using a simple regex pattern.
-    """
-    if not isinstance(email, str):
-        return False
-    
-    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-    return bool(re.match(pattern, email))
-import pandas as pd
-
-def clean_dataset(df, drop_duplicates=True, fill_missing=None):
-    """
-    Clean a pandas DataFrame by removing duplicates and handling missing values.
-    
-    Parameters:
-    df (pd.DataFrame): Input DataFrame to clean.
-    drop_duplicates (bool): Whether to drop duplicate rows.
-    fill_missing (str or dict): Method to fill missing values.
-    
-    Returns:
-    pd.DataFrame: Cleaned DataFrame.
-    """
-    cleaned_df = df.copy()
-    
-    if drop_duplicates:
-        cleaned_df = cleaned_df.drop_duplicates()
-    
-    if fill_missing is not None:
-        if isinstance(fill_missing, dict):
-            cleaned_df = cleaned_df.fillna(fill_missing)
-        elif fill_missing == 'mean':
-            cleaned_df = cleaned_df.fillna(cleaned_df.mean(numeric_only=True))
-        elif fill_missing == 'median':
-            cleaned_df = cleaned_df.fillna(cleaned_df.median(numeric_only=True))
-        elif fill_missing == 'mode':
-            cleaned_df = cleaned_df.fillna(cleaned_df.mode().iloc[0])
-        elif fill_missing == 'ffill':
-            cleaned_df = cleaned_df.fillna(method='ffill')
-        elif fill_missing == 'bfill':
-            cleaned_df = cleaned_df.fillna(method='bfill')
-        else:
-            cleaned_df = cleaned_df.fillna(fill_missing)
-    
-    return cleaned_df
-
-def validate_data(df, required_columns=None, min_rows=1):
-    """
-    Validate DataFrame structure and content.
-    
-    Parameters:
-    df (pd.DataFrame): DataFrame to validate.
-    required_columns (list): List of required column names.
-    min_rows (int): Minimum number of rows required.
-    
-    Returns:
-    tuple: (is_valid, error_message)
-    """
-    if df.empty:
-        return False, "DataFrame is empty"
-    
-    if len(df) < min_rows:
-        return False, f"DataFrame has fewer than {min_rows} rows"
-    
-    if required_columns:
-        missing_cols = [col for col in required_columns if col not in df.columns]
-        if missing_cols:
-            return False, f"Missing required columns: {missing_cols}"
-    
-    return True, "Data validation passed"
-
-if __name__ == "__main__":
-    # Example usage
-    sample_data = {
-        'A': [1, 2, 2, None, 5],
-        'B': [10, None, 30, 40, 50],
-        'C': ['x', 'y', 'y', 'z', None]
-    }
-    
-    df = pd.DataFrame(sample_data)
-    print("Original DataFrame:")
-    print(df)
-    
-    cleaned = clean_dataset(df, drop_duplicates=True, fill_missing='mean')
-    print("\nCleaned DataFrame:")
-    print(cleaned)
-    
-    is_valid, message = validate_data(cleaned, required_columns=['A', 'B'], min_rows=3)
-    print(f"\nValidation: {is_valid} - {message}")import pandas as pd
-import numpy as np
-
-def remove_duplicates(df, subset=None):
-    """
-    Remove duplicate rows from a DataFrame.
-    
-    Args:
-        df (pd.DataFrame): Input DataFrame
-        subset (list, optional): Columns to consider for duplicates
-    
-    Returns:
-        pd.DataFrame: DataFrame with duplicates removed
-    """
-    return df.drop_duplicates(subset=subset, keep='first')
-
-def fill_missing_values(df, strategy='mean', columns=None):
-    """
-    Fill missing values in specified columns.
-    
-    Args:
-        df (pd.DataFrame): Input DataFrame
-        strategy (str): 'mean', 'median', 'mode', or 'constant'
-        columns (list): Columns to fill, None for all numeric columns
-    
-    Returns:
-        pd.DataFrame: DataFrame with filled values
-    """
-    df_filled = df.copy()
-    
-    if columns is None:
-        columns = df.select_dtypes(include=[np.number]).columns
-    
-    for col in columns:
-        if col in df.columns:
-            if strategy == 'mean':
-                df_filled[col] = df[col].fillna(df[col].mean())
-            elif strategy == 'median':
-                df_filled[col] = df[col].fillna(df[col].median())
-            elif strategy == 'mode':
-                df_filled[col] = df[col].fillna(df[col].mode()[0])
-            elif strategy == 'constant':
-                df_filled[col] = df[col].fillna(0)
-    
-    return df_filled
-
-def normalize_columns(df, columns=None, method='minmax'):
-    """
-    Normalize specified columns.
-    
-    Args:
-        df (pd.DataFrame): Input DataFrame
-        columns (list): Columns to normalize
-        method (str): 'minmax' or 'zscore'
-    
-    Returns:
-        pd.DataFrame: DataFrame with normalized columns
-    """
-    df_normalized = df.copy()
-    
-    if columns is None:
-        columns = df.select_dtypes(include=[np.number]).columns
-    
-    for col in columns:
-        if col in df.columns:
+    def normalize_numeric(self, method='minmax'):
+        numeric_cols = self.df.select_dtypes(include=[np.number]).columns
+        
+        for col in numeric_cols:
             if method == 'minmax':
-                min_val = df[col].min()
-                max_val = df[col].max()
-                if max_val > min_val:
-                    df_normalized[col] = (df[col] - min_val) / (max_val - min_val)
+                min_val = self.df[col].min()
+                max_val = self.df[col].max()
+                if max_val != min_val:
+                    self.df[col] = (self.df[col] - min_val) / (max_val - min_val)
             elif method == 'zscore':
-                mean_val = df[col].mean()
-                std_val = df[col].std()
-                if std_val > 0:
-                    df_normalized[col] = (df[col] - mean_val) / std_val
+                mean_val = self.df[col].mean()
+                std_val = self.df[col].std()
+                if std_val != 0:
+                    self.df[col] = (self.df[col] - mean_val) / std_val
+        
+        return self
     
-    return df_normalized
+    def get_cleaned_data(self):
+        return self.df
+    
+    def get_summary(self):
+        removed_rows = self.original_shape[0] - self.df.shape[0]
+        removed_cols = self.original_shape[1] - self.df.shape[1]
+        
+        summary = {
+            'original_shape': self.original_shape,
+            'cleaned_shape': self.df.shape,
+            'removed_rows': removed_rows,
+            'removed_cols': removed_cols,
+            'missing_values': self.df.isnull().sum().sum(),
+            'numeric_columns': len(self.df.select_dtypes(include=[np.number]).columns),
+            'categorical_columns': len(self.df.select_dtypes(include=['object']).columns)
+        }
+        
+        return summary
 
-def clean_dataframe(df, remove_dups=True, fill_na=True, normalize=True):
-    """
-    Apply multiple cleaning operations to a DataFrame.
+def clean_dataset(df, missing_threshold=0.3, outlier_threshold=3, normalize=True):
+    cleaner = DataCleaner(df)
     
-    Args:
-        df (pd.DataFrame): Input DataFrame
-        remove_dups (bool): Whether to remove duplicates
-        fill_na (bool): Whether to fill missing values
-        normalize (bool): Whether to normalize numeric columns
+    cleaner.remove_missing(missing_threshold)
+    cleaner.fill_numeric_missing()
     
-    Returns:
-        pd.DataFrame: Cleaned DataFrame
-    """
-    cleaned_df = df.copy()
-    
-    if remove_dups:
-        cleaned_df = remove_duplicates(cleaned_df)
-    
-    if fill_na:
-        cleaned_df = fill_missing_values(cleaned_df)
+    if outlier_threshold > 0:
+        cleaner.remove_outliers(outlier_threshold)
     
     if normalize:
-        cleaned_df = normalize_columns(cleaned_df)
+        cleaner.normalize_numeric()
     
-    return cleaned_df
+    return cleaner.get_cleaned_data(), cleaner.get_summary()
