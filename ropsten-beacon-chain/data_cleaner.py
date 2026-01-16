@@ -191,3 +191,107 @@ if __name__ == "__main__":
     print(cleaned_df)
     print("\nBasic statistics after cleaning:")
     print(calculate_basic_stats(cleaned_df, 'values'))
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(data, column, multiplier=1.5):
+    """
+    Remove outliers using Interquartile Range method.
+    Returns filtered DataFrame.
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    q1 = data[column].quantile(0.25)
+    q3 = data[column].quantile(0.75)
+    iqr = q3 - q1
+    lower_bound = q1 - multiplier * iqr
+    upper_bound = q3 + multiplier * iqr
+    
+    return data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+
+def normalize_minmax(data, column):
+    """
+    Normalize column values to range [0, 1] using min-max scaling.
+    Returns new Series with normalized values.
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    col_data = data[column]
+    min_val = col_data.min()
+    max_val = col_data.max()
+    
+    if max_val == min_val:
+        return pd.Series([0.5] * len(col_data), index=col_data.index)
+    
+    return (col_data - min_val) / (max_val - min_val)
+
+def standardize_zscore(data, column):
+    """
+    Standardize column values using z-score normalization.
+    Returns new Series with standardized values.
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    col_data = data[column]
+    mean_val = col_data.mean()
+    std_val = col_data.std()
+    
+    if std_val == 0:
+        return pd.Series([0] * len(col_data), index=col_data.index)
+    
+    return (col_data - mean_val) / std_val
+
+def handle_missing_values(data, strategy='mean', columns=None):
+    """
+    Handle missing values in specified columns.
+    Supported strategies: 'mean', 'median', 'mode', 'drop'
+    Returns processed DataFrame.
+    """
+    if columns is None:
+        columns = data.columns
+    
+    result = data.copy()
+    
+    for col in columns:
+        if col not in result.columns:
+            continue
+            
+        if result[col].isnull().any():
+            if strategy == 'drop':
+                result = result.dropna(subset=[col])
+            elif strategy == 'mean':
+                result[col] = result[col].fillna(result[col].mean())
+            elif strategy == 'median':
+                result[col] = result[col].fillna(result[col].median())
+            elif strategy == 'mode':
+                mode_val = result[col].mode()
+                if not mode_val.empty:
+                    result[col] = result[col].fillna(mode_val[0])
+                else:
+                    result[col] = result[col].fillna(0)
+    
+    return result
+
+def validate_dataframe(data, required_columns=None, numeric_columns=None):
+    """
+    Validate DataFrame structure and content.
+    Returns tuple of (is_valid, error_message).
+    """
+    if not isinstance(data, pd.DataFrame):
+        return False, "Input must be a pandas DataFrame"
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in data.columns]
+        if missing_cols:
+            return False, f"Missing required columns: {missing_cols}"
+    
+    if numeric_columns:
+        non_numeric = [col for col in numeric_columns if not pd.api.types.is_numeric_dtype(data[col])]
+        if non_numeric:
+            return False, f"Non-numeric columns specified as numeric: {non_numeric}"
+    
+    return True, "DataFrame validation passed"
