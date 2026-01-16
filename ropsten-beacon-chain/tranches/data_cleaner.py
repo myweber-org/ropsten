@@ -88,3 +88,69 @@ if __name__ == "__main__":
     cleaned = remove_outliers_iqr(sample_data, 'values')
     print("\nCleaned data shape:", cleaned.shape)
     print("Cleaned statistics:", calculate_summary_statistics(cleaned, 'values'))
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df, drop_duplicates=True, fill_missing='mean'):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    """
+    original_shape = df.shape
+    
+    if drop_duplicates:
+        df = df.drop_duplicates()
+        print(f"Removed {original_shape[0] - df.shape[0]} duplicate rows.")
+    
+    if fill_missing:
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        if fill_missing == 'mean':
+            df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].mean())
+        elif fill_missing == 'median':
+            df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].median())
+        elif fill_missing == 'zero':
+            df[numeric_cols] = df[numeric_cols].fillna(0)
+        
+        categorical_cols = df.select_dtypes(include=['object']).columns
+        df[categorical_cols] = df[categorical_cols].fillna('Unknown')
+    
+    print(f"Dataset cleaned. Original shape: {original_shape}, New shape: {df.shape}")
+    return df
+
+def validate_data(df, required_columns=None):
+    """
+    Validate the dataset for required columns and data types.
+    """
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            raise ValueError(f"Missing required columns: {missing_cols}")
+    
+    validation_report = {
+        'total_rows': len(df),
+        'total_columns': len(df.columns),
+        'numeric_columns': len(df.select_dtypes(include=[np.number]).columns),
+        'categorical_columns': len(df.select_dtypes(include=['object']).columns),
+        'missing_values': df.isnull().sum().sum()
+    }
+    
+    return validation_report
+
+if __name__ == "__main__":
+    sample_data = {
+        'id': [1, 2, 2, 3, 4, 5],
+        'value': [10.5, 20.3, 20.3, np.nan, 40.1, 50.0],
+        'category': ['A', 'B', 'B', 'C', None, 'A']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    
+    cleaned_df = clean_dataset(df, drop_duplicates=True, fill_missing='mean')
+    print("\nCleaned DataFrame:")
+    print(cleaned_df)
+    
+    report = validate_data(cleaned_df, required_columns=['id', 'value', 'category'])
+    print("\nValidation Report:")
+    for key, value in report.items():
+        print(f"{key}: {value}")
