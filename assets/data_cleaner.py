@@ -39,3 +39,11 @@ def clean_dataset(df, numeric_columns):
         cleaned_df = normalize_minmax(cleaned_df, col)
     cleaned_df = handle_missing_values(cleaned_df)
     return cleaned_df
+def deduplicate_list(original_list):
+    seen = set()
+    deduplicated = []
+    for item in original_list:
+        if item not in seen:
+            seen.add(item)
+            deduplicated.append(item)
+    return deduplicated
