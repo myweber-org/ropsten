@@ -1,128 +1,118 @@
 
 import os
+import hashlib
 import shutil
+from datetime import datetime
+import logging
 
-def organize_files(directory):
-    if not os.path.exists(directory):
-        print(f"Directory {directory} does not exist.")
+def calculate_file_hash(filepath):
+    """Calculate MD5 hash of a file"""
+    hash_md5 = hashlib.md5()
+    try:
+        with open(filepath, "rb") as f:
+            for chunk in iter(lambda: f.read(4096), b""):
+                hash_md5.update(chunk)
+        return hash_md5.hexdigest()
+    except Exception as e:
+        logging.error(f"Error calculating hash for {filepath}: {e}")
+        return None
+
+def organize_files(source_dir, target_dir):
+    """Organize files by extension and detect duplicates"""
+    
+    if not os.path.exists(source_dir):
+        logging.error(f"Source directory does not exist: {source_dir}")
         return
     
-    for filename in os.listdir(directory):
-        file_path = os.path.join(directory, filename)
-        
-        if os.path.isfile(file_path):
-            file_extension = filename.split('.')[-1] if '.' in filename else 'no_extension'
-            folder_name = file_extension.upper() + '_FILES'
-            folder_path = os.path.join(directory, folder_name)
-            
-            if not os.path.exists(folder_path):
-                os.makedirs(folder_path)
-            
-            shutil.move(file_path, os.path.join(folder_path, filename))
-            print(f"Moved {filename} to {folder_name}/")
-
-if __name__ == "__main__":
-    target_directory = input("Enter the directory path to organize: ").strip()
-    organize_files(target_directory)
-import os
-import shutil
-from pathlib import Path
-
-def organize_files(directory_path):
-    """
-    Organize files in the given directory by moving them into folders
-    based on their file extensions.
-    """
-    if not os.path.exists(directory_path):
-        print(f"Directory '{directory_path}' does not exist.")
-        return
-
-    path = Path(directory_path)
+    if not os.path.exists(target_dir):
+        os.makedirs(target_dir)
     
-    for item in path.iterdir():
-        if item.is_file():
-            file_extension = item.suffix.lower()
+    file_hashes = {}
+    duplicates = []
+    
+    for root, dirs, files in os.walk(source_dir):
+        for filename in files:
+            source_path = os.path.join(root, filename)
             
-            if not file_extension:
-                folder_name = "no_extension"
-            else:
-                folder_name = file_extension[1:] + "_files"
+            if not os.path.isfile(source_path):
+                continue
             
-            target_folder = path / folder_name
-            target_folder.mkdir(exist_ok=True)
+            file_hash = calculate_file_hash(source_path)
+            if file_hash is None:
+                continue
+            
+            if file_hash in file_hashes:
+                duplicates.append(source_path)
+                logging.info(f"Duplicate found: {source_path}")
+                continue
+            
+            file_hashes[file_hash] = source_path
+            
+            file_ext = os.path.splitext(filename)[1].lower()
+            if not file_ext:
+                file_ext = "no_extension"
+            
+            ext_dir = os.path.join(target_dir, file_ext[1:])
+            if not os.path.exists(ext_dir):
+                os.makedirs(ext_dir)
+            
+            target_path = os.path.join(ext_dir, filename)
+            
+            counter = 1
+            while os.path.exists(target_path):
+                name, ext = os.path.splitext(filename)
+                target_path = os.path.join(ext_dir, f"{name}_{counter}{ext}")
+                counter += 1
             
             try:
-                shutil.move(str(item), str(target_folder / item.name))
-                print(f"Moved: {item.name} -> {folder_name}/")
+                shutil.move(source_path, target_path)
+                logging.info(f"Moved: {source_path} -> {target_path}")
             except Exception as e:
-                print(f"Error moving {item.name}: {e}")
+                logging.error(f"Error moving {source_path}: {e}")
+    
+    return duplicates
 
-if __name__ == "__main__":
-    target_directory = input("Enter directory path to organize: ").strip()
-    organize_files(target_directory)
-import os
-import shutil
+def setup_logging():
+    """Configure logging settings"""
+    log_dir = "logs"
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir)
+    
+    log_file = os.path.join(log_dir, f"file_organizer_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log")
+    
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.FileHandler(log_file),
+            logging.StreamHandler()
+        ]
+    )
 
-def organize_files(directory):
-    if not os.path.isdir(directory):
-        print(f"Error: {directory} is not a valid directory.")
+def main():
+    """Main function to organize files"""
+    setup_logging()
+    
+    source_directory = input("Enter source directory path: ").strip()
+    target_directory = input("Enter target directory path: ").strip()
+    
+    if not source_directory or not target_directory:
+        print("Both directories must be specified")
         return
-
-    for filename in os.listdir(directory):
-        file_path = os.path.join(directory, filename)
-
-        if os.path.isfile(file_path):
-            _, extension = os.path.splitext(filename)
-            extension = extension.lower()
-
-            if extension:
-                target_folder = os.path.join(directory, extension[1:] + "_files")
-            else:
-                target_folder = os.path.join(directory, "no_extension_files")
-
-            os.makedirs(target_folder, exist_ok=True)
-            target_path = os.path.join(target_folder, filename)
-
-            try:
-                shutil.move(file_path, target_path)
-                print(f"Moved: {filename} -> {target_folder}")
-            except Exception as e:
-                print(f"Failed to move {filename}: {e}")
+    
+    print(f"Organizing files from {source_directory} to {target_directory}")
+    print("This may take a while depending on the number of files...")
+    
+    duplicates = organize_files(source_directory, target_directory)
+    
+    if duplicates:
+        print(f"\nFound {len(duplicates)} duplicate files:")
+        for dup in duplicates:
+            print(f"  - {dup}")
+    else:
+        print("\nNo duplicate files found")
+    
+    print("\nFile organization completed!")
 
 if __name__ == "__main__":
-    target_directory = input("Enter the directory path to organize: ").strip()
-    organize_files(target_directory)
-import os
-import shutil
-
-def organize_files(directory):
-    if not os.path.isdir(directory):
-        print(f"Error: {directory} is not a valid directory.")
-        return
-
-    for filename in os.listdir(directory):
-        file_path = os.path.join(directory, filename)
-
-        if os.path.isfile(file_path):
-            _, extension = os.path.splitext(filename)
-            extension = extension.lower()
-
-            if extension:
-                folder_name = extension[1:] + "_files"
-            else:
-                folder_name = "no_extension_files"
-
-            target_folder = os.path.join(directory, folder_name)
-
-            if not os.path.exists(target_folder):
-                os.makedirs(target_folder)
-
-            try:
-                shutil.move(file_path, os.path.join(target_folder, filename))
-                print(f"Moved: {filename} -> {folder_name}/")
-            except Exception as e:
-                print(f"Failed to move {filename}: {e}")
-
-if __name__ == "__main__":
-    target_directory = input("Enter the directory path to organize: ").strip()
-    organize_files(target_directory)
+    main()
