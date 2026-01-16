@@ -1,118 +1,55 @@
 
-import pandas as pd
-import numpy as np
-
-def clean_dataset(df, drop_duplicates=True, fill_missing='mean'):
+def remove_duplicates(data_list):
     """
-    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    Remove duplicate entries from a list while preserving order.
     
     Args:
-        df: pandas DataFrame to clean
-        drop_duplicates: If True, remove duplicate rows
-        fill_missing: Strategy for filling missing values ('mean', 'median', 'mode', or 'drop')
+        data_list (list): Input list potentially containing duplicates.
     
     Returns:
-        Cleaned pandas DataFrame
+        list: List with duplicates removed.
     """
-    cleaned_df = df.copy()
+    seen = set()
+    result = []
     
-    if drop_duplicates:
-        initial_rows = len(cleaned_df)
-        cleaned_df = cleaned_df.drop_duplicates()
-        removed = initial_rows - len(cleaned_df)
-        print(f"Removed {removed} duplicate rows")
+    for item in data_list:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
     
-    if fill_missing == 'drop':
-        cleaned_df = cleaned_df.dropna()
-        print("Dropped rows with missing values")
-    elif fill_missing in ['mean', 'median']:
-        numeric_cols = cleaned_df.select_dtypes(include=[np.number]).columns
-        for col in numeric_cols:
-            if cleaned_df[col].isnull().any():
-                if fill_missing == 'mean':
-                    fill_value = cleaned_df[col].mean()
-                else:
-                    fill_value = cleaned_df[col].median()
-                cleaned_df[col] = cleaned_df[col].fillna(fill_value)
-                print(f"Filled missing values in {col} with {fill_missing}: {fill_value:.2f}")
-    elif fill_missing == 'mode':
-        for col in cleaned_df.columns:
-            if cleaned_df[col].isnull().any():
-                fill_value = cleaned_df[col].mode()[0] if not cleaned_df[col].mode().empty else 0
-                cleaned_df[col] = cleaned_df[col].fillna(fill_value)
-                print(f"Filled missing values in {col} with mode: {fill_value}")
-    
-    print(f"Original shape: {df.shape}, Cleaned shape: {cleaned_df.shape}")
-    return cleaned_df
+    return result
 
-def validate_dataframe(df, required_columns=None):
+def clean_numeric_data(values):
     """
-    Validate a DataFrame for basic integrity checks.
+    Clean numeric data by converting strings to floats and removing None values.
     
     Args:
-        df: pandas DataFrame to validate
-        required_columns: List of column names that must be present
+        values (list): List of numeric values as strings or numbers.
     
     Returns:
-        Dictionary with validation results
+        list: Cleaned list of float values.
     """
-    validation_results = {
-        'is_valid': True,
-        'issues': [],
-        'summary': {}
-    }
+    cleaned = []
     
-    if df.empty:
-        validation_results['is_valid'] = False
-        validation_results['issues'].append('DataFrame is empty')
+    for val in values:
+        if val is None:
+            continue
+        
+        try:
+            cleaned.append(float(val))
+        except (ValueError, TypeError):
+            continue
     
-    validation_results['summary']['total_rows'] = len(df)
-    validation_results['summary']['total_columns'] = len(df.columns)
-    validation_results['summary']['missing_values'] = int(df.isnull().sum().sum())
-    validation_results['summary']['duplicate_rows'] = int(df.duplicated().sum())
-    
-    if required_columns:
-        missing_cols = [col for col in required_columns if col not in df.columns]
-        if missing_cols:
-            validation_results['is_valid'] = False
-            validation_results['issues'].append(f'Missing required columns: {missing_cols}')
-    
-    if df.isnull().sum().sum() > 0:
-        validation_results['issues'].append('DataFrame contains missing values')
-    
-    if df.duplicated().sum() > 0:
-        validation_results['issues'].append('DataFrame contains duplicate rows')
-    
-    return validation_results
+    return cleaned
 
-def normalize_numeric_columns(df, columns=None, method='minmax'):
-    """
-    Normalize numeric columns in a DataFrame.
+if __name__ == "__main__":
+    # Example usage
+    sample_data = [1, 2, 2, 3, 4, 4, 5]
+    cleaned_data = remove_duplicates(sample_data)
+    print(f"Original: {sample_data}")
+    print(f"Cleaned: {cleaned_data}")
     
-    Args:
-        df: pandas DataFrame
-        columns: List of columns to normalize (if None, normalize all numeric columns)
-        method: Normalization method ('minmax' or 'zscore')
-    
-    Returns:
-        DataFrame with normalized columns
-    """
-    normalized_df = df.copy()
-    
-    if columns is None:
-        columns = normalized_df.select_dtypes(include=[np.number]).columns
-    
-    for col in columns:
-        if col in normalized_df.columns and pd.api.types.is_numeric_dtype(normalized_df[col]):
-            if method == 'minmax':
-                col_min = normalized_df[col].min()
-                col_max = normalized_df[col].max()
-                if col_max != col_min:
-                    normalized_df[col] = (normalized_df[col] - col_min) / (col_max - col_min)
-            elif method == 'zscore':
-                col_mean = normalized_df[col].mean()
-                col_std = normalized_df[col].std()
-                if col_std != 0:
-                    normalized_df[col] = (normalized_df[col] - col_mean) / col_std
-    
-    return normalized_df
+    numeric_data = ["1.5", "2.3", None, "invalid", "3.7"]
+    cleaned_numeric = clean_numeric_data(numeric_data)
+    print(f"Numeric original: {numeric_data}")
+    print(f"Numeric cleaned: {cleaned_numeric}")
