@@ -1,88 +1,89 @@
 import pandas as pd
-import numpy as np
 
-def clean_dataset(df, drop_duplicates=True, fill_missing=True, fill_strategy='mean'):
+def clean_dataset(df, drop_duplicates=True, fill_missing=None):
     """
     Clean a pandas DataFrame by removing duplicates and handling missing values.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean.
+        drop_duplicates (bool): Whether to drop duplicate rows. Default True.
+        fill_missing (str or dict): Method to fill missing values. 
+            Can be 'mean', 'median', 'mode', or a dictionary of column:value pairs.
+            If None, missing values are not filled. Default None.
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame.
     """
     cleaned_df = df.copy()
     
     if drop_duplicates:
-        initial_rows = cleaned_df.shape[0]
         cleaned_df = cleaned_df.drop_duplicates()
-        removed = initial_rows - cleaned_df.shape[0]
-        print(f"Removed {removed} duplicate rows.")
     
-    if fill_missing and cleaned_df.isnull().sum().any():
-        numeric_cols = cleaned_df.select_dtypes(include=[np.number]).columns
-        categorical_cols = cleaned_df.select_dtypes(exclude=[np.number]).columns
-        
-        for col in numeric_cols:
-            if cleaned_df[col].isnull().any():
-                if fill_strategy == 'mean':
-                    fill_value = cleaned_df[col].mean()
-                elif fill_strategy == 'median':
-                    fill_value = cleaned_df[col].median()
-                elif fill_strategy == 'zero':
-                    fill_value = 0
-                else:
-                    fill_value = cleaned_df[col].mean()
-                
-                cleaned_df[col] = cleaned_df[col].fillna(fill_value)
-                print(f"Filled missing values in '{col}' with {fill_strategy}: {fill_value}")
-        
-        for col in categorical_cols:
-            if cleaned_df[col].isnull().any():
-                mode_value = cleaned_df[col].mode()
-                if not mode_value.empty:
-                    fill_value = mode_value[0]
-                    cleaned_df[col] = cleaned_df[col].fillna(fill_value)
-                    print(f"Filled missing values in '{col}' with mode: {fill_value}")
+    if fill_missing is not None:
+        if isinstance(fill_missing, dict):
+            cleaned_df = cleaned_df.fillna(fill_missing)
+        elif fill_missing == 'mean':
+            cleaned_df = cleaned_df.fillna(cleaned_df.mean(numeric_only=True))
+        elif fill_missing == 'median':
+            cleaned_df = cleaned_df.fillna(cleaned_df.median(numeric_only=True))
+        elif fill_missing == 'mode':
+            cleaned_df = cleaned_df.fillna(cleaned_df.mode().iloc[0])
     
-    print(f"Original shape: {df.shape}, Cleaned shape: {cleaned_df.shape}")
     return cleaned_df
 
-def validate_dataset(df, required_columns=None, unique_constraints=None):
+def validate_dataset(df, required_columns=None, min_rows=1):
     """
-    Validate dataset structure and constraints.
+    Validate a DataFrame for required columns and minimum row count.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate.
+        required_columns (list): List of column names that must be present.
+        min_rows (int): Minimum number of rows required.
+    
+    Returns:
+        tuple: (is_valid, error_message)
     """
-    validation_results = {}
+    if required_columns is not None:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            return False, f"Missing required columns: {missing_columns}"
     
-    if required_columns:
-        missing_cols = [col for col in required_columns if col not in df.columns]
-        validation_results['missing_columns'] = missing_cols
+    if len(df) < min_rows:
+        return False, f"Dataset has fewer than {min_rows} rows"
     
-    if unique_constraints:
-        for constraint in unique_constraints:
-            if constraint in df.columns:
-                duplicates = df[constraint].duplicated().sum()
-                validation_results[f'{constraint}_duplicates'] = duplicates
-    
-    validation_results['total_rows'] = df.shape[0]
-    validation_results['total_columns'] = df.shape[1]
-    validation_results['missing_values'] = df.isnull().sum().sum()
-    
-    return validation_results
+    return True, "Dataset is valid"
 
-if __name__ == "__main__":
-    sample_data = {
-        'id': [1, 2, 2, 3, 4, 5],
-        'value': [10.5, 20.3, 20.3, np.nan, 40.1, 50.0],
-        'category': ['A', 'B', 'B', 'C', np.nan, 'A']
-    }
+def remove_outliers(df, column, method='iqr', threshold=1.5):
+    """
+    Remove outliers from a DataFrame column.
     
-    df = pd.DataFrame(sample_data)
-    print("Original DataFrame:")
-    print(df)
-    print("\n" + "="*50 + "\n")
+    Args:
+        df (pd.DataFrame): Input DataFrame.
+        column (str): Column name to process.
+        method (str): Method for outlier detection. 'iqr' or 'zscore'.
+        threshold (float): Threshold for outlier detection.
     
-    cleaned_df = clean_dataset(df, fill_strategy='mean')
-    print("\nCleaned DataFrame:")
-    print(cleaned_df)
+    Returns:
+        pd.DataFrame: DataFrame with outliers removed.
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
     
-    validation = validate_dataset(cleaned_df, 
-                                 required_columns=['id', 'value', 'category'],
-                                 unique_constraints=['id'])
-    print("\nValidation Results:")
-    for key, value in validation.items():
-        print(f"{key}: {value}")
+    data = df[column].dropna()
+    
+    if method == 'iqr':
+        Q1 = data.quantile(0.25)
+        Q3 = data.quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - threshold * IQR
+        upper_bound = Q3 + threshold * IQR
+        mask = (df[column] >= lower_bound) & (df[column] <= upper_bound)
+    elif method == 'zscore':
+        mean = data.mean()
+        std = data.std()
+        z_scores = (df[column] - mean) / std
+        mask = abs(z_scores) <= threshold
+    else:
+        raise ValueError("Method must be 'iqr' or 'zscore'")
+    
+    return df[mask]
