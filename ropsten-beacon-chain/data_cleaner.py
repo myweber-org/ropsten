@@ -1,87 +1,56 @@
 
-def remove_duplicates_preserve_order(sequence):
-    seen = set()
-    result = []
-    for item in sequence:
-        if item not in seen:
-            seen.add(item)
-            result.append(item)
-    return result
 import pandas as pd
+import numpy as np
 
-def clean_dataset(df, drop_na=True, column_case='lower'):
+def remove_outliers_iqr(df, column):
     """
-    Clean a pandas DataFrame by handling missing values and standardizing column names.
+    Remove outliers from a DataFrame column using the Interquartile Range method.
     
     Parameters:
-    df (pd.DataFrame): Input DataFrame to clean.
-    drop_na (bool): If True, drop rows with any null values. Default is True.
-    column_case (str): Target case for column names ('lower', 'upper', 'title'). Default is 'lower'.
+    df (pd.DataFrame): The input DataFrame.
+    column (str): The column name to process.
+    
+    Returns:
+    pd.DataFrame: DataFrame with outliers removed.
+    """
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    return filtered_df
+
+def clean_dataset(df, numeric_columns):
+    """
+    Clean a dataset by removing outliers from multiple numeric columns.
+    
+    Parameters:
+    df (pd.DataFrame): The input DataFrame.
+    numeric_columns (list): List of column names to clean.
     
     Returns:
     pd.DataFrame: Cleaned DataFrame.
     """
-    df_clean = df.copy()
-    
-    if drop_na:
-        df_clean = df_clean.dropna()
-    
-    if column_case == 'lower':
-        df_clean.columns = df_clean.columns.str.lower()
-    elif column_case == 'upper':
-        df_clean.columns = df_clean.columns.str.upper()
-    elif column_case == 'title':
-        df_clean.columns = df_clean.columns.str.title()
-    
-    df_clean = df_clean.reset_index(drop=True)
-    
-    return df_clean
-
-def validate_numeric_columns(df, numeric_columns):
-    """
-    Validate that specified columns contain only numeric data.
-    
-    Parameters:
-    df (pd.DataFrame): Input DataFrame.
-    numeric_columns (list): List of column names expected to be numeric.
-    
-    Returns:
-    dict: Dictionary with validation results for each column.
-    """
-    validation_results = {}
-    
+    cleaned_df = df.copy()
     for col in numeric_columns:
-        if col in df.columns:
-            non_numeric = pd.to_numeric(df[col], errors='coerce').isna().sum()
-            validation_results[col] = {
-                'total_non_numeric': int(non_numeric),
-                'is_valid': non_numeric == 0
-            }
-        else:
-            validation_results[col] = {
-                'error': 'Column not found',
-                'is_valid': False
-            }
-    
-    return validation_results
+        if col in cleaned_df.columns:
+            cleaned_df = remove_outliers_iqr(cleaned_df, col)
+    return cleaned_df.reset_index(drop=True)
 
 if __name__ == "__main__":
+    # Example usage
     sample_data = {
-        'Name': ['Alice', 'Bob', None, 'David'],
-        'Age': [25, None, 30, 35],
-        'Score': ['90', '85', 'invalid', '95']
+        'A': np.random.randn(100),
+        'B': np.random.exponential(2, 100),
+        'C': np.random.uniform(0, 10, 100)
     }
+    sample_df = pd.DataFrame(sample_data)
+    sample_df.loc[10, 'A'] = 100  # Add an outlier
+    sample_df.loc[20, 'B'] = 50   # Add an outlier
     
-    df = pd.DataFrame(sample_data)
-    print("Original DataFrame:")
-    print(df)
-    print()
-    
-    cleaned_df = clean_dataset(df, drop_na=True, column_case='lower')
-    print("Cleaned DataFrame:")
-    print(cleaned_df)
-    print()
-    
-    validation = validate_numeric_columns(cleaned_df, ['age', 'score'])
-    print("Numeric Validation Results:")
-    print(validation)
+    print("Original shape:", sample_df.shape)
+    cleaned = clean_dataset(sample_df, ['A', 'B'])
+    print("Cleaned shape:", cleaned.shape)
+    print("Outliers removed:", sample_df.shape[0] - cleaned.shape[0])
