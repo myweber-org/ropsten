@@ -1,76 +1,72 @@
 import pandas as pd
+import numpy as np
 
-def clean_dataset(df, remove_duplicates=True, fill_na_method='drop'):
+def remove_outliers_iqr(df, column):
     """
-    Clean a pandas DataFrame by handling null values and optionally removing duplicates.
+    Remove outliers from a DataFrame column using the Interquartile Range (IQR) method.
     
     Parameters:
-    df (pd.DataFrame): Input DataFrame to clean.
-    remove_duplicates (bool): If True, remove duplicate rows.
-    fill_na_method (str): Method to handle null values. Options: 'drop', 'fill_mean', 'fill_median', 'fill_mode'.
+    df (pd.DataFrame): The input DataFrame.
+    column (str): The column name to clean.
     
     Returns:
-    pd.DataFrame: Cleaned DataFrame.
+    pd.DataFrame: DataFrame with outliers removed.
     """
-    cleaned_df = df.copy()
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
     
-    # Handle null values
-    if fill_na_method == 'drop':
-        cleaned_df = cleaned_df.dropna()
-    elif fill_na_method == 'fill_mean':
-        cleaned_df = cleaned_df.fillna(cleaned_df.mean(numeric_only=True))
-    elif fill_na_method == 'fill_median':
-        cleaned_df = cleaned_df.fillna(cleaned_df.median(numeric_only=True))
-    elif fill_na_method == 'fill_mode':
-        cleaned_df = cleaned_df.fillna(cleaned_df.mode().iloc[0])
-    else:
-        raise ValueError("Invalid fill_na_method. Choose from 'drop', 'fill_mean', 'fill_median', 'fill_mode'.")
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
     
-    # Remove duplicates if requested
-    if remove_duplicates:
-        cleaned_df = cleaned_df.drop_duplicates()
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
     
-    return cleaned_df
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    
+    return filtered_df.reset_index(drop=True)
 
-def validate_dataset(df, required_columns=None, min_rows=1):
+def calculate_basic_stats(df, column):
     """
-    Validate a DataFrame for required columns and minimum row count.
+    Calculate basic statistics for a column.
     
     Parameters:
-    df (pd.DataFrame): DataFrame to validate.
-    required_columns (list): List of column names that must be present.
-    min_rows (int): Minimum number of rows required.
+    df (pd.DataFrame): The input DataFrame.
+    column (str): The column name.
     
     Returns:
-    bool: True if validation passes, False otherwise.
+    dict: Dictionary containing statistics.
     """
-    if required_columns:
-        missing_columns = [col for col in required_columns if col not in df.columns]
-        if missing_columns:
-            print(f"Missing required columns: {missing_columns}")
-            return False
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
     
-    if len(df) < min_rows:
-        print(f"Dataset has fewer than {min_rows} rows.")
-        return False
+    stats = {
+        'mean': df[column].mean(),
+        'median': df[column].median(),
+        'std': df[column].std(),
+        'min': df[column].min(),
+        'max': df[column].max(),
+        'count': df[column].count()
+    }
     
-    return True
+    return stats
 
 if __name__ == "__main__":
-    # Example usage
     sample_data = {
-        'A': [1, 2, None, 4, 4],
-        'B': [5, None, 7, 8, 8],
-        'C': ['x', 'y', 'z', 'x', 'x']
+        'values': [10, 12, 12, 13, 12, 11, 14, 13, 15, 102, 12, 13, 14, 150, 11, 10, 9, 12, 13, 14]
     }
     
     df = pd.DataFrame(sample_data)
     print("Original DataFrame:")
     print(df)
+    print(f"\nOriginal shape: {df.shape}")
     
-    cleaned = clean_dataset(df, remove_duplicates=True, fill_na_method='fill_mean')
+    cleaned_df = remove_outliers_iqr(df, 'values')
     print("\nCleaned DataFrame:")
-    print(cleaned)
+    print(cleaned_df)
+    print(f"Cleaned shape: {cleaned_df.shape}")
     
-    is_valid = validate_dataset(cleaned, required_columns=['A', 'B', 'C'], min_rows=1)
-    print(f"\nDataset validation: {is_valid}")
+    stats = calculate_basic_stats(cleaned_df, 'values')
+    print("\nBasic Statistics:")
+    for key, value in stats.items():
+        print(f"{key}: {value:.2f}")
