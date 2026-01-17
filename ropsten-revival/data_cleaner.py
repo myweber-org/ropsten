@@ -1,50 +1,35 @@
-def remove_duplicates(input_list):
-    """
-    Remove duplicate elements from a list while preserving order.
-    Returns a new list with unique elements.
-    """
-    seen = set()
-    result = []
-    for item in input_list:
-        if item not in seen:
-            seen.add(item)
-            result.append(item)
-    return result
+import pandas as pd
+import re
 
-def clean_numeric_strings(string_list):
+def clean_dataframe(df, text_columns=None):
     """
-    Clean a list of strings by removing non-numeric characters
-    and converting to integers where possible.
+    Remove duplicate rows and standardize text in specified columns.
     """
-    cleaned = []
-    for s in string_list:
-        try:
-            numeric_part = ''.join(filter(str.isdigit, s))
-            if numeric_part:
-                cleaned.append(int(numeric_part))
-        except ValueError:
-            continue
-    return cleaned
-
-def validate_email_list(email_list):
-    """
-    Basic email validation for a list of email addresses.
-    Returns only emails containing '@' and '.' characters.
-    """
-    valid_emails = []
-    for email in email_list:
-        if '@' in email and '.' in email.split('@')[-1]:
-            valid_emails.append(email.strip().lower())
-    return valid_emails
-
-if __name__ == "__main__":
-    # Example usage
-    sample_data = [1, 2, 2, 3, 4, 4, 5]
-    print("Original:", sample_data)
-    print("Cleaned:", remove_duplicates(sample_data))
+    # Remove duplicates
+    df_clean = df.drop_duplicates().reset_index(drop=True)
     
-    sample_strings = ["abc123", "456def", "789", "xyz"]
-    print("Numeric cleaned:", clean_numeric_strings(sample_strings))
+    if text_columns:
+        for col in text_columns:
+            if col in df_clean.columns:
+                df_clean[col] = df_clean[col].apply(_standardize_text)
     
-    emails = ["test@example.com", "invalid", "user@domain.org"]
-    print("Valid emails:", validate_email_list(emails))
+    return df_clean
+
+def _standardize_text(text):
+    """
+    Standardize text: lowercase, remove extra spaces, and strip.
+    """
+    if isinstance(text, str):
+        text = text.lower()
+        text = re.sub(r'\s+', ' ', text)
+        text = text.strip()
+    return text
+
+def validate_email(email):
+    """
+    Validate email format using regex.
+    """
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    if isinstance(email, str):
+        return bool(re.match(pattern, email))
+    return False
