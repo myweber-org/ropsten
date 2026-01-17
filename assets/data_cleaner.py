@@ -298,4 +298,97 @@ def example_usage():
     print(normalized_df[['value', 'value_normalized']].head())
 
 if __name__ == "__main__":
-    example_usage()
+    example_usage()import numpy as np
+import pandas as pd
+
+def detect_outliers_iqr(data, column, threshold=1.5):
+    """
+    Detect outliers using IQR method.
+    """
+    q1 = data[column].quantile(0.25)
+    q3 = data[column].quantile(0.75)
+    iqr = q3 - q1
+    lower_bound = q1 - threshold * iqr
+    upper_bound = q3 + threshold * iqr
+    outliers = data[(data[column] < lower_bound) | (data[column] > upper_bound)]
+    return outliers
+
+def remove_outliers(data, column, threshold=1.5):
+    """
+    Remove outliers from specified column.
+    """
+    q1 = data[column].quantile(0.25)
+    q3 = data[column].quantile(0.75)
+    iqr = q3 - q1
+    lower_bound = q1 - threshold * iqr
+    upper_bound = q3 + threshold * iqr
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    return filtered_data
+
+def normalize_minmax(data, column):
+    """
+    Normalize column values to range [0, 1] using min-max scaling.
+    """
+    min_val = data[column].min()
+    max_val = data[column].max()
+    if max_val == min_val:
+        return data[column].apply(lambda x: 0.5)
+    normalized = (data[column] - min_val) / (max_val - min_val)
+    return normalized
+
+def normalize_zscore(data, column):
+    """
+    Normalize column values using z-score standardization.
+    """
+    mean_val = data[column].mean()
+    std_val = data[column].std()
+    if std_val == 0:
+        return data[column].apply(lambda x: 0)
+    standardized = (data[column] - mean_val) / std_val
+    return standardized
+
+def clean_dataset(data, numeric_columns, outlier_threshold=1.5, normalization_method='zscore'):
+    """
+    Clean dataset by removing outliers and normalizing numeric columns.
+    """
+    cleaned_data = data.copy()
+    
+    for column in numeric_columns:
+        if column in cleaned_data.columns:
+            cleaned_data = remove_outliers(cleaned_data, column, outlier_threshold)
+            
+            if normalization_method == 'minmax':
+                cleaned_data[column] = normalize_minmax(cleaned_data, column)
+            elif normalization_method == 'zscore':
+                cleaned_data[column] = normalize_zscore(cleaned_data, column)
+    
+    return cleaned_data
+
+def get_data_summary(data):
+    """
+    Generate statistical summary of the dataset.
+    """
+    summary = {
+        'shape': data.shape,
+        'columns': list(data.columns),
+        'dtypes': data.dtypes.to_dict(),
+        'missing_values': data.isnull().sum().to_dict(),
+        'numeric_summary': data.describe().to_dict() if data.select_dtypes(include=[np.number]).shape[1] > 0 else {}
+    }
+    return summary
+
+def validate_data(data, required_columns, numeric_columns):
+    """
+    Validate dataset structure and content.
+    """
+    missing_columns = [col for col in required_columns if col not in data.columns]
+    
+    if missing_columns:
+        raise ValueError(f"Missing required columns: {missing_columns}")
+    
+    for column in numeric_columns:
+        if column in data.columns:
+            if not pd.api.types.is_numeric_dtype(data[column]):
+                raise TypeError(f"Column {column} must be numeric")
+    
+    return True
