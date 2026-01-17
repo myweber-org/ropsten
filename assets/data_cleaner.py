@@ -1,92 +1,130 @@
+import numpy as np
 import pandas as pd
 
-def remove_duplicates(df, subset=None, keep='first'):
+def remove_outliers_iqr(data, column, factor=1.5):
     """
-    Remove duplicate rows from a DataFrame.
+    Remove outliers using the Interquartile Range method.
     
     Args:
-        df (pd.DataFrame): Input DataFrame.
-        subset (list, optional): Column labels to consider for duplicates.
-        keep (str, optional): Which duplicates to keep.
+        data: pandas DataFrame
+        column: column name to process
+        factor: IQR multiplier (default 1.5)
     
     Returns:
-        pd.DataFrame: DataFrame with duplicates removed.
+        DataFrame with outliers removed
     """
-    if df.empty:
-        return df
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
     
-    cleaned_df = df.drop_duplicates(subset=subset, keep=keep)
+    q1 = data[column].quantile(0.25)
+    q3 = data[column].quantile(0.75)
+    iqr = q3 - q1
+    lower_bound = q1 - factor * iqr
+    upper_bound = q3 + factor * iqr
     
-    removed_count = len(df) - len(cleaned_df)
-    if removed_count > 0:
-        print(f"Removed {removed_count} duplicate rows.")
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    return filtered_data.copy()
+
+def normalize_minmax(data, column):
+    """
+    Normalize data to [0, 1] range using min-max scaling.
+    
+    Args:
+        data: pandas DataFrame
+        column: column name to normalize
+    
+    Returns:
+        Series with normalized values
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    min_val = data[column].min()
+    max_val = data[column].max()
+    
+    if max_val == min_val:
+        return pd.Series([0.5] * len(data), index=data.index)
+    
+    normalized = (data[column] - min_val) / (max_val - min_val)
+    return normalized
+
+def standardize_zscore(data, column):
+    """
+    Standardize data using z-score normalization.
+    
+    Args:
+        data: pandas DataFrame
+        column: column name to standardize
+    
+    Returns:
+        Series with standardized values
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    mean_val = data[column].mean()
+    std_val = data[column].std()
+    
+    if std_val == 0:
+        return pd.Series([0] * len(data), index=data.index)
+    
+    standardized = (data[column] - mean_val) / std_val
+    return standardized
+
+def clean_dataset(df, numeric_columns=None, outlier_factor=1.5, normalization_method='minmax'):
+    """
+    Comprehensive data cleaning pipeline.
+    
+    Args:
+        df: Input DataFrame
+        numeric_columns: List of numeric columns to process (default: all numeric)
+        outlier_factor: IQR factor for outlier removal
+        normalization_method: 'minmax' or 'zscore'
+    
+    Returns:
+        Cleaned DataFrame
+    """
+    if numeric_columns is None:
+        numeric_columns = df.select_dtypes(include=[np.number]).columns.tolist()
+    
+    cleaned_df = df.copy()
+    
+    for col in numeric_columns:
+        if col not in cleaned_df.columns:
+            continue
+            
+        cleaned_df = remove_outliers_iqr(cleaned_df, col, outlier_factor)
+        
+        if normalization_method == 'minmax':
+            cleaned_df[f'{col}_normalized'] = normalize_minmax(cleaned_df, col)
+        elif normalization_method == 'zscore':
+            cleaned_df[f'{col}_standardized'] = standardize_zscore(cleaned_df, col)
+        else:
+            raise ValueError("normalization_method must be 'minmax' or 'zscore'")
     
     return cleaned_df
 
-def validate_dataframe(df):
+def validate_dataframe(df, required_columns=None, min_rows=1):
     """
-    Perform basic validation on DataFrame.
+    Validate DataFrame structure and content.
     
     Args:
-        df (pd.DataFrame): DataFrame to validate.
+        df: DataFrame to validate
+        required_columns: List of required column names
+        min_rows: Minimum number of rows required
     
     Returns:
-        bool: True if DataFrame passes validation.
+        Tuple of (is_valid, error_message)
     """
     if not isinstance(df, pd.DataFrame):
-        raise TypeError("Input must be a pandas DataFrame.")
+        return False, "Input is not a pandas DataFrame"
     
-    if df.empty:
-        print("Warning: DataFrame is empty.")
-        return True
+    if len(df) < min_rows:
+        return False, f"DataFrame has fewer than {min_rows} rows"
     
-    return True
-
-def clean_dataset(file_path, output_path=None):
-    """
-    Load, clean, and save a dataset.
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            return False, f"Missing required columns: {missing_cols}"
     
-    Args:
-        file_path (str): Path to input CSV file.
-        output_path (str, optional): Path for cleaned output.
-    
-    Returns:
-        pd.DataFrame: Cleaned DataFrame.
-    """
-    try:
-        df = pd.read_csv(file_path)
-    except FileNotFoundError:
-        raise FileNotFoundError(f"File not found: {file_path}")
-    
-    if not validate_dataframe(df):
-        raise ValueError("DataFrame validation failed.")
-    
-    df_cleaned = remove_duplicates(df)
-    
-    if output_path:
-        df_cleaned.to_csv(output_path, index=False)
-        print(f"Cleaned data saved to: {output_path}")
-    
-    return df_cleaned
-
-if __name__ == "__main__":
-    sample_data = {
-        'id': [1, 2, 2, 3, 4, 4, 5],
-        'name': ['Alice', 'Bob', 'Bob', 'Charlie', 'David', 'David', 'Eve'],
-        'value': [10, 20, 20, 30, 40, 40, 50]
-    }
-    
-    df = pd.DataFrame(sample_data)
-    print("Original DataFrame:")
-    print(df)
-    print("\nCleaned DataFrame:")
-    cleaned = remove_duplicates(df, subset=['id', 'name'])
-    print(cleaned)
-def deduplicate_list(input_list):
-    seen = set()
-    result = []
-    for item in input_list:
-        if item not in seen:
-            seen.add(item)
-            result.append(item)
-    return result
+    return True, "DataFrame is valid"
