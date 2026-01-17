@@ -86,4 +86,76 @@ def clean_dataset(df, config):
     if config.get('drop_duplicates', False):
         cleaner.drop_duplicates()
     
-    return cleaner.get_cleaned_data()
+    return cleaner.get_cleaned_data()import pandas as pd
+import numpy as np
+from scipy import stats
+
+class DataCleaner:
+    def __init__(self, df):
+        self.df = df.copy()
+        self.numeric_columns = df.select_dtypes(include=[np.number]).columns
+        self.categorical_columns = df.select_dtypes(exclude=[np.number]).columns
+
+    def handle_missing_values(self, strategy='mean', fill_value=None):
+        if strategy == 'mean' and self.numeric_columns.any():
+            self.df[self.numeric_columns] = self.df[self.numeric_columns].fillna(
+                self.df[self.numeric_columns].mean()
+            )
+        elif strategy == 'median' and self.numeric_columns.any():
+            self.df[self.numeric_columns] = self.df[self.numeric_columns].fillna(
+                self.df[self.numeric_columns].median()
+            )
+        elif strategy == 'mode' and self.categorical_columns.any():
+            for col in self.categorical_columns:
+                self.df[col] = self.df[col].fillna(self.df[col].mode()[0])
+        elif fill_value is not None:
+            self.df = self.df.fillna(fill_value)
+        return self
+
+    def detect_outliers_zscore(self, threshold=3):
+        outliers_mask = pd.DataFrame(False, index=self.df.index, columns=self.numeric_columns)
+        for col in self.numeric_columns:
+            z_scores = np.abs(stats.zscore(self.df[col].dropna()))
+            outliers_mask[col] = z_scores > threshold
+        return outliers_mask
+
+    def remove_outliers_iqr(self):
+        cleaned_df = self.df.copy()
+        for col in self.numeric_columns:
+            Q1 = cleaned_df[col].quantile(0.25)
+            Q3 = cleaned_df[col].quantile(0.75)
+            IQR = Q3 - Q1
+            lower_bound = Q1 - 1.5 * IQR
+            upper_bound = Q3 + 1.5 * IQR
+            cleaned_df = cleaned_df[(cleaned_df[col] >= lower_bound) & (cleaned_df[col] <= upper_bound)]
+        self.df = cleaned_df
+        return self
+
+    def get_cleaned_data(self):
+        return self.df
+
+def example_usage():
+    sample_data = {
+        'A': [1, 2, np.nan, 4, 100],
+        'B': [5, 6, 7, np.nan, 9],
+        'C': ['x', 'y', np.nan, 'z', 'x']
+    }
+    df = pd.DataFrame(sample_data)
+    cleaner = DataCleaner(df)
+    
+    cleaned_df = (cleaner
+                  .handle_missing_values(strategy='mean')
+                  .remove_outliers_iqr()
+                  .get_cleaned_data())
+    
+    print("Original DataFrame:")
+    print(df)
+    print("\nCleaned DataFrame:")
+    print(cleaned_df)
+    
+    outliers = cleaner.detect_outliers_zscore(threshold=2)
+    print("\nOutlier detection (threshold=2):")
+    print(outliers)
+
+if __name__ == "__main__":
+    example_usage()
