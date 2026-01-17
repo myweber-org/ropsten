@@ -1,41 +1,40 @@
 
 import pandas as pd
+import re
 
-def clean_dataset(df, drop_duplicates=True, fill_missing=None):
+def clean_dataframe(df, columns_to_clean=None):
     """
-    Clean a pandas DataFrame by removing duplicates and handling missing values.
-
-    Parameters:
-    df (pd.DataFrame): The input DataFrame to clean.
-    drop_duplicates (bool): If True, remove duplicate rows.
-    fill_missing (str or dict): Method to fill missing values.
-                                 If None, missing values are not filled.
-                                 Can be 'mean', 'median', 'mode', or a dictionary of column:value.
-
-    Returns:
-    pd.DataFrame: The cleaned DataFrame.
+    Clean a pandas DataFrame by removing duplicate rows and normalizing string columns.
     """
-    cleaned_df = df.copy()
+    # Remove duplicates
+    df_cleaned = df.drop_duplicates().reset_index(drop=True)
+    
+    # If specific columns are provided, clean only those; otherwise, clean all object columns
+    if columns_to_clean is None:
+        columns_to_clean = df_cleaned.select_dtypes(include=['object']).columns
+    
+    for col in columns_to_clean:
+        if col in df_cleaned.columns and df_cleaned[col].dtype == 'object':
+            df_cleaned[col] = df_cleaned[col].apply(_normalize_string)
+    
+    return df_cleaned
 
-    if drop_duplicates:
-        cleaned_df = cleaned_df.drop_duplicates()
+def _normalize_string(s):
+    """
+    Normalize a string: lowercase, strip whitespace, and remove extra spaces.
+    """
+    if isinstance(s, str):
+        s = s.lower().strip()
+        s = re.sub(r'\s+', ' ', s)
+        return s
+    return s
 
-    if fill_missing is not None:
-        if isinstance(fill_missing, dict):
-            for column, value in fill_missing.items():
-                if column in cleaned_df.columns:
-                    cleaned_df[column] = cleaned_df[column].fillna(value)
-        elif fill_missing == 'mean':
-            cleaned_df = cleaned_df.fillna(cleaned_df.mean(numeric_only=True))
-        elif fill_missing == 'median':
-            cleaned_df = cleaned_df.fillna(cleaned_df.median(numeric_only=True))
-        elif fill_missing == 'mode':
-            for column in cleaned_df.columns:
-                if cleaned_df[column].dtype == 'object':
-                    mode_val = cleaned_df[column].mode()
-                    if not mode_val.empty:
-                        cleaned_df[column] = cleaned_df[column].fillna(mode_val.iloc[0])
-        else:
-            raise ValueError("fill_missing must be 'mean', 'median', 'mode', or a dictionary.")
-
-    return cleaned_df
+def validate_email_column(df, email_column):
+    """
+    Validate email addresses in a specified column and return a boolean Series.
+    """
+    if email_column not in df.columns:
+        raise ValueError(f"Column '{email_column}' not found in DataFrame")
+    
+    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return df[email_column].astype(str).str.match(email_pattern)
