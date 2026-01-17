@@ -1,85 +1,84 @@
 import pandas as pd
-import numpy as np
 
-def remove_outliers_iqr(df, column):
+def remove_duplicates(df, subset=None, keep='first'):
     """
-    Remove outliers from a DataFrame column using the IQR method.
+    Remove duplicate rows from a DataFrame.
     
     Args:
-        df (pd.DataFrame): Input DataFrame
-        column (str): Column name to process
+        df (pd.DataFrame): Input DataFrame.
+        subset (list, optional): Column labels to consider for duplicates.
+        keep (str, optional): Which duplicates to keep.
     
     Returns:
-        pd.DataFrame: DataFrame with outliers removed
+        pd.DataFrame: DataFrame with duplicates removed.
     """
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
+    if df.empty:
+        return df
     
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
+    cleaned_df = df.drop_duplicates(subset=subset, keep=keep)
     
-    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
-    return filtered_df
-
-def clean_dataset(df, numeric_columns):
-    """
-    Clean dataset by removing outliers from multiple numeric columns.
-    
-    Args:
-        df (pd.DataFrame): Input DataFrame
-        numeric_columns (list): List of column names to clean
-    
-    Returns:
-        pd.DataFrame: Cleaned DataFrame
-    """
-    cleaned_df = df.copy()
-    
-    for column in numeric_columns:
-        if column in cleaned_df.columns:
-            original_len = len(cleaned_df)
-            cleaned_df = remove_outliers_iqr(cleaned_df, column)
-            removed_count = original_len - len(cleaned_df)
-            print(f"Removed {removed_count} outliers from column: {column}")
+    removed_count = len(df) - len(cleaned_df)
+    if removed_count > 0:
+        print(f"Removed {removed_count} duplicate rows.")
     
     return cleaned_df
 
-def save_cleaned_data(df, input_path, output_suffix="_cleaned"):
+def validate_dataframe(df):
     """
-    Save cleaned DataFrame to a new CSV file.
+    Perform basic validation on DataFrame.
     
     Args:
-        df (pd.DataFrame): Cleaned DataFrame
-        input_path (str): Original file path
-        output_suffix (str): Suffix for output filename
+        df (pd.DataFrame): DataFrame to validate.
+    
+    Returns:
+        bool: True if DataFrame passes validation.
     """
-    if input_path.endswith('.csv'):
-        output_path = input_path.replace('.csv', f'{output_suffix}.csv')
-        df.to_csv(output_path, index=False)
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError("Input must be a pandas DataFrame.")
+    
+    if df.empty:
+        print("Warning: DataFrame is empty.")
+        return True
+    
+    return True
+
+def clean_dataset(file_path, output_path=None):
+    """
+    Load, clean, and save a dataset.
+    
+    Args:
+        file_path (str): Path to input CSV file.
+        output_path (str, optional): Path for cleaned output.
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame.
+    """
+    try:
+        df = pd.read_csv(file_path)
+    except FileNotFoundError:
+        raise FileNotFoundError(f"File not found: {file_path}")
+    
+    if not validate_dataframe(df):
+        raise ValueError("DataFrame validation failed.")
+    
+    df_cleaned = remove_duplicates(df)
+    
+    if output_path:
+        df_cleaned.to_csv(output_path, index=False)
         print(f"Cleaned data saved to: {output_path}")
-    return output_path
+    
+    return df_cleaned
 
 if __name__ == "__main__":
-    # Example usage
     sample_data = {
-        'id': range(100),
-        'value': np.concatenate([
-            np.random.normal(100, 10, 90),
-            np.random.normal(300, 10, 10)  # Outliers
-        ]),
-        'score': np.concatenate([
-            np.random.normal(50, 5, 85),
-            np.random.normal(100, 5, 15)  # Outliers
-        ])
+        'id': [1, 2, 2, 3, 4, 4, 5],
+        'name': ['Alice', 'Bob', 'Bob', 'Charlie', 'David', 'David', 'Eve'],
+        'value': [10, 20, 20, 30, 40, 40, 50]
     }
     
     df = pd.DataFrame(sample_data)
-    print(f"Original dataset shape: {df.shape}")
-    
-    cleaned_df = clean_dataset(df, ['value', 'score'])
-    print(f"Cleaned dataset shape: {cleaned_df.shape}")
-    
-    # For real usage, uncomment and modify:
-    # df = pd.read_csv('your_data.csv')
-    # cleaned_df = clean_dataset(df, ['column1', 'column2'])
-    # save_cleaned_data(cleaned_df, 'your_data.csv')
+    print("Original DataFrame:")
+    print(df)
+    print("\nCleaned DataFrame:")
+    cleaned = remove_duplicates(df, subset=['id', 'name'])
+    print(cleaned)
