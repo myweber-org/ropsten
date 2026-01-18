@@ -1,37 +1,41 @@
+
+import numpy as np
 import pandas as pd
 
-def clean_dataset(df, subset=None, fill_method='mean'):
-    """
-    Clean a pandas DataFrame by removing duplicates and handling missing values.
-    
-    Args:
-        df (pd.DataFrame): Input DataFrame to clean.
-        subset (list, optional): Column names to consider for duplicate removal.
-        fill_method (str): Method to fill missing values ('mean', 'median', 'mode', or 'drop').
-    
-    Returns:
-        pd.DataFrame: Cleaned DataFrame.
-    """
-    cleaned_df = df.copy()
-    
-    # Remove duplicate rows
-    if subset:
-        cleaned_df = cleaned_df.drop_duplicates(subset=subset)
+def remove_outliers_iqr(df, column):
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+
+def normalize_minmax(df, column):
+    min_val = df[column].min()
+    max_val = df[column].max()
+    df[column + '_normalized'] = (df[column] - min_val) / (max_val - min_val)
+    return df
+
+def standardize_zscore(df, column):
+    mean_val = df[column].mean()
+    std_val = df[column].std()
+    df[column + '_standardized'] = (df[column] - mean_val) / std_val
+    return df
+
+def handle_missing_values(df, strategy='mean'):
+    if strategy == 'mean':
+        return df.fillna(df.mean())
+    elif strategy == 'median':
+        return df.fillna(df.median())
+    elif strategy == 'mode':
+        return df.fillna(df.mode().iloc[0])
     else:
-        cleaned_df = cleaned_df.drop_duplicates()
-    
-    # Handle missing values
-    if fill_method == 'drop':
-        cleaned_df = cleaned_df.dropna()
-    elif fill_method in ['mean', 'median']:
-        numeric_cols = cleaned_df.select_dtypes(include=['number']).columns
-        for col in numeric_cols:
-            if fill_method == 'mean':
-                cleaned_df[col].fillna(cleaned_df[col].mean(), inplace=True)
-            elif fill_method == 'median':
-                cleaned_df[col].fillna(cleaned_df[col].median(), inplace=True)
-    elif fill_method == 'mode':
-        for col in cleaned_df.columns:
-            cleaned_df[col].fillna(cleaned_df[col].mode()[0] if not cleaned_df[col].mode().empty else None, inplace=True)
-    
+        return df.dropna()
+
+def clean_dataset(df, numeric_columns):
+    cleaned_df = df.copy()
+    for col in numeric_columns:
+        cleaned_df = remove_outliers_iqr(cleaned_df, col)
+        cleaned_df = normalize_minmax(cleaned_df, col)
+    cleaned_df = handle_missing_values(cleaned_df, strategy='mean')
     return cleaned_df
