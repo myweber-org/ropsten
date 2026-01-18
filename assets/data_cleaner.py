@@ -139,4 +139,92 @@ if __name__ == "__main__":
     
     normalized_df = normalize_numeric_columns(cleaned_df, method='minmax')
     print("\nNormalized DataFrame:")
-    print(normalized_df)
+    print(normalized_df)import pandas as pd
+
+def clean_dataset(df, drop_duplicates=True, fill_missing='mean'):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean.
+        drop_duplicates (bool): Whether to drop duplicate rows. Default is True.
+        fill_missing (str): Method to fill missing values. Options are 'mean', 'median', 'mode', or 'drop'. Default is 'mean'.
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame.
+    """
+    df_clean = df.copy()
+    
+    if drop_duplicates:
+        df_clean = df_clean.drop_duplicates()
+    
+    if fill_missing == 'drop':
+        df_clean = df_clean.dropna()
+    elif fill_missing in ['mean', 'median', 'mode']:
+        for column in df_clean.select_dtypes(include=['number']).columns:
+            if df_clean[column].isnull().any():
+                if fill_missing == 'mean':
+                    fill_value = df_clean[column].mean()
+                elif fill_missing == 'median':
+                    fill_value = df_clean[column].median()
+                elif fill_missing == 'mode':
+                    fill_value = df_clean[column].mode()[0]
+                df_clean[column].fillna(fill_value, inplace=True)
+    
+    return df_clean
+
+def validate_data(df, required_columns=None, numeric_columns=None):
+    """
+    Validate the structure and content of a DataFrame.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate.
+        required_columns (list): List of column names that must be present.
+        numeric_columns (list): List of column names that must be numeric.
+    
+    Returns:
+        dict: Dictionary containing validation results and messages.
+    """
+    validation_result = {
+        'is_valid': True,
+        'messages': []
+    }
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            validation_result['is_valid'] = False
+            validation_result['messages'].append(f"Missing required columns: {missing_columns}")
+    
+    if numeric_columns:
+        non_numeric_cols = []
+        for col in numeric_columns:
+            if col in df.columns and not pd.api.types.is_numeric_dtype(df[col]):
+                non_numeric_cols.append(col)
+        
+        if non_numeric_cols:
+            validation_result['is_valid'] = False
+            validation_result['messages'].append(f"Non-numeric columns found: {non_numeric_cols}")
+    
+    if df.empty:
+        validation_result['is_valid'] = False
+        validation_result['messages'].append("DataFrame is empty")
+    
+    return validation_result
+
+if __name__ == "__main__":
+    sample_data = {
+        'id': [1, 2, 2, 3, 4, 5],
+        'value': [10.5, 20.3, 20.3, None, 40.1, 50.0],
+        'category': ['A', 'B', 'B', 'C', None, 'A']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\nCleaned DataFrame (drop duplicates, fill missing with mean):")
+    cleaned_df = clean_dataset(df, drop_duplicates=True, fill_missing='mean')
+    print(cleaned_df)
+    
+    validation = validate_data(cleaned_df, required_columns=['id', 'value'], numeric_columns=['id', 'value'])
+    print(f"\nValidation result: {validation}")
