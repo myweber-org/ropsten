@@ -88,3 +88,48 @@ if __name__ == "__main__":
     cleaned_data = remove_outliers_iqr(sample_data, 'values')
     print("\nCleaned data shape:", cleaned_data.shape)
     print("Cleaned statistics:", calculate_summary_stats(cleaned_data, 'values'))
+import pandas as pd
+import re
+
+def clean_dataframe(df, text_column='text'):
+    """
+    Clean a DataFrame by removing duplicates and normalizing text in a specified column.
+    """
+    # Remove duplicate rows
+    df_clean = df.drop_duplicates().reset_index(drop=True)
+    
+    # Normalize text: lowercase and remove extra whitespace
+    def normalize_text(text):
+        if pd.isna(text):
+            return text
+        text = str(text)
+        text = text.lower()
+        text = re.sub(r'\s+', ' ', text).strip()
+        return text
+    
+    df_clean[text_column] = df_clean[text_column].apply(normalize_text)
+    
+    return df_clean
+
+def save_cleaned_data(df, input_path, suffix='_cleaned'):
+    """
+    Save the cleaned DataFrame to a new CSV file.
+    """
+    if input_path.endswith('.csv'):
+        output_path = input_path.replace('.csv', f'{suffix}.csv')
+        df.to_csv(output_path, index=False)
+        print(f"Cleaned data saved to: {output_path}")
+    else:
+        print("Input path must be a CSV file.")
+
+if __name__ == "__main__":
+    # Example usage
+    input_file = 'raw_data.csv'
+    try:
+        raw_df = pd.read_csv(input_file)
+        cleaned_df = clean_dataframe(raw_df, text_column='review')
+        save_cleaned_data(cleaned_df, input_file)
+    except FileNotFoundError:
+        print(f"File {input_file} not found.")
+    except Exception as e:
+        print(f"An error occurred: {e}")
