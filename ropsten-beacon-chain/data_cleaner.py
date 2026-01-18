@@ -190,4 +190,150 @@ if __name__ == "__main__":
     print("\nTemperature statistics:")
     stats = calculate_statistics(sample_data, 'temperature')
     for key, value in stats.items():
-        print(f"{key}: {value:.2f}")
+        print(f"{key}: {value:.2f}")import pandas as pd
+import numpy as np
+
+def remove_duplicates(df, subset=None):
+    """
+    Remove duplicate rows from DataFrame.
+    
+    Args:
+        df: pandas DataFrame
+        subset: column label or sequence of labels to consider for duplicates
+    
+    Returns:
+        Cleaned DataFrame with duplicates removed
+    """
+    return df.drop_duplicates(subset=subset, keep='first')
+
+def fill_missing_values(df, strategy='mean', columns=None):
+    """
+    Fill missing values in DataFrame columns.
+    
+    Args:
+        df: pandas DataFrame
+        strategy: 'mean', 'median', 'mode', or 'constant'
+        columns: list of columns to fill (None for all numeric columns)
+    
+    Returns:
+        DataFrame with missing values filled
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    df_filled = df.copy()
+    
+    for col in columns:
+        if strategy == 'mean':
+            fill_value = df[col].mean()
+        elif strategy == 'median':
+            fill_value = df[col].median()
+        elif strategy == 'mode':
+            fill_value = df[col].mode()[0] if not df[col].mode().empty else 0
+        elif strategy == 'constant':
+            fill_value = 0
+        else:
+            raise ValueError(f"Unknown strategy: {strategy}")
+        
+        df_filled[col] = df[col].fillna(fill_value)
+    
+    return df_filled
+
+def normalize_columns(df, columns=None, method='minmax'):
+    """
+    Normalize specified columns in DataFrame.
+    
+    Args:
+        df: pandas DataFrame
+        columns: list of columns to normalize (None for all numeric columns)
+        method: 'minmax' or 'zscore'
+    
+    Returns:
+        DataFrame with normalized columns
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    df_normalized = df.copy()
+    
+    for col in columns:
+        if method == 'minmax':
+            col_min = df[col].min()
+            col_max = df[col].max()
+            if col_max != col_min:
+                df_normalized[col] = (df[col] - col_min) / (col_max - col_min)
+        
+        elif method == 'zscore':
+            col_mean = df[col].mean()
+            col_std = df[col].std()
+            if col_std != 0:
+                df_normalized[col] = (df[col] - col_mean) / col_std
+    
+    return df_normalized
+
+def detect_outliers(df, columns=None, threshold=3):
+    """
+    Detect outliers using z-score method.
+    
+    Args:
+        df: pandas DataFrame
+        columns: list of columns to check (None for all numeric columns)
+        threshold: z-score threshold for outlier detection
+    
+    Returns:
+        Boolean mask indicating outlier rows
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    outlier_mask = pd.Series([False] * len(df), index=df.index)
+    
+    for col in columns:
+        z_scores = np.abs((df[col] - df[col].mean()) / df[col].std())
+        outlier_mask = outlier_mask | (z_scores > threshold)
+    
+    return outlier_mask
+
+def clean_dataframe(df, 
+                   remove_dup=True, 
+                   fill_na=True, 
+                   normalize=False, 
+                   remove_outliers=False,
+                   **kwargs):
+    """
+    Comprehensive data cleaning pipeline.
+    
+    Args:
+        df: pandas DataFrame to clean
+        remove_dup: whether to remove duplicates
+        fill_na: whether to fill missing values
+        normalize: whether to normalize numeric columns
+        remove_outliers: whether to remove outliers
+        **kwargs: additional arguments for specific cleaning functions
+    
+    Returns:
+        Cleaned DataFrame
+    """
+    df_clean = df.copy()
+    
+    if remove_dup:
+        subset = kwargs.get('dup_subset', None)
+        df_clean = remove_duplicates(df_clean, subset=subset)
+    
+    if fill_na:
+        strategy = kwargs.get('fill_strategy', 'mean')
+        columns = kwargs.get('fill_columns', None)
+        df_clean = fill_missing_values(df_clean, strategy=strategy, columns=columns)
+    
+    if normalize:
+        method = kwargs.get('norm_method', 'minmax')
+        columns = kwargs.get('norm_columns', None)
+        df_clean = normalize_columns(df_clean, method=method, columns=columns)
+    
+    if remove_outliers:
+        threshold = kwargs.get('outlier_threshold', 3)
+        columns = kwargs.get('outlier_columns', None)
+        outlier_mask = detect_outliers(df_clean, columns=columns, threshold=threshold)
+        df_clean = df_clean[~outlier_mask]
+    
+    return df_clean
