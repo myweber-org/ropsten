@@ -119,4 +119,69 @@ if __name__ == "__main__":
     except FileNotFoundError:
         print(f"Error: File '{input_file}' not found.")
     except Exception as e:
-        print(f"An error occurred: {e}")
+        print(f"An error occurred: {e}")import pandas as pd
+import re
+
+def clean_dataframe(df, columns_to_clean=None):
+    """
+    Clean a pandas DataFrame by removing duplicates and normalizing string columns.
+    """
+    cleaned_df = df.copy()
+    
+    # Remove duplicate rows
+    cleaned_df = cleaned_df.drop_duplicates()
+    
+    # If specific columns are provided, clean only those; otherwise clean all object columns
+    if columns_to_clean is None:
+        columns_to_clean = cleaned_df.select_dtypes(include=['object']).columns
+    else:
+        columns_to_clean = [col for col in columns_to_clean if col in cleaned_df.columns]
+    
+    # Normalize string columns: strip whitespace and convert to lowercase
+    for column in columns_to_clean:
+        if cleaned_df[column].dtype == 'object':
+            cleaned_df[column] = cleaned_df[column].apply(
+                lambda x: re.sub(r'\s+', ' ', str(x).strip().lower()) if pd.notnull(x) else x
+            )
+    
+    # Reset index after cleaning
+    cleaned_df = cleaned_df.reset_index(drop=True)
+    
+    return cleaned_df
+
+def validate_email(email):
+    """
+    Validate email format using a simple regex pattern.
+    """
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return bool(re.match(pattern, str(email))) if pd.notnull(email) else False
+
+def add_email_validation_column(df, email_column):
+    """
+    Add a boolean column indicating whether emails in the specified column are valid.
+    """
+    if email_column not in df.columns:
+        raise ValueError(f"Column '{email_column}' not found in DataFrame")
+    
+    df_copy = df.copy()
+    validation_column_name = f'{email_column}_valid'
+    df_copy[validation_column_name] = df_copy[email_column].apply(validate_email)
+    return df_copy
+
+# Example usage (commented out)
+# if __name__ == "__main__":
+#     sample_data = {
+#         'name': [' Alice ', 'bob', 'Alice', '  Charlie  '],
+#         'email': ['alice@example.com', 'invalid-email', 'alice@example.com', 'charlie@test.co.uk']
+#     }
+#     df = pd.DataFrame(sample_data)
+#     print("Original DataFrame:")
+#     print(df)
+#     
+#     cleaned = clean_dataframe(df, columns_to_clean=['name'])
+#     print("\nCleaned DataFrame:")
+#     print(cleaned)
+#     
+#     validated = add_email_validation_column(cleaned, 'email')
+#     print("\nDataFrame with email validation:")
+#     print(validated)
