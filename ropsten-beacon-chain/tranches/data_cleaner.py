@@ -116,3 +116,101 @@ if __name__ == "__main__":
     print(f"\nFinal shape: {cleaned_df.shape}")
     print("First 5 rows of cleaned data:")
     print(cleaned_df.head())
+import pandas as pd
+import numpy as np
+from datetime import datetime
+
+def clean_csv_data(input_file, output_file):
+    """
+    Clean CSV data by handling missing values, converting data types,
+    and removing duplicate rows.
+    """
+    try:
+        df = pd.read_csv(input_file)
+        
+        # Remove duplicate rows
+        df = df.drop_duplicates()
+        
+        # Handle missing values
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        for col in numeric_cols:
+            df[col] = df[col].fillna(df[col].median())
+        
+        categorical_cols = df.select_dtypes(include=['object']).columns
+        for col in categorical_cols:
+            df[col] = df[col].fillna('Unknown')
+        
+        # Convert date columns if present
+        date_columns = [col for col in df.columns if 'date' in col.lower()]
+        for col in date_columns:
+            try:
+                df[col] = pd.to_datetime(df[col], errors='coerce')
+            except:
+                pass
+        
+        # Remove rows where critical columns are null
+        critical_columns = ['id', 'name', 'value']
+        existing_critical = [col for col in critical_columns if col in df.columns]
+        if existing_critical:
+            df = df.dropna(subset=existing_critical)
+        
+        # Save cleaned data
+        df.to_csv(output_file, index=False)
+        print(f"Data cleaning completed. Cleaned file saved to {output_file}")
+        print(f"Original rows: {len(pd.read_csv(input_file))}, Cleaned rows: {len(df)}")
+        
+        return df
+        
+    except FileNotFoundError:
+        print(f"Error: Input file {input_file} not found.")
+        return None
+    except Exception as e:
+        print(f"Error during data cleaning: {str(e)}")
+        return None
+
+def validate_data(df, rules):
+    """
+    Validate data against predefined rules.
+    """
+    validation_results = {}
+    
+    for column, rule in rules.items():
+        if column in df.columns:
+            if rule['type'] == 'numeric':
+                min_val = rule.get('min', -np.inf)
+                max_val = rule.get('max', np.inf)
+                invalid_count = ((df[column] < min_val) | (df[column] > max_val)).sum()
+                validation_results[column] = {
+                    'valid': invalid_count == 0,
+                    'invalid_count': invalid_count
+                }
+            elif rule['type'] == 'categorical':
+                allowed_values = rule.get('allowed_values', [])
+                if allowed_values:
+                    invalid_count = (~df[column].isin(allowed_values)).sum()
+                    validation_results[column] = {
+                        'valid': invalid_count == 0,
+                        'invalid_count': invalid_count
+                    }
+    
+    return validation_results
+
+if __name__ == "__main__":
+    # Example usage
+    input_csv = "raw_data.csv"
+    output_csv = "cleaned_data.csv"
+    
+    # Define validation rules
+    validation_rules = {
+        'age': {'type': 'numeric', 'min': 0, 'max': 120},
+        'score': {'type': 'numeric', 'min': 0, 'max': 100},
+        'status': {'type': 'categorical', 'allowed_values': ['active', 'inactive', 'pending']}
+    }
+    
+    cleaned_df = clean_csv_data(input_csv, output_csv)
+    
+    if cleaned_df is not None:
+        validation_results = validate_data(cleaned_df, validation_rules)
+        print("Validation Results:")
+        for column, result in validation_results.items():
+            print(f"{column}: Valid={result['valid']}, Invalid={result['invalid_count']}")
