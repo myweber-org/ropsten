@@ -86,3 +86,111 @@ def validate_data(df, required_columns, numeric_threshold=0.8):
     validation_report['numeric_stats'] = numeric_stats
     
     return validation_report
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df, drop_na=True, rename_columns=True):
+    """
+    Clean a pandas DataFrame by handling missing values and standardizing column names.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame to clean.
+    drop_na (bool): If True, drop rows with any null values.
+    rename_columns (bool): If True, rename columns to lowercase with underscores.
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame.
+    """
+    df_clean = df.copy()
+    
+    if drop_na:
+        df_clean = df_clean.dropna()
+    
+    if rename_columns:
+        df_clean.columns = df_clean.columns.str.lower().str.replace(' ', '_')
+    
+    return df_clean
+
+def validate_numeric_columns(df, columns):
+    """
+    Validate that specified columns contain only numeric values.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame.
+    columns (list): List of column names to validate.
+    
+    Returns:
+    dict: Dictionary with column names as keys and validation results as values.
+    """
+    validation_results = {}
+    
+    for col in columns:
+        if col in df.columns:
+            non_numeric = df[~df[col].apply(lambda x: isinstance(x, (int, float, np.number)))]
+            validation_results[col] = {
+                'is_valid': len(non_numeric) == 0,
+                'non_numeric_count': len(non_numeric),
+                'non_numeric_indices': non_numeric.index.tolist()
+            }
+        else:
+            validation_results[col] = {
+                'is_valid': False,
+                'error': f"Column '{col}' not found in DataFrame"
+            }
+    
+    return validation_results
+
+def remove_duplicates(df, subset=None, keep='first'):
+    """
+    Remove duplicate rows from DataFrame.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame.
+    subset (list): Columns to consider for identifying duplicates.
+    keep (str): Which duplicates to keep ('first', 'last', False).
+    
+    Returns:
+    pd.DataFrame: DataFrame with duplicates removed.
+    """
+    return df.drop_duplicates(subset=subset, keep=keep)
+
+def standardize_text(df, columns):
+    """
+    Standardize text columns by converting to lowercase and stripping whitespace.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame.
+    columns (list): List of text column names to standardize.
+    
+    Returns:
+    pd.DataFrame: DataFrame with standardized text columns.
+    """
+    df_std = df.copy()
+    
+    for col in columns:
+        if col in df_std.columns and df_std[col].dtype == 'object':
+            df_std[col] = df_std[col].astype(str).str.lower().str.strip()
+    
+    return df_std
+
+if __name__ == "__main__":
+    sample_data = {
+        'Name': ['Alice', 'Bob', None, 'Alice'],
+        'Age': [25, 30, 35, 25],
+        'Salary': [50000, 60000, 75000, 50000]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\nCleaned DataFrame:")
+    cleaned_df = clean_dataset(df)
+    print(cleaned_df)
+    
+    validation = validate_numeric_columns(cleaned_df, ['Age', 'Salary'])
+    print("\nNumeric Validation Results:")
+    print(validation)
+    
+    deduplicated = remove_duplicates(cleaned_df)
+    print("\nDataFrame after removing duplicates:")
+    print(deduplicated)
