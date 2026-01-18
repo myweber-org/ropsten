@@ -338,3 +338,110 @@ if __name__ == "__main__":
         print(f"\n{col}:")
         for stat_name, stat_value in col_stats.items():
             print(f"  {stat_name}: {stat_value:.2f}")
+import numpy as np
+import pandas as pd
+
+def detect_outliers_iqr(data, column, threshold=1.5):
+    """
+    Detect outliers in a specified column using the Interquartile Range method.
+    
+    Parameters:
+    data (pd.DataFrame): Input dataframe
+    column (str): Column name to analyze
+    threshold (float): Multiplier for IQR (default 1.5)
+    
+    Returns:
+    pd.DataFrame: Dataframe with outlier flags
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in dataframe")
+    
+    q1 = data[column].quantile(0.25)
+    q3 = data[column].quantile(0.75)
+    iqr = q3 - q1
+    
+    lower_bound = q1 - threshold * iqr
+    upper_bound = q3 + threshold * iqr
+    
+    data = data.copy()
+    data[f'{column}_outlier'] = (data[column] < lower_bound) | (data[column] > upper_bound)
+    data[f'{column}_lower_bound'] = lower_bound
+    data[f'{column}_upper_bound'] = upper_bound
+    
+    return data
+
+def remove_outliers(data, column, threshold=1.5):
+    """
+    Remove outliers from a specified column using IQR method.
+    
+    Parameters:
+    data (pd.DataFrame): Input dataframe
+    column (str): Column name to clean
+    threshold (float): Multiplier for IQR (default 1.5)
+    
+    Returns:
+    pd.DataFrame: Cleaned dataframe without outliers
+    """
+    data_with_flags = detect_outliers_iqr(data, column, threshold)
+    cleaned_data = data_with_flags[~data_with_flags[f'{column}_outlier']].copy()
+    cleaned_data = cleaned_data.drop(columns=[f'{column}_outlier', 
+                                              f'{column}_lower_bound', 
+                                              f'{column}_upper_bound'])
+    return cleaned_data
+
+def summarize_outliers(data, column, threshold=1.5):
+    """
+    Generate summary statistics for outliers in a column.
+    
+    Parameters:
+    data (pd.DataFrame): Input dataframe
+    column (str): Column name to analyze
+    threshold (float): Multiplier for IQR (default 1.5)
+    
+    Returns:
+    dict: Summary statistics
+    """
+    data_with_flags = detect_outliers_iqr(data, column, threshold)
+    
+    outliers = data_with_flags[data_with_flags[f'{column}_outlier']]
+    non_outliers = data_with_flags[~data_with_flags[f'{column}_outlier']]
+    
+    summary = {
+        'total_records': len(data),
+        'outlier_count': len(outliers),
+        'outlier_percentage': (len(outliers) / len(data)) * 100,
+        'min_outlier_value': outliers[column].min() if len(outliers) > 0 else np.nan,
+        'max_outlier_value': outliers[column].max() if len(outliers) > 0 else np.nan,
+        'mean_with_outliers': data[column].mean(),
+        'mean_without_outliers': non_outliers[column].mean(),
+        'std_with_outliers': data[column].std(),
+        'std_without_outliers': non_outliers[column].std()
+    }
+    
+    return summary
+
+def process_multiple_columns(data, columns, threshold=1.5, remove=False):
+    """
+    Process multiple columns for outlier detection or removal.
+    
+    Parameters:
+    data (pd.DataFrame): Input dataframe
+    columns (list): List of column names to process
+    threshold (float): Multiplier for IQR
+    remove (bool): If True, remove outliers; if False, just detect
+    
+    Returns:
+    pd.DataFrame: Processed dataframe
+    """
+    if not isinstance(columns, list):
+        columns = [columns]
+    
+    result_data = data.copy()
+    
+    for column in columns:
+        if remove:
+            result_data = remove_outliers(result_data, column, threshold)
+        else:
+            result_data = detect_outliers_iqr(result_data, column, threshold)
+    
+    return result_data
