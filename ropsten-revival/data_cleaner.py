@@ -324,3 +324,87 @@ if __name__ == "__main__":
     
     stats = get_cleaning_stats(df, cleaned_df)
     print("Cleaning Statistics:", stats)
+import pandas as pd
+import re
+
+def clean_dataframe(df, column_mapping=None, drop_duplicates=True, normalize_text=True):
+    """
+    Clean a pandas DataFrame by removing duplicates and normalizing text columns.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean
+        column_mapping (dict): Optional dictionary to rename columns
+        drop_duplicates (bool): Whether to remove duplicate rows
+        normalize_text (bool): Whether to normalize text columns
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame
+    """
+    cleaned_df = df.copy()
+    
+    if column_mapping:
+        cleaned_df = cleaned_df.rename(columns=column_mapping)
+    
+    if drop_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates().reset_index(drop=True)
+    
+    if normalize_text:
+        for col in cleaned_df.select_dtypes(include=['object']).columns:
+            cleaned_df[col] = cleaned_df[col].apply(_normalize_string)
+    
+    return cleaned_df
+
+def _normalize_string(text):
+    """
+    Normalize a string by converting to lowercase, removing extra whitespace,
+    and stripping special characters.
+    """
+    if pd.isna(text):
+        return text
+    
+    text = str(text)
+    text = text.lower().strip()
+    text = re.sub(r'\s+', ' ', text)
+    text = re.sub(r'[^\w\s-]', '', text)
+    
+    return text
+
+def validate_email_column(df, email_column):
+    """
+    Validate email addresses in a DataFrame column.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        email_column (str): Name of the column containing email addresses
+    
+    Returns:
+        pd.DataFrame: DataFrame with additional validation columns
+    """
+    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    
+    df = df.copy()
+    df['email_valid'] = df[email_column].apply(
+        lambda x: bool(re.match(email_pattern, str(x))) if pd.notna(x) else False
+    )
+    df['email_domain'] = df[email_column].apply(
+        lambda x: str(x).split('@')[-1] if '@' in str(x) and pd.notna(x) else None
+    )
+    
+    return df
+
+if __name__ == "__main__":
+    sample_data = {
+        'Name': ['John Doe', 'Jane Smith', 'john doe', 'Jane Smith', 'Bob Johnson'],
+        'Email': ['john@example.com', 'jane@test.org', 'invalid-email', 'jane@test.org', 'bob@company.net'],
+        'Age': [25, 30, 25, 30, 35]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\nCleaned DataFrame:")
+    cleaned = clean_dataframe(df, drop_duplicates=True, normalize_text=True)
+    print(cleaned)
+    print("\nWith email validation:")
+    validated = validate_email_column(cleaned, 'Email')
+    print(validated)
