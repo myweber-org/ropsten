@@ -193,3 +193,41 @@ def validate_data(data, required_columns=None, numeric_columns=None):
             validation_results['missing_values'][col] = missing_count
     
     return validation_results
+def remove_duplicates(input_list):
+    """
+    Remove duplicate items from a list while preserving order.
+    Returns a new list with unique elements.
+    """
+    seen = set()
+    result = []
+    for item in input_list:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
+
+def clean_numeric_strings(string_list):
+    """
+    Clean a list of numeric strings by converting to integers,
+    removing invalid entries, and returning sorted unique values.
+    """
+    cleaned = []
+    for s in string_list:
+        try:
+            num = int(s.strip())
+            cleaned.append(num)
+        except ValueError:
+            continue
+    return sorted(set(cleaned))
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = [1, 2, 2, 3, 4, 4, 5, 1, 6]
+    cleaned = remove_duplicates(sample_data)
+    print(f"Original: {sample_data}")
+    print(f"Cleaned: {cleaned}")
+    
+    numeric_strings = ["10", "5", "abc", "20", "5", "15", "invalid"]
+    cleaned_nums = clean_numeric_strings(numeric_strings)
+    print(f"\nNumeric strings: {numeric_strings}")
+    print(f"Cleaned numbers: {cleaned_nums}")
