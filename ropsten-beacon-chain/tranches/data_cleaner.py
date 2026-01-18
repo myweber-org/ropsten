@@ -193,4 +193,58 @@ if __name__ == "__main__":
     
     deduplicated = remove_duplicates(cleaned_df)
     print("\nDataFrame after removing duplicates:")
-    print(deduplicated)
+    print(deduplicated)import pandas as pd
+import numpy as np
+
+def remove_missing_values(df, threshold=0.5):
+    """
+    Remove columns with missing values exceeding threshold percentage.
+    """
+    missing_ratio = df.isnull().sum() / len(df)
+    columns_to_drop = missing_ratio[missing_ratio > threshold].index
+    return df.drop(columns=columns_to_drop)
+
+def normalize_numeric_columns(df, columns=None):
+    """
+    Normalize specified numeric columns using min-max scaling.
+    If columns is None, normalize all numeric columns.
+    """
+    if columns is None:
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+    else:
+        numeric_cols = columns
+    
+    for col in numeric_cols:
+        if col in df.columns:
+            col_min = df[col].min()
+            col_max = df[col].max()
+            if col_max != col_min:
+                df[col] = (df[col] - col_min) / (col_max - col_min)
+    
+    return df
+
+def remove_duplicates(df, subset=None, keep='first'):
+    """
+    Remove duplicate rows based on specified columns.
+    """
+    return df.drop_duplicates(subset=subset, keep=keep)
+
+def clean_dataframe(df, missing_threshold=0.5, normalize=True):
+    """
+    Apply a complete cleaning pipeline to the dataframe.
+    """
+    df_clean = df.copy()
+    df_clean = remove_missing_values(df_clean, missing_threshold)
+    df_clean = remove_duplicates(df_clean)
+    
+    if normalize:
+        df_clean = normalize_numeric_columns(df_clean)
+    
+    return df_clean
+
+def save_cleaned_data(df, output_path):
+    """
+    Save cleaned dataframe to CSV file.
+    """
+    df.to_csv(output_path, index=False)
+    print(f"Cleaned data saved to {output_path}")
