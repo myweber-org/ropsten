@@ -137,3 +137,101 @@ if __name__ == "__main__":
     cleaned = clean_dataset(df, fill_missing='mean')
     print("\nCleaned DataFrame:")
     print(cleaned)
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df, drop_duplicates=True, fill_missing='mean'):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    
+    Args:
+        df: pandas DataFrame to clean
+        drop_duplicates: Boolean, whether to remove duplicate rows
+        fill_missing: Strategy for handling missing values ('mean', 'median', 'mode', or 'drop')
+    
+    Returns:
+        Cleaned pandas DataFrame
+    """
+    cleaned_df = df.copy()
+    
+    if drop_duplicates:
+        initial_rows = len(cleaned_df)
+        cleaned_df = cleaned_df.drop_duplicates()
+        removed = initial_rows - len(cleaned_df)
+        print(f"Removed {removed} duplicate rows")
+    
+    if fill_missing == 'drop':
+        cleaned_df = cleaned_df.dropna()
+        print("Dropped rows with missing values")
+    elif fill_missing in ['mean', 'median']:
+        numeric_cols = cleaned_df.select_dtypes(include=[np.number]).columns
+        for col in numeric_cols:
+            if fill_missing == 'mean':
+                cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].mean())
+            else:
+                cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].median())
+        print(f"Filled missing numeric values with {fill_missing}")
+    elif fill_missing == 'mode':
+        for col in cleaned_df.columns:
+            if cleaned_df[col].dtype == 'object':
+                cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].mode()[0] if not cleaned_df[col].mode().empty else 'Unknown')
+        print("Filled missing categorical values with mode")
+    
+    return cleaned_df
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate the structure and content of a DataFrame.
+    
+    Args:
+        df: pandas DataFrame to validate
+        required_columns: List of column names that must be present
+    
+    Returns:
+        Dictionary with validation results
+    """
+    validation_results = {
+        'total_rows': len(df),
+        'total_columns': len(df.columns),
+        'missing_values': df.isnull().sum().sum(),
+        'duplicate_rows': df.duplicated().sum()
+    }
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        validation_results['missing_required_columns'] = missing_cols
+        validation_results['all_required_columns_present'] = len(missing_cols) == 0
+    
+    return validation_results
+
+def normalize_numeric_columns(df, columns=None, method='minmax'):
+    """
+    Normalize numeric columns in a DataFrame.
+    
+    Args:
+        df: pandas DataFrame
+        columns: List of column names to normalize (defaults to all numeric columns)
+        method: Normalization method ('minmax' or 'zscore')
+    
+    Returns:
+        DataFrame with normalized columns
+    """
+    normalized_df = df.copy()
+    
+    if columns is None:
+        columns = normalized_df.select_dtypes(include=[np.number]).columns
+    
+    for col in columns:
+        if col in normalized_df.columns and normalized_df[col].dtype in [np.float64, np.int64]:
+            if method == 'minmax':
+                col_min = normalized_df[col].min()
+                col_max = normalized_df[col].max()
+                if col_max != col_min:
+                    normalized_df[col] = (normalized_df[col] - col_min) / (col_max - col_min)
+            elif method == 'zscore':
+                col_mean = normalized_df[col].mean()
+                col_std = normalized_df[col].std()
+                if col_std != 0:
+                    normalized_df[col] = (normalized_df[col] - col_mean) / col_std
+    
+    return normalized_df
