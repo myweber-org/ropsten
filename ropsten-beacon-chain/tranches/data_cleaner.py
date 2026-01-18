@@ -1,63 +1,59 @@
 
-def remove_duplicates(sequence):
-    seen = set()
-    result = []
-    for item in sequence:
-        if item not in seen:
-            seen.add(item)
-            result.append(item)
-    return resultimport pandas as pd
-import re
-from datetime import datetime
+import numpy as np
+import pandas as pd
+from scipy import stats
 
-def clean_dataframe(df):
-    """
-    Clean a DataFrame by removing duplicates and standardizing date columns.
-    """
-    # Remove duplicate rows
-    initial_count = len(df)
-    df = df.drop_duplicates().reset_index(drop=True)
-    removed_duplicates = initial_count - len(df)
+class DataCleaner:
+    def __init__(self, df):
+        self.df = df.copy()
+        self.original_columns = df.columns.tolist()
     
-    # Standardize date columns
-    date_pattern = re.compile(r'.*date.*', re.IGNORECASE)
-    date_columns = [col for col in df.columns if date_pattern.search(col)]
+    def remove_outliers_iqr(self, column, multiplier=1.5):
+        Q1 = self.df[column].quantile(0.25)
+        Q3 = self.df[column].quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - multiplier * IQR
+        upper_bound = Q3 + multiplier * IQR
+        
+        mask = (self.df[column] >= lower_bound) & (self.df[column] <= upper_bound)
+        return self.df[mask].reset_index(drop=True)
     
-    for col in date_columns:
-        df[col] = pd.to_datetime(df[col], errors='coerce')
+    def remove_outliers_zscore(self, column, threshold=3):
+        z_scores = np.abs(stats.zscore(self.df[column]))
+        mask = z_scores < threshold
+        return self.df[mask].reset_index(drop=True)
     
-    # Fill missing numeric values with column mean
-    numeric_cols = df.select_dtypes(include=['number']).columns
-    for col in numeric_cols:
-        df[col] = df[col].fillna(df[col].mean())
+    def normalize_minmax(self, column):
+        min_val = self.df[column].min()
+        max_val = self.df[column].max()
+        self.df[f'{column}_normalized'] = (self.df[column] - min_val) / (max_val - min_val)
+        return self.df
     
-    return df, removed_duplicates
-
-def export_cleaned_data(df, output_path):
-    """
-    Export cleaned DataFrame to CSV file.
-    """
-    df.to_csv(output_path, index=False)
-    return f"Data exported successfully to {output_path}"
-
-if __name__ == "__main__":
-    # Example usage
-    sample_data = {
-        'order_date': ['2023-01-01', '2023-01-01', '2023-02-15', None],
-        'customer_id': [101, 101, 102, 103],
-        'amount': [150.0, 150.0, 200.0, None],
-        'product': ['A', 'A', 'B', 'C']
-    }
+    def standardize_zscore(self, column):
+        mean_val = self.df[column].mean()
+        std_val = self.df[column].std()
+        self.df[f'{column}_standardized'] = (self.df[column] - mean_val) / std_val
+        return self.df
     
-    df = pd.DataFrame(sample_data)
-    print("Original DataFrame:")
-    print(df)
+    def handle_missing_mean(self, column):
+        mean_val = self.df[column].mean()
+        self.df[column] = self.df[column].fillna(mean_val)
+        return self.df
     
-    cleaned_df, duplicates_removed = clean_dataframe(df)
-    print(f"\nRemoved {duplicates_removed} duplicate rows")
-    print("\nCleaned DataFrame:")
-    print(cleaned_df)
+    def handle_missing_median(self, column):
+        median_val = self.df[column].median()
+        self.df[column] = self.df[column].fillna(median_val)
+        return self.df
     
-    # Export to file
-    result = export_cleaned_data(cleaned_df, 'cleaned_data.csv')
-    print(f"\n{result}")
+    def get_summary(self):
+        summary = {
+            'original_shape': self.df.shape,
+            'missing_values': self.df.isnull().sum().to_dict(),
+            'data_types': self.df.dtypes.to_dict(),
+            'numeric_columns': self.df.select_dtypes(include=[np.number]).columns.tolist()
+        }
+        return summary
+    
+    def save_cleaned_data(self, filename='cleaned_data.csv'):
+        self.df.to_csv(filename, index=False)
+        return f"Data saved to {filename}"
