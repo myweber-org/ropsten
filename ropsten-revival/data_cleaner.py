@@ -258,3 +258,88 @@ def clean_csv_file(input_file, output_file=None):
         return cleaner.save_cleaned_data(output_file)
     else:
         return cleaner.save_cleaned_data()
+import pandas as pd
+
+def remove_duplicates(df, subset=None, keep='first'):
+    """
+    Remove duplicate rows from a DataFrame.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        subset (list, optional): Columns to consider for duplicates
+        keep (str, optional): Which duplicates to keep ('first', 'last', False)
+    
+    Returns:
+        pd.DataFrame: DataFrame with duplicates removed
+    """
+    if subset is None:
+        subset = df.columns.tolist()
+    
+    cleaned_df = df.drop_duplicates(subset=subset, keep=keep)
+    
+    print(f"Removed {len(df) - len(cleaned_df)} duplicate rows")
+    print(f"Original shape: {df.shape}, Cleaned shape: {cleaned_df.shape}")
+    
+    return cleaned_df
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate
+        required_columns (list, optional): Required columns
+    
+    Returns:
+        bool: True if validation passes
+    """
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError("Input must be a pandas DataFrame")
+    
+    if df.empty:
+        print("Warning: DataFrame is empty")
+        return False
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            raise ValueError(f"Missing required columns: {missing_columns}")
+    
+    return True
+
+def clean_numeric_columns(df, columns):
+    """
+    Clean numeric columns by converting to appropriate types.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        columns (list): Columns to clean
+    
+    Returns:
+        pd.DataFrame: DataFrame with cleaned numeric columns
+    """
+    for col in columns:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+    
+    return df
+
+def get_data_summary(df):
+    """
+    Generate summary statistics for DataFrame.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+    
+    Returns:
+        dict: Summary statistics
+    """
+    summary = {
+        'rows': len(df),
+        'columns': len(df.columns),
+        'missing_values': df.isnull().sum().sum(),
+        'duplicates': df.duplicated().sum(),
+        'dtypes': df.dtypes.to_dict()
+    }
+    
+    return summary
