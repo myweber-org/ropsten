@@ -377,3 +377,192 @@ if __name__ == "__main__":
     # Validate the cleaned dataset
     validation = validate_dataset(cleaned_df, required_columns=['id', 'value', 'category'])
     print(f"\nValidation results: {validation}")
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(dataframe, column, threshold=1.5):
+    """
+    Remove outliers from a DataFrame column using IQR method.
+    
+    Parameters:
+    dataframe (pd.DataFrame): Input DataFrame
+    column (str): Column name to process
+    threshold (float): IQR multiplier for outlier detection
+    
+    Returns:
+    pd.DataFrame: DataFrame with outliers removed
+    """
+    if column not in dataframe.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    q1 = dataframe[column].quantile(0.25)
+    q3 = dataframe[column].quantile(0.75)
+    iqr = q3 - q1
+    lower_bound = q1 - threshold * iqr
+    upper_bound = q3 + threshold * iqr
+    
+    filtered_df = dataframe[(dataframe[column] >= lower_bound) & 
+                           (dataframe[column] <= upper_bound)]
+    return filtered_df
+
+def normalize_column_zscore(dataframe, column):
+    """
+    Normalize a column using Z-score normalization.
+    
+    Parameters:
+    dataframe (pd.DataFrame): Input DataFrame
+    column (str): Column name to normalize
+    
+    Returns:
+    pd.DataFrame: DataFrame with normalized column
+    """
+    if column not in dataframe.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    normalized_df = dataframe.copy()
+    mean_val = normalized_df[column].mean()
+    std_val = normalized_df[column].std()
+    
+    if std_val > 0:
+        normalized_df[f'{column}_normalized'] = (normalized_df[column] - mean_val) / std_val
+    else:
+        normalized_df[f'{column}_normalized'] = 0
+    
+    return normalized_df
+
+def detect_skewed_columns(dataframe, skew_threshold=0.5):
+    """
+    Detect columns with significant skewness.
+    
+    Parameters:
+    dataframe (pd.DataFrame): Input DataFrame
+    skew_threshold (float): Absolute skewness threshold
+    
+    Returns:
+    dict: Dictionary of column names and their skewness values
+    """
+    skewed_columns = {}
+    
+    for col in dataframe.select_dtypes(include=[np.number]).columns:
+        skewness = dataframe[col].skew()
+        if abs(skewness) > skew_threshold:
+            skewed_columns[col] = skewness
+    
+    return skewed_columns
+
+def apply_log_transform(dataframe, column):
+    """
+    Apply log transformation to reduce skewness.
+    
+    Parameters:
+    dataframe (pd.DataFrame): Input DataFrame
+    column (str): Column name to transform
+    
+    Returns:
+    pd.DataFrame: DataFrame with transformed column
+    """
+    if column not in dataframe.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    transformed_df = dataframe.copy()
+    
+    # Add small constant to handle zero or negative values
+    min_val = transformed_df[column].min()
+    if min_val <= 0:
+        constant = abs(min_val) + 1
+        transformed_df[f'{column}_log'] = np.log(transformed_df[column] + constant)
+    else:
+        transformed_df[f'{column}_log'] = np.log(transformed_df[column])
+    
+    return transformed_df
+
+def clean_dataset(dataframe, numeric_columns=None, outlier_threshold=1.5):
+    """
+    Comprehensive data cleaning pipeline.
+    
+    Parameters:
+    dataframe (pd.DataFrame): Input DataFrame
+    numeric_columns (list): List of numeric columns to process
+    outlier_threshold (float): IQR threshold for outlier removal
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame
+    """
+    if numeric_columns is None:
+        numeric_columns = dataframe.select_dtypes(include=[np.number]).columns.tolist()
+    
+    cleaned_df = dataframe.copy()
+    
+    # Remove outliers from each numeric column
+    for col in numeric_columns:
+        if col in cleaned_df.columns:
+            cleaned_df = remove_outliers_iqr(cleaned_df, col, outlier_threshold)
+    
+    # Normalize numeric columns
+    for col in numeric_columns:
+        if col in cleaned_df.columns:
+            cleaned_df = normalize_column_zscore(cleaned_df, col)
+    
+    return cleaned_df
+
+def validate_dataframe(dataframe, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Parameters:
+    dataframe (pd.DataFrame): DataFrame to validate
+    required_columns (list): List of required column names
+    
+    Returns:
+    tuple: (is_valid, validation_message)
+    """
+    if not isinstance(dataframe, pd.DataFrame):
+        return False, "Input is not a pandas DataFrame"
+    
+    if dataframe.empty:
+        return False, "DataFrame is empty"
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in dataframe.columns]
+        if missing_columns:
+            return False, f"Missing required columns: {missing_columns}"
+    
+    # Check for infinite values
+    numeric_cols = dataframe.select_dtypes(include=[np.number]).columns
+    inf_count = np.isinf(dataframe[numeric_cols]).sum().sum()
+    if inf_count > 0:
+        return False, f"Found {inf_count} infinite values in numeric columns"
+    
+    return True, "DataFrame validation passed"
+
+# Example usage demonstration
+if __name__ == "__main__":
+    # Create sample data
+    np.random.seed(42)
+    sample_data = {
+        'feature_a': np.random.normal(100, 15, 1000),
+        'feature_b': np.random.exponential(50, 1000),
+        'feature_c': np.random.uniform(0, 1, 1000)
+    }
+    
+    # Add some outliers
+    sample_data['feature_a'][:10] = 500
+    sample_data['feature_b'][:5] = 1000
+    
+    df = pd.DataFrame(sample_data)
+    
+    # Validate data
+    is_valid, message = validate_dataframe(df)
+    print(f"Validation: {is_valid} - {message}")
+    
+    # Detect skewed columns
+    skewed = detect_skewed_columns(df)
+    print(f"Skewed columns: {skewed}")
+    
+    # Clean data
+    cleaned_df = clean_dataset(df, ['feature_a', 'feature_b', 'feature_c'])
+    
+    print(f"Original shape: {df.shape}")
+    print(f"Cleaned shape: {cleaned_df.shape}")
+    print(f"Columns after cleaning: {cleaned_df.columns.tolist()}")
