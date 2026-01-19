@@ -133,3 +133,86 @@ class DataCleaner:
         print(f"Categorical columns: {self.categorical_columns}")
         print(f"Missing values after cleaning:")
         print(self.df.isnull().sum())
+import pandas as pd
+import numpy as np
+import argparse
+import sys
+
+def clean_missing_values(df, strategy='mean', columns=None):
+    """
+    Clean missing values in a DataFrame using specified strategy.
+    
+    Args:
+        df: pandas DataFrame
+        strategy: 'mean', 'median', 'mode', or 'drop'
+        columns: list of columns to clean, None for all columns
+    
+    Returns:
+        Cleaned DataFrame
+    """
+    if df.empty:
+        return df
+    
+    if columns is None:
+        columns = df.columns
+    
+    df_clean = df.copy()
+    
+    for col in columns:
+        if col not in df_clean.columns:
+            continue
+            
+        if df_clean[col].isnull().sum() == 0:
+            continue
+        
+        if strategy == 'mean':
+            if pd.api.types.is_numeric_dtype(df_clean[col]):
+                df_clean[col].fillna(df_clean[col].mean(), inplace=True)
+        
+        elif strategy == 'median':
+            if pd.api.types.is_numeric_dtype(df_clean[col]):
+                df_clean[col].fillna(df_clean[col].median(), inplace=True)
+        
+        elif strategy == 'mode':
+            if not df_clean[col].mode().empty:
+                df_clean[col].fillna(df_clean[col].mode()[0], inplace=True)
+        
+        elif strategy == 'drop':
+            df_clean = df_clean.dropna(subset=[col])
+    
+    return df_clean
+
+def main():
+    parser = argparse.ArgumentParser(description='Clean missing values in CSV file')
+    parser.add_argument('input_file', help='Input CSV file path')
+    parser.add_argument('output_file', help='Output CSV file path')
+    parser.add_argument('--strategy', default='mean', 
+                       choices=['mean', 'median', 'mode', 'drop'],
+                       help='Strategy for handling missing values')
+    parser.add_argument('--columns', nargs='+', 
+                       help='Specific columns to clean (space separated)')
+    
+    args = parser.parse_args()
+    
+    try:
+        df = pd.read_csv(args.input_file)
+        print(f"Loaded data with shape: {df.shape}")
+        print(f"Missing values before cleaning: {df.isnull().sum().sum()}")
+        
+        cleaned_df = clean_missing_values(df, args.strategy, args.columns)
+        
+        print(f"Missing values after cleaning: {cleaned_df.isnull().sum().sum()}")
+        print(f"Output shape: {cleaned_df.shape}")
+        
+        cleaned_df.to_csv(args.output_file, index=False)
+        print(f"Cleaned data saved to: {args.output_file}")
+        
+    except FileNotFoundError:
+        print(f"Error: Input file '{args.input_file}' not found", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"Error: {str(e)}", file=sys.stderr)
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()
