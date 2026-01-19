@@ -1,51 +1,50 @@
-import numpy as np
+
 import pandas as pd
 
-def remove_outliers_iqr(df, column):
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
-    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
-
-def normalize_minmax(df, column):
-    min_val = df[column].min()
-    max_val = df[column].max()
-    if max_val - min_val == 0:
-        return df[column]
-    return (df[column] - min_val) / (max_val - min_val)
-
-def clean_dataset(df, numeric_columns):
-    cleaned_df = df.copy()
-    for col in numeric_columns:
-        if col in cleaned_df.columns:
-            cleaned_df = remove_outliers_iqr(cleaned_df, col)
-            cleaned_df[col] = normalize_minmax(cleaned_df, col)
-    return cleaned_df.reset_index(drop=True)
-
-def validate_dataframe(df):
-    required_checks = [
-        lambda x: isinstance(x, pd.DataFrame),
-        lambda x: not x.empty,
-        lambda x: x.isnull().sum().sum() == 0
-    ]
-    for check in required_checks:
-        if not check(df):
-            return False
-    return True
-
-if __name__ == "__main__":
-    sample_data = pd.DataFrame({
-        'feature_a': np.random.normal(100, 15, 200),
-        'feature_b': np.random.exponential(50, 200),
-        'category': np.random.choice(['X', 'Y', 'Z'], 200)
-    })
+def clean_dataframe(df, drop_na=True, rename_columns=True):
+    """
+    Clean a pandas DataFrame by removing null values and standardizing column names.
     
-    if validate_dataframe(sample_data):
-        cleaned = clean_dataset(sample_data, ['feature_a', 'feature_b'])
-        print(f"Original shape: {sample_data.shape}")
-        print(f"Cleaned shape: {cleaned.shape}")
-        print(f"Removed rows: {len(sample_data) - len(cleaned)}")
-    else:
-        print("Data validation failed")
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean.
+        drop_na (bool): If True, drop rows with any null values.
+        rename_columns (bool): If True, rename columns to lowercase with underscores.
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame.
+    """
+    df_clean = df.copy()
+    
+    if drop_na:
+        df_clean = df_clean.dropna()
+    
+    if rename_columns:
+        df_clean.columns = (
+            df_clean.columns
+            .str.lower()
+            .str.replace(r'[^\w\s]', '', regex=True)
+            .str.replace(r'\s+', '_', regex=True)
+        )
+    
+    return df_clean
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and required columns.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate.
+        required_columns (list): List of required column names.
+    
+    Returns:
+        tuple: (is_valid, error_message)
+    """
+    if not isinstance(df, pd.DataFrame):
+        return False, "Input is not a pandas DataFrame"
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            return False, f"Missing required columns: {missing_columns}"
+    
+    return True, "DataFrame is valid"
