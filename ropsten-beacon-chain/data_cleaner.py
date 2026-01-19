@@ -1,217 +1,100 @@
 
 import pandas as pd
-import numpy as np
+import re
 
-def remove_outliers_iqr(df, column):
+def clean_string_column(series, case='lower', strip=True, remove_special=True):
     """
-    Remove outliers from a DataFrame column using the Interquartile Range method.
+    Standardize string values in a pandas Series.
     
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    column (str): Column name to process
+    Args:
+        series (pd.Series): Input series containing string data.
+        case (str): Desired case transformation. Options: 'lower', 'upper', 'title', None.
+        strip (bool): Whether to strip leading/trailing whitespace.
+        remove_special (bool): Whether to remove special characters (keeping alphanumeric and spaces).
     
     Returns:
-    pd.DataFrame: DataFrame with outliers removed
+        pd.Series: Cleaned series.
     """
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
+    if not pd.api.types.is_string_dtype(series):
+        series = series.astype(str)
     
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
+    result = series.copy()
     
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
+    if strip:
+        result = result.str.strip()
     
-    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    if remove_special:
+        result = result.apply(lambda x: re.sub(r'[^A-Za-z0-9\s]', '', x) if pd.notnull(x) else x)
     
-    return filtered_df
+    if case == 'lower':
+        result = result.str.lower()
+    elif case == 'upper':
+        result = result.str.upper()
+    elif case == 'title':
+        result = result.str.title()
+    
+    return result
 
-def calculate_summary_statistics(df, column):
+def remove_duplicates(df, subset=None, keep='first'):
     """
-    Calculate summary statistics for a DataFrame column.
+    Remove duplicate rows from DataFrame with additional logging.
     
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    column (str): Column name to analyze
+    Args:
+        df (pd.DataFrame): Input DataFrame.
+        subset (list, optional): Columns to consider for duplicates.
+        keep (str): Which duplicates to keep. Options: 'first', 'last', False.
     
     Returns:
-    dict: Dictionary containing summary statistics
+        pd.DataFrame: DataFrame with duplicates removed.
     """
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
+    initial_count = len(df)
+    df_clean = df.drop_duplicates(subset=subset, keep=keep)
+    final_count = len(df_clean)
     
-    stats = {
-        'mean': df[column].mean(),
-        'median': df[column].median(),
-        'std': df[column].std(),
-        'min': df[column].min(),
-        'max': df[column].max(),
-        'count': df[column].count(),
-        'missing': df[column].isnull().sum()
-    }
-    
-    return stats
-
-def normalize_column(df, column, method='minmax'):
-    """
-    Normalize a DataFrame column using specified method.
-    
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    column (str): Column name to normalize
-    method (str): Normalization method ('minmax' or 'zscore')
-    
-    Returns:
-    pd.DataFrame: DataFrame with normalized column
-    """
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
-    
-    df_copy = df.copy()
-    
-    if method == 'minmax':
-        min_val = df_copy[column].min()
-        max_val = df_copy[column].max()
-        if max_val != min_val:
-            df_copy[f'{column}_normalized'] = (df_copy[column] - min_val) / (max_val - min_val)
-        else:
-            df_copy[f'{column}_normalized'] = 0.5
-    
-    elif method == 'zscore':
-        mean_val = df_copy[column].mean()
-        std_val = df_copy[column].std()
-        if std_val > 0:
-            df_copy[f'{column}_normalized'] = (df_copy[column] - mean_val) / std_val
-        else:
-            df_copy[f'{column}_normalized'] = 0
-    
-    else:
-        raise ValueError("Method must be 'minmax' or 'zscore'")
-    
-    return df_copy
-
-def handle_missing_values(df, column, strategy='mean'):
-    """
-    Handle missing values in a DataFrame column.
-    
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    column (str): Column name to process
-    strategy (str): Strategy for handling missing values ('mean', 'median', 'mode', 'drop')
-    
-    Returns:
-    pd.DataFrame: DataFrame with handled missing values
-    """
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
-    
-    df_copy = df.copy()
-    
-    if strategy == 'mean':
-        fill_value = df_copy[column].mean()
-    elif strategy == 'median':
-        fill_value = df_copy[column].median()
-    elif strategy == 'mode':
-        fill_value = df_copy[column].mode()[0] if not df_copy[column].mode().empty else np.nan
-    elif strategy == 'drop':
-        df_copy = df_copy.dropna(subset=[column])
-        return df_copy
-    else:
-        raise ValueError("Strategy must be 'mean', 'median', 'mode', or 'drop'")
-    
-    df_copy[column] = df_copy[column].fillna(fill_value)
-    return df_copy
-
-def validate_dataframe(df, required_columns=None):
-    """
-    Validate DataFrame structure and content.
-    
-    Parameters:
-    df (pd.DataFrame): DataFrame to validate
-    required_columns (list): List of required column names
-    
-    Returns:
-    dict: Validation results
-    """
-    validation_results = {
-        'is_dataframe': isinstance(df, pd.DataFrame),
-        'is_empty': df.empty,
-        'shape': df.shape,
-        'columns': list(df.columns),
-        'dtypes': df.dtypes.to_dict(),
-        'missing_values': df.isnull().sum().to_dict()
-    }
-    
-    if required_columns:
-        missing_columns = [col for col in required_columns if col not in df.columns]
-        validation_results['missing_required_columns'] = missing_columns
-        validation_results['has_all_required_columns'] = len(missing_columns) == 0
-    
-    return validation_results
-import pandas as pd
-import numpy as np
-from scipy import stats
-
-def remove_outliers_iqr(dataframe, column):
-    Q1 = dataframe[column].quantile(0.25)
-    Q3 = dataframe[column].quantile(0.75)
-    IQR = Q3 - Q1
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
-    return dataframe[(dataframe[column] >= lower_bound) & (dataframe[column] <= upper_bound)]
-
-def remove_outliers_zscore(dataframe, column, threshold=3):
-    z_scores = np.abs(stats.zscore(dataframe[column]))
-    return dataframe[z_scores < threshold]
-
-def normalize_minmax(dataframe, column):
-    min_val = dataframe[column].min()
-    max_val = dataframe[column].max()
-    dataframe[column + '_normalized'] = (dataframe[column] - min_val) / (max_val - min_val)
-    return dataframe
-
-def normalize_zscore(dataframe, column):
-    mean_val = dataframe[column].mean()
-    std_val = dataframe[column].std()
-    dataframe[column + '_standardized'] = (dataframe[column] - mean_val) / std_val
-    return dataframe
-
-def clean_dataset(dataframe, numeric_columns, outlier_method='iqr', normalize_method='minmax'):
-    df_clean = dataframe.copy()
-    
-    for col in numeric_columns:
-        if outlier_method == 'iqr':
-            df_clean = remove_outliers_iqr(df_clean, col)
-        elif outlier_method == 'zscore':
-            df_clean = remove_outliers_zscore(df_clean, col)
-    
-    for col in numeric_columns:
-        if normalize_method == 'minmax':
-            df_clean = normalize_minmax(df_clean, col)
-        elif normalize_method == 'zscore':
-            df_clean = normalize_zscore(df_clean, col)
+    duplicates_removed = initial_count - final_count
+    if duplicates_removed > 0:
+        print(f"Removed {duplicates_removed} duplicate rows.")
     
     return df_clean
 
+def validate_email_format(series):
+    """
+    Validate email format in a pandas Series.
+    
+    Args:
+        series (pd.Series): Series containing email addresses.
+    
+    Returns:
+        pd.Series: Boolean series indicating valid emails.
+    """
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return series.str.match(pattern, na=False)
+
 def main():
+    """
+    Example usage of data cleaning functions.
+    """
     sample_data = {
-        'feature1': [10, 12, 12, 13, 12, 50, 11, 12, 9, 10],
-        'feature2': [100, 120, 115, 118, 122, 500, 110, 112, 105, 108],
-        'category': ['A', 'B', 'A', 'B', 'A', 'B', 'A', 'B', 'A', 'B']
+        'name': ['  John Doe  ', 'Jane Smith', 'ALICE WONDER', 'bob@example'],
+        'email': ['john@example.com', 'invalid-email', 'alice@company.co.uk', 'bob@test.org'],
+        'value': [100, 200, 100, 300]
     }
     
     df = pd.DataFrame(sample_data)
-    print("Original dataset:")
+    print("Original DataFrame:")
     print(df)
-    print("\nDataset shape:", df.shape)
+    print()
     
-    numeric_cols = ['feature1', 'feature2']
-    cleaned_df = clean_dataset(df, numeric_cols, outlier_method='iqr', normalize_method='minmax')
+    df['name_clean'] = clean_string_column(df['name'], case='title', strip=True, remove_special=True)
+    df['email_valid'] = validate_email_format(df['email'])
     
-    print("\nCleaned dataset:")
-    print(cleaned_df)
-    print("\nCleaned dataset shape:", cleaned_df.shape)
+    print("After cleaning:")
+    print(df)
+    print()
+    
+    df_no_dupes = remove_duplicates(df, subset=['value'], keep='first')
+    print("After removing duplicates by 'value' column:")
+    print(df_no_dupes)
 
 if __name__ == "__main__":
     main()
