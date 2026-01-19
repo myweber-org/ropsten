@@ -734,4 +734,11 @@ if __name__ == "__main__":
     
     standardized = standardize_columns(no_outliers, ['D'])
     print("\nDataFrame after standardization:")
-    print(standardized)
+    print(standardized)def remove_duplicates(input_list):
+    seen = set()
+    result = []
+    for item in input_list:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
