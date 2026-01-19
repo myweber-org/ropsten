@@ -135,4 +135,129 @@ def remove_outliers_iqr(df, column, multiplier=1.5):
     lower_bound = Q1 - multiplier * IQR
     upper_bound = Q3 + multiplier * IQR
     
-    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]import pandas as pd
+import numpy as np
+
+def clean_dataset(df, duplicate_threshold=0.8):
+    """
+    Clean dataset by removing duplicates and handling missing values.
+    
+    Parameters:
+    df (pd.DataFrame): Input dataframe
+    duplicate_threshold (float): Threshold for duplicate detection (0.0 to 1.0)
+    
+    Returns:
+    pd.DataFrame: Cleaned dataframe
+    """
+    # Create a copy to avoid modifying original
+    cleaned_df = df.copy()
+    
+    # Remove exact duplicates
+    initial_rows = len(cleaned_df)
+    cleaned_df = cleaned_df.drop_duplicates()
+    exact_duplicates = initial_rows - len(cleaned_df)
+    
+    # Find and remove approximate duplicates based on threshold
+    if duplicate_threshold < 1.0:
+        numeric_cols = cleaned_df.select_dtypes(include=[np.number]).columns
+        if len(numeric_cols) > 0:
+            # Calculate similarity matrix for numeric columns
+            from sklearn.metrics.pairwise import cosine_similarity
+            numeric_data = cleaned_df[numeric_cols].fillna(0)
+            similarity_matrix = cosine_similarity(numeric_data)
+            
+            # Find rows with high similarity
+            duplicate_mask = np.zeros(len(cleaned_df), dtype=bool)
+            for i in range(len(similarity_matrix)):
+                if not duplicate_mask[i]:
+                    similar_indices = np.where(similarity_matrix[i] > duplicate_threshold)[0]
+                    if len(similar_indices) > 1:
+                        # Keep first occurrence, mark others as duplicates
+                        duplicate_mask[similar_indices[1:]] = True
+            
+            approx_duplicates = duplicate_mask.sum()
+            cleaned_df = cleaned_df[~duplicate_mask]
+        else:
+            approx_duplicates = 0
+    else:
+        approx_duplicates = 0
+    
+    # Handle missing values
+    missing_before = cleaned_df.isnull().sum().sum()
+    
+    # For numeric columns, fill with median
+    for col in cleaned_df.select_dtypes(include=[np.number]).columns:
+        if cleaned_df[col].isnull().any():
+            cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].median())
+    
+    # For categorical columns, fill with mode
+    for col in cleaned_df.select_dtypes(include=['object']).columns:
+        if cleaned_df[col].isnull().any():
+            mode_value = cleaned_df[col].mode()
+            if not mode_value.empty:
+                cleaned_df[col] = cleaned_df[col].fillna(mode_value.iloc[0])
+            else:
+                cleaned_df[col] = cleaned_df[col].fillna('Unknown')
+    
+    missing_after = cleaned_df.isnull().sum().sum()
+    
+    # Log cleaning statistics
+    print(f"Data cleaning completed:")
+    print(f"  - Exact duplicates removed: {exact_duplicates}")
+    print(f"  - Approximate duplicates removed: {approx_duplicates}")
+    print(f"  - Missing values handled: {missing_before - missing_after}")
+    print(f"  - Final dataset shape: {cleaned_df.shape}")
+    
+    return cleaned_df
+
+def validate_dataframe(df):
+    """
+    Validate dataframe structure and content.
+    
+    Parameters:
+    df (pd.DataFrame): Dataframe to validate
+    
+    Returns:
+    dict: Validation results
+    """
+    validation_results = {
+        'has_data': len(df) > 0,
+        'columns_count': len(df.columns),
+        'rows_count': len(df),
+        'missing_values': df.isnull().sum().sum(),
+        'numeric_columns': len(df.select_dtypes(include=[np.number]).columns),
+        'categorical_columns': len(df.select_dtypes(include=['object']).columns),
+        'memory_usage_mb': df.memory_usage(deep=True).sum() / 1024 / 1024
+    }
+    
+    return validation_results
+
+# Example usage
+if __name__ == "__main__":
+    # Create sample data
+    sample_data = {
+        'id': [1, 2, 3, 4, 5, 1, 2, 7, 8, 9],
+        'value': [10.5, 20.3, 15.7, 10.5, 25.1, 10.5, 20.3, 18.9, None, 22.4],
+        'category': ['A', 'B', 'A', 'C', 'B', 'A', 'B', None, 'D', 'E'],
+        'score': [85, 92, 78, 85, 95, 85, 92, 88, 76, 90]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original dataset:")
+    print(df)
+    print("\n" + "="*50 + "\n")
+    
+    # Validate original data
+    validation = validate_dataframe(df)
+    print("Validation results:")
+    for key, value in validation.items():
+        print(f"  {key}: {value}")
+    
+    print("\n" + "="*50 + "\n")
+    
+    # Clean the data
+    cleaned_df = clean_dataset(df, duplicate_threshold=0.95)
+    
+    print("\n" + "="*50 + "\n")
+    print("Cleaned dataset:")
+    print(cleaned_df)
