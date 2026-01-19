@@ -86,3 +86,39 @@ if __name__ == "__main__":
     print("\nSummary Statistics:")
     for key, value in stats.items():
         print(f"{key}: {value:.4f}" if isinstance(value, float) else f"{key}: {value}")
+import pandas as pd
+import numpy as np
+from datetime import datetime
+
+def clean_csv_data(input_file, output_file):
+    df = pd.read_csv(input_file)
+    
+    df.replace(['NA', 'N/A', 'null', ''], np.nan, inplace=True)
+    
+    for col in df.select_dtypes(include=['object']).columns:
+        try:
+            df[col] = pd.to_datetime(df[col])
+        except (ValueError, TypeError):
+            try:
+                df[col] = pd.to_numeric(df[col], errors='ignore')
+            except (ValueError, TypeError):
+                pass
+    
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].median())
+    
+    categorical_cols = df.select_dtypes(include=['object']).columns
+    df[categorical_cols] = df[categorical_cols].fillna('Unknown')
+    
+    date_cols = df.select_dtypes(include=['datetime64']).columns
+    for col in date_cols:
+        df[col] = df[col].fillna(pd.Timestamp('1970-01-01'))
+    
+    df = df.drop_duplicates()
+    
+    df.to_csv(output_file, index=False)
+    return df.shape
+
+if __name__ == "__main__":
+    cleaned_shape = clean_csv_data('raw_data.csv', 'cleaned_data.csv')
+    print(f"Data cleaned successfully. Shape: {cleaned_shape}")
