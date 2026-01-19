@@ -98,3 +98,55 @@ def main():
 
 if __name__ == "__main__":
     main()
+import pandas as pd
+import numpy as np
+from typing import List, Optional
+
+def clean_dataframe(df: pd.DataFrame, 
+                    drop_duplicates: bool = True,
+                    columns_to_standardize: Optional[List[str]] = None,
+                    date_columns: Optional[List[str]] = None) -> pd.DataFrame:
+    """
+    Clean a pandas DataFrame by removing duplicates, standardizing text columns,
+    and converting date columns to datetime format.
+    """
+    df_clean = df.copy()
+    
+    if drop_duplicates:
+        df_clean = df_clean.drop_duplicates().reset_index(drop=True)
+    
+    if columns_to_standardize:
+        for col in columns_to_standardize:
+            if col in df_clean.columns:
+                df_clean[col] = df_clean[col].astype(str).str.strip().str.lower()
+                df_clean[col] = df_clean[col].replace({'nan': np.nan, 'none': np.nan})
+    
+    if date_columns:
+        for col in date_columns:
+            if col in df_clean.columns:
+                df_clean[col] = pd.to_datetime(df_clean[col], errors='coerce')
+    
+    return df_clean
+
+def validate_dataframe(df: pd.DataFrame, 
+                       required_columns: List[str]) -> bool:
+    """
+    Validate that a DataFrame contains all required columns.
+    """
+    missing_columns = [col for col in required_columns if col not in df.columns]
+    
+    if missing_columns:
+        print(f"Missing required columns: {missing_columns}")
+        return False
+    
+    return True
+
+def calculate_missing_percentage(df: pd.DataFrame) -> pd.Series:
+    """
+    Calculate the percentage of missing values for each column.
+    """
+    total_rows = len(df)
+    missing_counts = df.isnull().sum()
+    missing_percentage = (missing_counts / total_rows) * 100
+    
+    return missing_percentage.round(2)
