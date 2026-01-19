@@ -1,157 +1,31 @@
-import pandas as pd
+import re
+from typing import List, Dict, Any
 
-def clean_dataset(df, drop_duplicates=True, fill_missing=True, fill_value=0):
-    """
-    Clean a pandas DataFrame by removing duplicates and handling missing values.
-    
-    Args:
-        df: pandas DataFrame to clean
-        drop_duplicates: Whether to remove duplicate rows
-        fill_missing: Whether to fill missing values
-        fill_value: Value to use for filling missing data
-    
-    Returns:
-        Cleaned pandas DataFrame
-    """
-    cleaned_df = df.copy()
-    
-    if drop_duplicates:
-        initial_rows = len(cleaned_df)
-        cleaned_df = cleaned_df.drop_duplicates()
-        removed = initial_rows - len(cleaned_df)
-        if removed > 0:
-            print(f"Removed {removed} duplicate rows")
-    
-    if fill_missing:
-        missing_before = cleaned_df.isnull().sum().sum()
-        cleaned_df = cleaned_df.fillna(fill_value)
-        missing_after = cleaned_df.isnull().sum().sum()
-        if missing_before > 0:
-            print(f"Filled {missing_before} missing values")
-    
-    return cleaned_df
+def remove_duplicates(data: List[Dict[str, Any]], key: str) -> List[Dict[str, Any]]:
+    seen = set()
+    unique_data = []
+    for item in data:
+        if item.get(key) not in seen:
+            seen.add(item.get(key))
+            unique_data.append(item)
+    return unique_data
 
-def validate_dataframe(df, required_columns=None):
-    """
-    Validate that a DataFrame meets basic requirements.
-    
-    Args:
-        df: DataFrame to validate
-        required_columns: List of column names that must be present
-    
-    Returns:
-        Tuple of (is_valid, error_message)
-    """
-    if df.empty:
-        return False, "DataFrame is empty"
-    
-    if required_columns:
-        missing_columns = [col for col in required_columns if col not in df.columns]
-        if missing_columns:
-            return False, f"Missing required columns: {missing_columns}"
-    
-    return True, "DataFrame is valid"
+def normalize_text(text: str) -> str:
+    text = text.lower().strip()
+    text = re.sub(r'\s+', ' ', text)
+    return text
 
-def get_data_summary(df):
-    """
-    Generate a summary of the DataFrame including shape, column types, and missing values.
-    
-    Args:
-        df: DataFrame to summarize
-    
-    Returns:
-        Dictionary containing summary information
-    """
-    summary = {
-        'shape': df.shape,
-        'columns': list(df.columns),
-        'dtypes': df.dtypes.to_dict(),
-        'missing_values': df.isnull().sum().to_dict(),
-        'memory_usage': df.memory_usage(deep=True).sum()
-    }
-    return summary
+def clean_data(data: List[Dict[str, Any]], text_fields: List[str]) -> List[Dict[str, Any]]:
+    cleaned = []
+    for item in data:
+        cleaned_item = item.copy()
+        for field in text_fields:
+            if field in cleaned_item and isinstance(cleaned_item[field], str):
+                cleaned_item[field] = normalize_text(cleaned_item[field])
+        cleaned.append(cleaned_item)
+    return cleaned
 
-if __name__ == "__main__":
-    # Example usage
-    sample_data = {
-        'id': [1, 2, 2, 3, 4, 5],
-        'value': [10, 20, 20, None, 40, 50],
-        'category': ['A', 'B', 'B', 'C', None, 'A']
-    }
-    
-    df = pd.DataFrame(sample_data)
-    print("Original DataFrame:")
-    print(df)
-    print("\nData Summary:")
-    print(get_data_summary(df))
-    
-    cleaned = clean_dataset(df)
-    print("\nCleaned DataFrame:")
-    print(cleaned)
-    
-    is_valid, message = validate_dataframe(cleaned, required_columns=['id', 'value'])
-    print(f"\nValidation: {message}")
-import pandas as pd
-
-def remove_duplicates(df, subset=None, keep='first'):
-    """
-    Remove duplicate rows from a DataFrame.
-    
-    Args:
-        df (pd.DataFrame): Input DataFrame
-        subset (list, optional): Column names to consider for duplicates
-        keep (str, optional): Which duplicates to keep ('first', 'last', False)
-    
-    Returns:
-        pd.DataFrame: DataFrame with duplicates removed
-    """
-    if df.empty:
-        return df
-    
-    cleaned_df = df.drop_duplicates(subset=subset, keep=keep)
-    
-    removed_count = len(df) - len(cleaned_df)
-    if removed_count > 0:
-        print(f"Removed {removed_count} duplicate rows")
-    
-    return cleaned_df
-
-def clean_numeric_columns(df, columns):
-    """
-    Clean numeric columns by converting to appropriate types and handling errors.
-    
-    Args:
-        df (pd.DataFrame): Input DataFrame
-        columns (list): List of column names to clean
-    
-    Returns:
-        pd.DataFrame: DataFrame with cleaned numeric columns
-    """
-    for col in columns:
-        if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors='coerce')
-    
-    return df
-
-def validate_dataframe(df, required_columns=None):
-    """
-    Validate DataFrame structure and content.
-    
-    Args:
-        df (pd.DataFrame): DataFrame to validate
-        required_columns (list, optional): List of required column names
-    
-    Returns:
-        bool: True if validation passes, False otherwise
-    """
-    if df is None or df.empty:
-        print("DataFrame is empty or None")
-        return False
-    
-    if required_columns:
-        missing_columns = [col for col in required_columns if col not in df.columns]
-        if missing_columns:
-            print(f"Missing required columns: {missing_columns}")
-            return False
-    
-    return True
+def process_dataset(data: List[Dict[str, Any]], unique_key: str, text_fields: List[str]) -> List[Dict[str, Any]]:
+    deduplicated = remove_duplicates(data, unique_key)
+    cleaned = clean_data(deduplicated, text_fields)
+    return cleaned
