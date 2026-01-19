@@ -95,4 +95,62 @@ def calculate_summary_stats(data, column):
         'median': data[column].median(),
         'std': data[column].std()
     }
-    return stats
+    return statsimport csv
+import sys
+
+def clean_csv(input_file, output_file):
+    """
+    Clean a CSV file by removing rows with missing values
+    and stripping whitespace from all string fields.
+    """
+    try:
+        with open(input_file, 'r', newline='', encoding='utf-8') as infile:
+            reader = csv.DictReader(infile)
+            fieldnames = reader.fieldnames
+            
+            if not fieldnames:
+                print("Error: CSV file has no headers")
+                return False
+            
+            cleaned_rows = []
+            for row in reader:
+                # Skip rows with any empty values
+                if any(value is None or str(value).strip() == '' for value in row.values()):
+                    continue
+                
+                # Strip whitespace from string fields
+                cleaned_row = {key: value.strip() if isinstance(value, str) else value 
+                              for key, value in row.items()}
+                cleaned_rows.append(cleaned_row)
+        
+        if not cleaned_rows:
+            print("Warning: No valid rows found after cleaning")
+            return False
+        
+        with open(output_file, 'w', newline='', encoding='utf-8') as outfile:
+            writer = csv.DictWriter(outfile, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(cleaned_rows)
+        
+        print(f"Successfully cleaned {len(cleaned_rows)} rows")
+        return True
+        
+    except FileNotFoundError:
+        print(f"Error: Input file '{input_file}' not found")
+        return False
+    except Exception as e:
+        print(f"Error processing file: {e}")
+        return False
+
+if __name__ == "__main__":
+    if len(sys.argv) != 3:
+        print("Usage: python data_cleaner.py <input_file> <output_file>")
+        sys.exit(1)
+    
+    input_path = sys.argv[1]
+    output_path = sys.argv[2]
+    
+    if clean_csv(input_path, output_path):
+        sys.exit(0)
+    else:
+        sys.exit(1)
