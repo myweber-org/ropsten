@@ -29,3 +29,11 @@ def process_dataset(data: List[Dict[str, Any]], unique_key: str, text_fields: Li
     deduplicated = remove_duplicates(data, unique_key)
     cleaned = clean_data(deduplicated, text_fields)
     return cleaned
+def remove_duplicates_preserve_order(input_list):
+    seen = set()
+    result = []
+    for item in input_list:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
