@@ -79,3 +79,11 @@ def process_dataframe(df, columns_to_clean):
             statistics[column] = stats
     
     return cleaned_df, statistics
+def remove_duplicates_preserve_order(iterable):
+    seen = set()
+    result = []
+    for item in iterable:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
