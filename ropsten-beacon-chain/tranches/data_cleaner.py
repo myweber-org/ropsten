@@ -628,4 +628,110 @@ if __name__ == "__main__":
     print("\nCleaned data shape:", df_clean.shape)
     print("Normalized data range - feature_a:", 
           df_normalized['feature_a'].min(), "to", df_normalized['feature_a'].max())
-    print("Filled missing values:", df_filled.isnull().sum().sum())
+    print("Filled missing values:", df_filled.isnull().sum().sum())import pandas as pd
+import numpy as np
+
+def clean_csv_data(filepath, fill_method='mean', drop_threshold=0.5):
+    """
+    Load and clean CSV data by handling missing values.
+    
+    Parameters:
+    filepath (str): Path to the CSV file.
+    fill_method (str): Method for filling missing values ('mean', 'median', 'mode', 'zero').
+    drop_threshold (float): Drop columns with missing ratio above this threshold.
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame.
+    """
+    try:
+        df = pd.read_csv(filepath)
+    except FileNotFoundError:
+        raise FileNotFoundError(f"File not found: {filepath}")
+    
+    missing_ratio = df.isnull().sum() / len(df)
+    columns_to_drop = missing_ratio[missing_ratio > drop_threshold].index
+    df = df.drop(columns=columns_to_drop)
+    
+    for column in df.columns:
+        if df[column].dtype in ['float64', 'int64']:
+            if fill_method == 'mean':
+                fill_value = df[column].mean()
+            elif fill_method == 'median':
+                fill_value = df[column].median()
+            elif fill_method == 'mode':
+                fill_value = df[column].mode()[0] if not df[column].mode().empty else 0
+            elif fill_method == 'zero':
+                fill_value = 0
+            else:
+                raise ValueError("Invalid fill_method. Choose from 'mean', 'median', 'mode', 'zero'")
+            
+            df[column] = df[column].fillna(fill_value)
+        else:
+            df[column] = df[column].fillna('Unknown')
+    
+    return df
+
+def remove_outliers_iqr(df, column):
+    """
+    Remove outliers from a column using the IQR method.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame.
+    column (str): Column name to process.
+    
+    Returns:
+    pd.DataFrame: DataFrame with outliers removed.
+    """
+    if column not in df.columns:
+        raise KeyError(f"Column '{column}' not found in DataFrame")
+    
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+
+def standardize_columns(df, columns=None):
+    """
+    Standardize specified columns to have zero mean and unit variance.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame.
+    columns (list): List of columns to standardize. If None, all numeric columns are used.
+    
+    Returns:
+    pd.DataFrame: DataFrame with standardized columns.
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    for col in columns:
+        if col in df.columns and df[col].dtype in ['float64', 'int64']:
+            mean = df[col].mean()
+            std = df[col].std()
+            if std > 0:
+                df[col] = (df[col] - mean) / std
+    
+    return df
+
+if __name__ == "__main__":
+    sample_data = pd.DataFrame({
+        'A': [1, 2, np.nan, 4, 5],
+        'B': [np.nan, 2, 3, np.nan, 5],
+        'C': [1, 1, 1, 1, 1],
+        'D': [10, 20, 30, 40, 50]
+    })
+    
+    cleaned = clean_csv_data('sample.csv', fill_method='median', drop_threshold=0.3)
+    print("Cleaned DataFrame:")
+    print(cleaned)
+    
+    no_outliers = remove_outliers_iqr(cleaned, 'D')
+    print("\nDataFrame after outlier removal:")
+    print(no_outliers)
+    
+    standardized = standardize_columns(no_outliers, ['D'])
+    print("\nDataFrame after standardization:")
+    print(standardized)
