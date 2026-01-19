@@ -1,53 +1,75 @@
 
-import pandas as pd
 import numpy as np
-from scipy import stats
 
-class DataCleaner:
-    def __init__(self, df):
-        self.df = df.copy()
-        self.numeric_columns = df.select_dtypes(include=[np.number]).columns
-        self.categorical_columns = df.select_dtypes(exclude=[np.number]).columns
-        
-    def handle_missing_values(self, strategy='mean', fill_value=None):
-        if strategy == 'mean':
-            for col in self.numeric_columns:
-                self.df[col].fillna(self.df[col].mean(), inplace=True)
-        elif strategy == 'median':
-            for col in self.numeric_columns:
-                self.df[col].fillna(self.df[col].median(), inplace=True)
-        elif strategy == 'mode':
-            for col in self.df.columns:
-                self.df[col].fillna(self.df[col].mode()[0], inplace=True)
-        elif strategy == 'constant':
-            if fill_value is not None:
-                self.df.fillna(fill_value, inplace=True)
-        return self.df
+def remove_outliers_iqr(data, column):
+    """
+    Remove outliers from a specified column using the IQR method.
     
-    def remove_outliers_zscore(self, threshold=3):
-        z_scores = np.abs(stats.zscore(self.df[self.numeric_columns]))
-        filtered_entries = (z_scores < threshold).all(axis=1)
-        self.df = self.df[filtered_entries]
-        return self.df
+    Parameters:
+    data (list or np.array): The dataset.
+    column (int): Index of the column to process.
     
-    def remove_outliers_iqr(self):
-        for col in self.numeric_columns:
-            Q1 = self.df[col].quantile(0.25)
-            Q3 = self.df[col].quantile(0.75)
-            IQR = Q3 - Q1
-            lower_bound = Q1 - 1.5 * IQR
-            upper_bound = Q3 + 1.5 * IQR
-            self.df = self.df[(self.df[col] >= lower_bound) & (self.df[col] <= upper_bound)]
-        return self.df
+    Returns:
+    np.array: Data with outliers removed.
+    """
+    if not isinstance(data, np.ndarray):
+        data = np.array(data)
     
-    def normalize_data(self, method='minmax'):
-        if method == 'minmax':
-            for col in self.numeric_columns:
-                self.df[col] = (self.df[col] - self.df[col].min()) / (self.df[col].max() - self.df[col].min())
-        elif method == 'zscore':
-            for col in self.numeric_columns:
-                self.df[col] = (self.df[col] - self.df[col].mean()) / self.df[col].std()
-        return self.df
+    col_data = data[:, column].astype(float)
     
-    def get_cleaned_data(self):
-        return self.df.copy()
+    Q1 = np.percentile(col_data, 25)
+    Q3 = np.percentile(col_data, 75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    mask = (col_data >= lower_bound) & (col_data <= upper_bound)
+    
+    return data[mask]
+
+def calculate_statistics(data, column):
+    """
+    Calculate basic statistics for a column after outlier removal.
+    
+    Parameters:
+    data (list or np.array): The dataset.
+    column (int): Index of the column to analyze.
+    
+    Returns:
+    dict: Dictionary containing mean, median, and standard deviation.
+    """
+    cleaned_data = remove_outliers_iqr(data, column)
+    col_data = cleaned_data[:, column].astype(float)
+    
+    stats = {
+        'mean': np.mean(col_data),
+        'median': np.median(col_data),
+        'std': np.std(col_data),
+        'sample_count': len(col_data)
+    }
+    
+    return stats
+
+if __name__ == "__main__":
+    sample_data = np.array([
+        [1, 150.5],
+        [2, 162.3],
+        [3, 145.8],
+        [4, 210.1],
+        [5, 138.9],
+        [6, 155.2],
+        [7, 300.7],
+        [8, 148.6],
+        [9, 152.4],
+        [10, 165.0]
+    ])
+    
+    cleaned = remove_outliers_iqr(sample_data, 1)
+    print("Cleaned data:")
+    print(cleaned)
+    
+    stats = calculate_statistics(sample_data, 1)
+    print("\nStatistics:")
+    for key, value in stats.items():
+        print(f"{key}: {value:.2f}")
