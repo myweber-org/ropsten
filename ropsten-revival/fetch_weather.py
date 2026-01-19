@@ -110,3 +110,44 @@ def main():
 
 if __name__ == "__main__":
     main()
+import requests
+import os
+
+def get_weather(city_name):
+    api_key = os.environ.get('OPENWEATHER_API_KEY')
+    if not api_key:
+        raise ValueError("API key not found. Set OPENWEATHER_API_KEY environment variable.")
+    
+    base_url = "http://api.openweathermap.org/data/2.5/weather"
+    params = {
+        'q': city_name,
+        'appid': api_key,
+        'units': 'metric'
+    }
+    
+    try:
+        response = requests.get(base_url, params=params)
+        response.raise_for_status()
+        data = response.json()
+        
+        weather_info = {
+            'city': data['name'],
+            'temperature': data['main']['temp'],
+            'description': data['weather'][0]['description'],
+            'humidity': data['main']['humidity'],
+            'wind_speed': data['wind']['speed']
+        }
+        return weather_info
+    except requests.exceptions.RequestException as e:
+        raise Exception(f"Failed to fetch weather data: {e}")
+
+if __name__ == "__main__":
+    try:
+        weather = get_weather("London")
+        print(f"Weather in {weather['city']}:")
+        print(f"Temperature: {weather['temperature']}°C")
+        print(f"Description: {weather['description']}")
+        print(f"Humidity: {weather['humidity']}%")
+        print(f"Wind Speed: {weather['wind_speed']} m/s")
+    except Exception as e:
+        print(f"Error: {e}")
