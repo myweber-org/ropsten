@@ -168,4 +168,103 @@ class DataCleaner:
             'missing_values': self.df.isnull().sum().to_dict(),
             'data_types': self.df.dtypes.to_dict()
         }
-        return summary
+        return summaryimport numpy as np
+import pandas as pd
+
+def remove_missing_rows(df, threshold=0.5):
+    """
+    Remove rows with missing values exceeding threshold percentage.
+    
+    Args:
+        df: pandas DataFrame
+        threshold: float between 0 and 1
+    
+    Returns:
+        Cleaned DataFrame
+    """
+    missing_per_row = df.isnull().mean(axis=1)
+    return df[missing_per_row <= threshold].copy()
+
+def replace_outliers_iqr(df, columns=None, multiplier=1.5):
+    """
+    Replace outliers with column boundaries using IQR method.
+    
+    Args:
+        df: pandas DataFrame
+        columns: list of column names or None for all numeric columns
+        multiplier: IQR multiplier for outlier detection
+    
+    Returns:
+        DataFrame with outliers replaced
+    """
+    df_clean = df.copy()
+    
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    for col in columns:
+        if col not in df.columns:
+            continue
+            
+        Q1 = df[col].quantile(0.25)
+        Q3 = df[col].quantile(0.75)
+        IQR = Q3 - Q1
+        
+        lower_bound = Q1 - multiplier * IQR
+        upper_bound = Q3 + multiplier * IQR
+        
+        df_clean[col] = df[col].clip(lower=lower_bound, upper=upper_bound)
+    
+    return df_clean
+
+def standardize_columns(df, columns=None):
+    """
+    Standardize specified columns to have zero mean and unit variance.
+    
+    Args:
+        df: pandas DataFrame
+        columns: list of column names or None for all numeric columns
+    
+    Returns:
+        Standardized DataFrame
+    """
+    df_std = df.copy()
+    
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    for col in columns:
+        if col not in df.columns:
+            continue
+            
+        mean_val = df[col].mean()
+        std_val = df[col].std()
+        
+        if std_val > 0:
+            df_std[col] = (df[col] - mean_val) / std_val
+    
+    return df_std
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Args:
+        df: pandas DataFrame
+        required_columns: list of required column names
+    
+    Returns:
+        tuple: (is_valid, error_message)
+    """
+    if not isinstance(df, pd.DataFrame):
+        return False, "Input is not a pandas DataFrame"
+    
+    if df.empty:
+        return False, "DataFrame is empty"
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            return False, f"Missing required columns: {missing_cols}"
+    
+    return True, "DataFrame is valid"
