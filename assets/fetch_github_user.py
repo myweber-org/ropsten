@@ -69,4 +69,27 @@ def get_github_user(username):
 
 if __name__ == "__main__":
     user_data = get_github_user("octocat")
-    print(user_data)
+    print(user_data)import requests
+
+def fetch_github_user(username):
+    """Fetch and return public details of a GitHub user."""
+    url = f"https://api.github.com/users/{username}"
+    response = requests.get(url)
+    if response.status_code == 200:
+        return response.json()
+    else:
+        response.raise_for_status()
+
+if __name__ == "__main__":
+    try:
+        username = input("Enter GitHub username: ").strip()
+        user_data = fetch_github_user(username)
+        print(f"Name: {user_data.get('name', 'N/A')}")
+        print(f"Bio: {user_data.get('bio', 'N/A')}")
+        print(f"Public Repos: {user_data.get('public_repos', 'N/A')}")
+        print(f"Followers: {user_data.get('followers', 'N/A')}")
+        print(f"Following: {user_data.get('following', 'N/A')}")
+    except requests.exceptions.HTTPError as e:
+        print(f"Error fetching user: {e}")
+    except Exception as e:
+        print(f"An error occurred: {e}")
