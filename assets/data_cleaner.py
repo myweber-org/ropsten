@@ -1,37 +1,62 @@
-import csv
-import sys
+import pandas as pd
+import numpy as np
 
-def clean_csv(input_file, output_file):
-    try:
-        with open(input_file, 'r', newline='', encoding='utf-8') as infile:
-            reader = csv.reader(infile)
-            rows = list(reader)
-        
-        cleaned_rows = []
-        for row in rows:
-            cleaned_row = [cell.strip() for cell in row]
-            if any(cell for cell in cleaned_row):
-                cleaned_rows.append(cleaned_row)
-        
-        with open(output_file, 'w', newline='', encoding='utf-8') as outfile:
-            writer = csv.writer(outfile)
-            writer.writerows(cleaned_rows)
-        
-        print(f"Cleaned data saved to {output_file}")
-        return True
+def remove_outliers_iqr(df, column):
+    """
+    Remove outliers from a DataFrame column using the IQR method.
     
-    except FileNotFoundError:
-        print(f"Error: Input file '{input_file}' not found.")
-        return False
-    except Exception as e:
-        print(f"Error: {e}")
-        return False
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    column (str): Column name to process
+    
+    Returns:
+    pd.DataFrame: DataFrame with outliers removed
+    """
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    return filtered_df
+
+def clean_dataset(file_path, output_path=None):
+    """
+    Clean dataset by removing outliers from numeric columns.
+    
+    Parameters:
+    file_path (str): Path to input CSV file
+    output_path (str): Path to save cleaned CSV file (optional)
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame
+    """
+    df = pd.read_csv(file_path)
+    
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    
+    for col in numeric_cols:
+        original_len = len(df)
+        df = remove_outliers_iqr(df, col)
+        removed_count = original_len - len(df)
+        print(f"Removed {removed_count} outliers from column '{col}'")
+    
+    if output_path:
+        df.to_csv(output_path, index=False)
+        print(f"Cleaned data saved to {output_path}")
+    
+    return df
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
-        print("Usage: python data_cleaner.py <input_file> <output_file>")
-        sys.exit(1)
+    input_file = "raw_data.csv"
+    output_file = "cleaned_data.csv"
     
-    input_file = sys.argv[1]
-    output_file = sys.argv[2]
-    clean_csv(input_file, output_file)
+    try:
+        cleaned_df = clean_dataset(input_file, output_file)
+        print(f"Data cleaning complete. Original shape: unknown, Cleaned shape: {cleaned_df.shape}")
+    except FileNotFoundError:
+        print(f"Error: File '{input_file}' not found. Please check the file path.")
+    except Exception as e:
+        print(f"An error occurred during data cleaning: {str(e)}")
