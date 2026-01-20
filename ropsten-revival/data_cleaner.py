@@ -1,131 +1,64 @@
-
 import pandas as pd
-import numpy as np
 
-def remove_outliers_iqr(df, column):
+def remove_duplicates(dataframe, subset=None, keep='first'):
     """
-    Remove outliers from a DataFrame column using the IQR method.
+    Remove duplicate rows from a pandas DataFrame.
     
     Args:
-        df (pd.DataFrame): Input DataFrame
-        column (str): Column name to process
+        dataframe (pd.DataFrame): Input DataFrame
+        subset (list, optional): Column labels to consider for duplicates
+        keep (str, optional): Which duplicates to keep ('first', 'last', False)
     
     Returns:
-        pd.DataFrame: DataFrame with outliers removed
+        pd.DataFrame: DataFrame with duplicates removed
     """
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
+    if dataframe.empty:
+        return dataframe
     
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
+    cleaned_df = dataframe.drop_duplicates(subset=subset, keep=keep)
     
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
-    
-    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
-    
-    outliers_removed = len(df) - len(filtered_df)
-    print(f"Removed {outliers_removed} outliers from column '{column}'")
-    
-    return filtered_df.reset_index(drop=True)
-
-def clean_dataset(df, numeric_columns=None):
-    """
-    Clean dataset by removing outliers from all numeric columns.
-    
-    Args:
-        df (pd.DataFrame): Input DataFrame
-        numeric_columns (list, optional): List of numeric columns to clean.
-                                         If None, uses all numeric columns.
-    
-    Returns:
-        pd.DataFrame: Cleaned DataFrame
-    """
-    if numeric_columns is None:
-        numeric_columns = df.select_dtypes(include=[np.number]).columns.tolist()
-    
-    cleaned_df = df.copy()
-    
-    for column in numeric_columns:
-        if column in df.columns and pd.api.types.is_numeric_dtype(df[column]):
-            try:
-                cleaned_df = remove_outliers_iqr(cleaned_df, column)
-            except Exception as e:
-                print(f"Error processing column '{column}': {e}")
+    removed_count = len(dataframe) - len(cleaned_df)
+    if removed_count > 0:
+        print(f"Removed {removed_count} duplicate rows")
     
     return cleaned_df
 
-if __name__ == "__main__":
-    sample_data = {
-        'id': range(100),
-        'value': np.random.randn(100) * 10 + 50
-    }
-    sample_data['value'][95:] = [200, 250, -100, 300, 150]
-    
-    df = pd.DataFrame(sample_data)
-    print(f"Original dataset shape: {df.shape}")
-    
-    cleaned_df = clean_dataset(df, ['value'])
-    print(f"Cleaned dataset shape: {cleaned_df.shape}")
-    
-    print("\nOriginal statistics:")
-    print(df['value'].describe())
-    
-    print("\nCleaned statistics:")
-    print(cleaned_df['value'].describe())import pandas as pd
-import sys
-
-def remove_duplicates(input_file, output_file=None, subset=None, keep='first'):
+def clean_numeric_columns(dataframe, columns):
     """
-    Remove duplicate rows from a CSV file.
+    Clean numeric columns by converting to appropriate types and handling errors.
     
     Args:
-        input_file (str): Path to input CSV file
-        output_file (str, optional): Path to output CSV file. If None, overwrites input file
-        subset (list, optional): Columns to consider for identifying duplicates
-        keep (str): Which duplicate to keep - 'first', 'last', or False to drop all duplicates
+        dataframe (pd.DataFrame): Input DataFrame
+        columns (list): List of column names to clean
     
     Returns:
-        int: Number of duplicates removed
+        pd.DataFrame: DataFrame with cleaned numeric columns
     """
-    try:
-        df = pd.read_csv(input_file)
-        initial_rows = len(df)
-        
-        df_clean = df.drop_duplicates(subset=subset, keep=keep)
-        final_rows = len(df_clean)
-        
-        duplicates_removed = initial_rows - final_rows
-        
-        if output_file is None:
-            output_file = input_file
-        
-        df_clean.to_csv(output_file, index=False)
-        
-        print(f"Removed {duplicates_removed} duplicate rows")
-        print(f"Original rows: {initial_rows}, Cleaned rows: {final_rows}")
-        print(f"Saved to: {output_file}")
-        
-        return duplicates_removed
-        
-    except FileNotFoundError:
-        print(f"Error: File '{input_file}' not found")
-        return -1
-    except pd.errors.EmptyDataError:
-        print(f"Error: File '{input_file}' is empty")
-        return -1
-    except Exception as e:
-        print(f"Error processing file: {str(e)}")
-        return -1
+    for col in columns:
+        if col in dataframe.columns:
+            dataframe[col] = pd.to_numeric(dataframe[col], errors='coerce')
+    
+    return dataframe
 
-if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python data_cleaner.py <input_file> [output_file]")
-        print("Example: python data_cleaner.py data.csv cleaned_data.csv")
-        sys.exit(1)
+def validate_dataframe(dataframe, required_columns=None):
+    """
+    Validate DataFrame structure and content.
     
-    input_file = sys.argv[1]
-    output_file = sys.argv[2] if len(sys.argv) > 2 else None
+    Args:
+        dataframe (pd.DataFrame): DataFrame to validate
+        required_columns (list, optional): List of required column names
     
-    remove_duplicates(input_file, output_file)
+    Returns:
+        bool: True if validation passes, False otherwise
+    """
+    if dataframe.empty:
+        print("Warning: DataFrame is empty")
+        return False
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in dataframe.columns]
+        if missing_columns:
+            print(f"Missing required columns: {missing_columns}")
+            return False
+    
+    return True
