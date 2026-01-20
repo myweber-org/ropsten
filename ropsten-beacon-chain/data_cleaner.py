@@ -184,4 +184,60 @@ if __name__ == "__main__":
     print("\nCleaned DataFrame:")
     print(cleaned)
     print("\nValidation after cleaning:")
-    validate_dataset(cleaned)
+    validate_dataset(cleaned)import pandas as pd
+import numpy as np
+from scipy import stats
+
+def remove_outliers_iqr(df, columns):
+    cleaned_df = df.copy()
+    for col in columns:
+        if col in cleaned_df.columns:
+            Q1 = cleaned_df[col].quantile(0.25)
+            Q3 = cleaned_df[col].quantile(0.75)
+            IQR = Q3 - Q1
+            lower_bound = Q1 - 1.5 * IQR
+            upper_bound = Q3 + 1.5 * IQR
+            cleaned_df = cleaned_df[(cleaned_df[col] >= lower_bound) & (cleaned_df[col] <= upper_bound)]
+    return cleaned_df
+
+def normalize_minmax(df, columns):
+    normalized_df = df.copy()
+    for col in columns:
+        if col in normalized_df.columns:
+            min_val = normalized_df[col].min()
+            max_val = normalized_df[col].max()
+            if max_val != min_val:
+                normalized_df[col] = (normalized_df[col] - min_val) / (max_val - min_val)
+    return normalized_df
+
+def clean_dataset(df, numeric_columns):
+    if df.empty:
+        return df
+    df_cleaned = df.dropna(subset=numeric_columns)
+    df_cleaned = remove_outliers_iqr(df_cleaned, numeric_columns)
+    df_normalized = normalize_minmax(df_cleaned, numeric_columns)
+    return df_normalized
+
+def generate_sample_data():
+    np.random.seed(42)
+    data = {
+        'feature_a': np.random.normal(100, 15, 200),
+        'feature_b': np.random.exponential(50, 200),
+        'feature_c': np.random.uniform(0, 1, 200)
+    }
+    outliers = np.random.randint(0, 200, 10)
+    for idx in outliers:
+        data['feature_a'][idx] = np.random.uniform(200, 300)
+        data['feature_b'][idx] = np.random.uniform(200, 400)
+    return pd.DataFrame(data)
+
+if __name__ == "__main__":
+    sample_df = generate_sample_data()
+    numeric_cols = ['feature_a', 'feature_b', 'feature_c']
+    print("Original data shape:", sample_df.shape)
+    print("Original data stats:")
+    print(sample_df[numeric_cols].describe())
+    cleaned_df = clean_dataset(sample_df, numeric_cols)
+    print("\nCleaned data shape:", cleaned_df.shape)
+    print("Cleaned data stats:")
+    print(cleaned_df[numeric_cols].describe())
