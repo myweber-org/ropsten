@@ -1,80 +1,39 @@
 
 import pandas as pd
 import numpy as np
-from typing import Optional
+from scipy import stats
 
-class DataCleaner:
-    def __init__(self, df: pd.DataFrame):
-        self.df = df.copy()
-        self.original_shape = df.shape
-    
-    def remove_duplicates(self) -> 'DataCleaner':
-        self.df = self.df.drop_duplicates()
-        return self
-    
-    def handle_missing_values(self, strategy: str = 'mean', columns: Optional[list] = None) -> 'DataCleaner':
-        if columns is None:
-            columns = self.df.select_dtypes(include=[np.number]).columns
-        
-        for col in columns:
-            if col in self.df.columns and self.df[col].isnull().any():
-                if strategy == 'mean':
-                    fill_value = self.df[col].mean()
-                elif strategy == 'median':
-                    fill_value = self.df[col].median()
-                elif strategy == 'mode':
-                    fill_value = self.df[col].mode()[0]
-                elif strategy == 'drop':
-                    self.df = self.df.dropna(subset=[col])
-                    continue
-                else:
-                    raise ValueError(f"Unknown strategy: {strategy}")
-                
-                self.df[col] = self.df[col].fillna(fill_value)
-        
-        return self
-    
-    def normalize_numeric(self, columns: Optional[list] = None) -> 'DataCleaner':
-        if columns is None:
-            columns = self.df.select_dtypes(include=[np.number]).columns
-        
-        for col in columns:
-            if col in self.df.columns:
-                col_min = self.df[col].min()
-                col_max = self.df[col].max()
-                if col_max > col_min:
-                    self.df[col] = (self.df[col] - col_min) / (col_max - col_min)
-        
-        return self
-    
-    def get_cleaned_data(self) -> pd.DataFrame:
-        return self.df
-    
-    def get_cleaning_report(self) -> dict:
-        removed_rows = self.original_shape[0] - self.df.shape[0]
-        removed_cols = self.original_shape[1] - self.df.shape[1]
-        
-        return {
-            'original_shape': self.original_shape,
-            'cleaned_shape': self.df.shape,
-            'removed_rows': removed_rows,
-            'removed_columns': removed_cols,
-            'missing_values': self.df.isnull().sum().to_dict()
-        }
+def load_data(filepath):
+    return pd.read_csv(filepath)
 
-def clean_csv_file(input_path: str, output_path: str, **kwargs) -> dict:
-    df = pd.read_csv(input_path)
-    cleaner = DataCleaner(df)
+def remove_outliers_iqr(df, column):
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+
+def normalize_column(df, column):
+    min_val = df[column].min()
+    max_val = df[column].max()
+    df[column + '_normalized'] = (df[column] - min_val) / (max_val - min_val)
+    return df
+
+def clean_dataset(input_file, output_file):
+    df = load_data(input_file)
     
-    cleaner.remove_duplicates()
+    numeric_columns = df.select_dtypes(include=[np.number]).columns
     
-    if 'missing_strategy' in kwargs:
-        cleaner.handle_missing_values(strategy=kwargs['missing_strategy'])
+    for col in numeric_columns:
+        df = remove_outliers_iqr(df, col)
     
-    if 'normalize' in kwargs and kwargs['normalize']:
-        cleaner.normalize_numeric()
+    for col in numeric_columns:
+        df = normalize_column(df, col)
     
-    cleaned_df = cleaner.get_cleaned_data()
-    cleaned_df.to_csv(output_path, index=False)
-    
-    return cleaner.get_cleaning_report()
+    df.to_csv(output_file, index=False)
+    print(f"Cleaned data saved to {output_file}")
+    return df
+
+if __name__ == "__main__":
+    clean_dataset('raw_data.csv', 'cleaned_data.csv')
