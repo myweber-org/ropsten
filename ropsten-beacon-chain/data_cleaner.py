@@ -268,3 +268,26 @@ def validate_dataframe(df, required_columns=None):
             return False, f"Missing required columns: {missing_cols}"
     
     return True, "DataFrame is valid"
+import re
+
+def clean_string(input_string):
+    """
+    Cleans and normalizes a given string by:
+    1. Converting to lowercase.
+    2. Removing leading/trailing whitespace.
+    3. Replacing multiple spaces with a single space.
+    4. Removing any non-alphanumeric characters except spaces.
+    """
+    if not isinstance(input_string, str):
+        return ""
+
+    # Convert to lowercase
+    cleaned = input_string.lower()
+    # Remove leading/trailing whitespace
+    cleaned = cleaned.strip()
+    # Replace multiple spaces with a single space
+    cleaned = re.sub(r'\s+', ' ', cleaned)
+    # Remove non-alphanumeric characters except spaces
+    cleaned = re.sub(r'[^a-z0-9 ]', '', cleaned)
+
+    return cleaned
