@@ -1,194 +1,102 @@
 
-import numpy as np
-import pandas as pd
-from scipy import stats
+import csv
+import sys
+from typing import Dict, List, Any, Optional
 
-def remove_outliers_iqr(df, column):
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
-    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+class DataCleaner:
+    def __init__(self, input_file: str, output_file: str):
+        self.input_file = input_file
+        self.output_file = output_file
+        self.data = []
+        self.headers = []
 
-def remove_outliers_zscore(df, column, threshold=3):
-    z_scores = np.abs(stats.zscore(df[column]))
-    return df[z_scores < threshold]
+    def load_data(self) -> None:
+        try:
+            with open(self.input_file, 'r', newline='', encoding='utf-8') as file:
+                reader = csv.DictReader(file)
+                self.headers = reader.fieldnames or []
+                self.data = [row for row in reader]
+        except FileNotFoundError:
+            print(f"Error: File '{self.input_file}' not found.")
+            sys.exit(1)
+        except Exception as e:
+            print(f"Error loading data: {e}")
+            sys.exit(1)
 
-def normalize_minmax(df, column):
-    min_val = df[column].min()
-    max_val = df[column].max()
-    df[column + '_normalized'] = (df[column] - min_val) / (max_val - min_val)
-    return df
-
-def normalize_zscore(df, column):
-    mean_val = df[column].mean()
-    std_val = df[column].std()
-    df[column + '_standardized'] = (df[column] - mean_val) / std_val
-    return df
-
-def handle_missing_values(df, strategy='mean'):
-    if strategy == 'mean':
-        return df.fillna(df.mean())
-    elif strategy == 'median':
-        return df.fillna(df.median())
-    elif strategy == 'mode':
-        return df.fillna(df.mode().iloc[0])
-    elif strategy == 'drop':
-        return df.dropna()
-    else:
-        raise ValueError("Invalid strategy. Choose from 'mean', 'median', 'mode', or 'drop'")
-
-def clean_dataset(df, numeric_columns, outlier_method='iqr', normalize_method='minmax', missing_strategy='mean'):
-    cleaned_df = df.copy()
-    
-    for col in numeric_columns:
-        if col in cleaned_df.columns:
-            if outlier_method == 'iqr':
-                cleaned_df = remove_outliers_iqr(cleaned_df, col)
-            elif outlier_method == 'zscore':
-                cleaned_df = remove_outliers_zscore(cleaned_df, col)
-            
-            if normalize_method == 'minmax':
-                cleaned_df = normalize_minmax(cleaned_df, col)
-            elif normalize_method == 'zscore':
-                cleaned_df = normalize_zscore(cleaned_df, col)
-    
-    cleaned_df = handle_missing_values(cleaned_df, strategy=missing_strategy)
-    return cleaned_df
-import numpy as np
-import pandas as pd
-
-def remove_outliers_iqr(dataframe, column, multiplier=1.5):
-    """
-    Remove outliers from a DataFrame column using the Interquartile Range method.
-    
-    Args:
-        dataframe: pandas DataFrame
-        column: column name to process
-        multiplier: IQR multiplier (default 1.5)
-    
-    Returns:
-        DataFrame with outliers removed
-    """
-    if column not in dataframe.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
-    
-    q1 = dataframe[column].quantile(0.25)
-    q3 = dataframe[column].quantile(0.75)
-    iqr = q3 - q1
-    
-    lower_bound = q1 - multiplier * iqr
-    upper_bound = q3 + multiplier * iqr
-    
-    filtered_df = dataframe[(dataframe[column] >= lower_bound) & 
-                           (dataframe[column] <= upper_bound)]
-    
-    return filtered_df
-
-def normalize_minmax(dataframe, columns=None):
-    """
-    Normalize specified columns using Min-Max scaling.
-    
-    Args:
-        dataframe: pandas DataFrame
-        columns: list of column names to normalize (default: all numeric columns)
-    
-    Returns:
-        DataFrame with normalized columns
-    """
-    if columns is None:
-        numeric_cols = dataframe.select_dtypes(include=[np.number]).columns
-        columns = list(numeric_cols)
-    
-    normalized_df = dataframe.copy()
-    
-    for col in columns:
-        if col not in normalized_df.columns:
-            continue
-            
-        col_min = normalized_df[col].min()
-        col_max = normalized_df[col].max()
+    def handle_missing_values(self, default_values: Optional[Dict[str, Any]] = None) -> None:
+        if default_values is None:
+            default_values = {}
         
-        if col_max != col_min:
-            normalized_df[col] = (normalized_df[col] - col_min) / (col_max - col_min)
-        else:
-            normalized_df[col] = 0
-    
-    return normalized_df
+        for row in self.data:
+            for header in self.headers:
+                if row.get(header) in (None, '', 'NA', 'N/A', 'null'):
+                    row[header] = default_values.get(header, 'Unknown')
 
-def clean_dataset(dataframe, outlier_columns=None, normalize_columns=None):
-    """
-    Comprehensive data cleaning pipeline.
-    
-    Args:
-        dataframe: pandas DataFrame to clean
-        outlier_columns: list of columns for outlier removal (default: all numeric)
-        normalize_columns: list of columns for normalization (default: all numeric)
-    
-    Returns:
-        Cleaned DataFrame
-    """
-    cleaned_df = dataframe.copy()
-    
-    if outlier_columns is None:
-        outlier_columns = cleaned_df.select_dtypes(include=[np.number]).columns
-    
-    for col in outlier_columns:
-        if col in cleaned_df.columns:
-            cleaned_df = remove_outliers_iqr(cleaned_df, col)
-    
-    cleaned_df = normalize_minmax(cleaned_df, normalize_columns)
-    
-    cleaned_df = cleaned_df.reset_index(drop=True)
-    
-    return cleaned_df
+    def convert_types(self, type_map: Dict[str, str]) -> None:
+        for row in self.data:
+            for header, target_type in type_map.items():
+                if header in row:
+                    try:
+                        if target_type == 'int':
+                            row[header] = int(float(row[header])) if row[header] else 0
+                        elif target_type == 'float':
+                            row[header] = float(row[header]) if row[header] else 0.0
+                        elif target_type == 'bool':
+                            row[header] = str(row[header]).lower() in ('true', '1', 'yes', 'y')
+                    except (ValueError, TypeError):
+                        row[header] = None
 
-def calculate_statistics(dataframe):
-    """
-    Calculate basic statistics for numeric columns.
-    
-    Args:
-        dataframe: pandas DataFrame
-    
-    Returns:
-        Dictionary of statistics
-    """
-    stats = {}
-    
-    numeric_cols = dataframe.select_dtypes(include=[np.number]).columns
-    
-    for col in numeric_cols:
-        stats[col] = {
-            'mean': dataframe[col].mean(),
-            'median': dataframe[col].median(),
-            'std': dataframe[col].std(),
-            'min': dataframe[col].min(),
-            'max': dataframe[col].max(),
-            'count': dataframe[col].count()
+    def remove_duplicates(self, key_columns: List[str]) -> None:
+        seen = set()
+        unique_data = []
+        
+        for row in self.data:
+            key = tuple(row.get(col, '') for col in key_columns)
+            if key not in seen:
+                seen.add(key)
+                unique_data.append(row)
+        
+        self.data = unique_data
+
+    def save_data(self) -> None:
+        try:
+            with open(self.output_file, 'w', newline='', encoding='utf-8') as file:
+                writer = csv.DictWriter(file, fieldnames=self.headers)
+                writer.writeheader()
+                writer.writerows(self.data)
+            print(f"Cleaned data saved to '{self.output_file}'")
+        except Exception as e:
+            print(f"Error saving data: {e}")
+            sys.exit(1)
+
+    def get_summary(self) -> Dict[str, Any]:
+        return {
+            'original_rows': len(self.data),
+            'columns': self.headers,
+            'sample_row': self.data[0] if self.data else {}
         }
+
+def main():
+    if len(sys.argv) != 3:
+        print("Usage: python data_cleaner.py <input_file> <output_file>")
+        sys.exit(1)
     
-    return stats
+    input_file = sys.argv[1]
+    output_file = sys.argv[2]
+    
+    cleaner = DataCleaner(input_file, output_file)
+    cleaner.load_data()
+    
+    print(f"Loaded {len(cleaner.data)} rows with {len(cleaner.headers)} columns")
+    
+    cleaner.handle_missing_values({'age': 0, 'name': 'Unknown'})
+    cleaner.convert_types({'age': 'int', 'score': 'float'})
+    cleaner.remove_duplicates(['id', 'email'])
+    
+    cleaner.save_data()
+    
+    summary = cleaner.get_summary()
+    print(f"Processing complete. Final row count: {summary['original_rows']}")
 
 if __name__ == "__main__":
-    sample_data = {
-        'feature1': np.random.normal(100, 15, 1000),
-        'feature2': np.random.exponential(50, 1000),
-        'category': np.random.choice(['A', 'B', 'C'], 1000)
-    }
-    
-    df = pd.DataFrame(sample_data)
-    
-    print("Original dataset shape:", df.shape)
-    print("\nOriginal statistics:")
-    stats = calculate_statistics(df)
-    for col, values in stats.items():
-        print(f"{col}: {values}")
-    
-    cleaned_df = clean_dataset(df)
-    
-    print("\nCleaned dataset shape:", cleaned_df.shape)
-    print("\nCleaned statistics:")
-    cleaned_stats = calculate_statistics(cleaned_df)
-    for col, values in cleaned_stats.items():
-        print(f"{col}: {values}")
+    main()
