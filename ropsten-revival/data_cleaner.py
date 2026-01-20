@@ -70,4 +70,71 @@ if __name__ == "__main__":
     stats = calculate_summary_statistics(cleaned_df, 'values')
     print("\nSummary statistics after cleaning:")
     for key, value in stats.items():
-        print(f"{key}: {value:.2f}")
+        print(f"{key}: {value:.2f}")import pandas as pd
+import numpy as np
+
+def clean_csv_data(filepath, drop_na=True, fill_strategy='mean', columns_to_clean=None):
+    """
+    Clean a CSV file by handling missing values and outliers.
+    
+    Args:
+        filepath (str): Path to the CSV file.
+        drop_na (bool): If True, drop rows with missing values.
+        fill_strategy (str): Strategy to fill missing values ('mean', 'median', 'mode').
+        columns_to_clean (list): List of column names to clean. If None, clean all numeric columns.
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame.
+    """
+    df = pd.read_csv(filepath)
+    
+    if columns_to_clean is None:
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        columns_to_clean = list(numeric_cols)
+    
+    for col in columns_to_clean:
+        if col in df.columns:
+            if fill_strategy == 'mean':
+                fill_value = df[col].mean()
+            elif fill_strategy == 'median':
+                fill_value = df[col].median()
+            elif fill_strategy == 'mode':
+                fill_value = df[col].mode()[0]
+            else:
+                fill_value = 0
+            
+            df[col].fillna(fill_value, inplace=True)
+    
+    if drop_na:
+        df.dropna(inplace=True)
+    
+    for col in columns_to_clean:
+        if col in df.columns:
+            Q1 = df[col].quantile(0.25)
+            Q3 = df[col].quantile(0.75)
+            IQR = Q3 - Q1
+            lower_bound = Q1 - 1.5 * IQR
+            upper_bound = Q3 + 1.5 * IQR
+            
+            df[col] = np.where(df[col] < lower_bound, lower_bound, df[col])
+            df[col] = np.where(df[col] > upper_bound, upper_bound, df[col])
+    
+    return df
+
+def save_cleaned_data(df, output_path):
+    """
+    Save cleaned DataFrame to a CSV file.
+    
+    Args:
+        df (pd.DataFrame): Cleaned DataFrame.
+        output_path (str): Path to save the cleaned CSV file.
+    """
+    df.to_csv(output_path, index=False)
+    print(f"Cleaned data saved to {output_path}")
+
+if __name__ == "__main__":
+    input_file = "raw_data.csv"
+    output_file = "cleaned_data.csv"
+    
+    cleaned_df = clean_csv_data(input_file, drop_na=True, fill_strategy='median')
+    save_cleaned_data(cleaned_df, output_file)
