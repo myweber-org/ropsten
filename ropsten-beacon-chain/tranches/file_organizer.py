@@ -22,3 +22,59 @@ if __name__ == "__main__":
         organize_files(target_directory)
     else:
         print("Directory does not exist.")
+import os
+import shutil
+from pathlib import Path
+
+def organize_files(directory="."):
+    """Organize files in the given directory by their extensions."""
+    base_path = Path(directory).resolve()
+    
+    if not base_path.exists() or not base_path.is_dir():
+        print(f"Error: Directory '{directory}' does not exist.")
+        return
+    
+    extension_categories = {
+        'Images': ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.svg', '.webp'],
+        'Documents': ['.pdf', '.docx', '.txt', '.md', '.xlsx', '.pptx', '.csv'],
+        'Archives': ['.zip', '.tar', '.gz', '.7z', '.rar'],
+        'Code': ['.py', '.js', '.html', '.css', '.java', '.cpp', '.c', '.json'],
+        'Audio': ['.mp3', '.wav', '.flac', '.aac', '.ogg'],
+        'Video': ['.mp4', '.avi', '.mkv', '.mov', '.wmv']
+    }
+    
+    other_folder = base_path / 'Other'
+    
+    for item in base_path.iterdir():
+        if item.is_file():
+            file_extension = item.suffix.lower()
+            moved = False
+            
+            for category, extensions in extension_categories.items():
+                if file_extension in extensions:
+                    target_folder = base_path / category
+                    target_folder.mkdir(exist_ok=True)
+                    
+                    try:
+                        shutil.move(str(item), str(target_folder / item.name))
+                        print(f"Moved: {item.name} -> {category}/")
+                    except Exception as e:
+                        print(f"Failed to move {item.name}: {e}")
+                    moved = True
+                    break
+            
+            if not moved:
+                other_folder.mkdir(exist_ok=True)
+                try:
+                    shutil.move(str(item), str(other_folder / item.name))
+                    print(f"Moved: {item.name} -> Other/")
+                except Exception as e:
+                    print(f"Failed to move {item.name}: {e}")
+    
+    print("File organization completed.")
+
+if __name__ == "__main__":
+    target_dir = input("Enter directory path to organize (press Enter for current): ").strip()
+    if not target_dir:
+        target_dir = "."
+    organize_files(target_dir)
