@@ -1,148 +1,80 @@
 
+import pandas as pd
 import numpy as np
+from typing import Optional
 
-def remove_outliers_iqr(data, column):
-    """
-    Remove outliers from a pandas DataFrame column using the IQR method.
+class DataCleaner:
+    def __init__(self, df: pd.DataFrame):
+        self.df = df.copy()
+        self.original_shape = df.shape
     
-    Parameters:
-    data (pd.DataFrame): Input DataFrame
-    column (str): Column name to process
+    def remove_duplicates(self) -> 'DataCleaner':
+        self.df = self.df.drop_duplicates()
+        return self
     
-    Returns:
-    pd.DataFrame: DataFrame with outliers removed
-    """
-    Q1 = data[column].quantile(0.25)
-    Q3 = data[column].quantile(0.75)
-    IQR = Q3 - Q1
+    def handle_missing_values(self, strategy: str = 'mean', columns: Optional[list] = None) -> 'DataCleaner':
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
+        
+        for col in columns:
+            if col in self.df.columns and self.df[col].isnull().any():
+                if strategy == 'mean':
+                    fill_value = self.df[col].mean()
+                elif strategy == 'median':
+                    fill_value = self.df[col].median()
+                elif strategy == 'mode':
+                    fill_value = self.df[col].mode()[0]
+                elif strategy == 'drop':
+                    self.df = self.df.dropna(subset=[col])
+                    continue
+                else:
+                    raise ValueError(f"Unknown strategy: {strategy}")
+                
+                self.df[col] = self.df[col].fillna(fill_value)
+        
+        return self
     
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
+    def normalize_numeric(self, columns: Optional[list] = None) -> 'DataCleaner':
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
+        
+        for col in columns:
+            if col in self.df.columns:
+                col_min = self.df[col].min()
+                col_max = self.df[col].max()
+                if col_max > col_min:
+                    self.df[col] = (self.df[col] - col_min) / (col_max - col_min)
+        
+        return self
     
-    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    def get_cleaned_data(self) -> pd.DataFrame:
+        return self.df
     
-    return filtered_data
+    def get_cleaning_report(self) -> dict:
+        removed_rows = self.original_shape[0] - self.df.shape[0]
+        removed_cols = self.original_shape[1] - self.df.shape[1]
+        
+        return {
+            'original_shape': self.original_shape,
+            'cleaned_shape': self.df.shape,
+            'removed_rows': removed_rows,
+            'removed_columns': removed_cols,
+            'missing_values': self.df.isnull().sum().to_dict()
+        }
 
-def calculate_statistics(data, column):
-    """
-    Calculate basic statistics for a column after outlier removal.
+def clean_csv_file(input_path: str, output_path: str, **kwargs) -> dict:
+    df = pd.read_csv(input_path)
+    cleaner = DataCleaner(df)
     
-    Parameters:
-    data (pd.DataFrame): Input DataFrame
-    column (str): Column name to analyze
+    cleaner.remove_duplicates()
     
-    Returns:
-    dict: Dictionary containing statistical measures
-    """
-    stats = {
-        'mean': data[column].mean(),
-        'median': data[column].median(),
-        'std': data[column].std(),
-        'min': data[column].min(),
-        'max': data[column].max(),
-        'count': data[column].count()
-    }
+    if 'missing_strategy' in kwargs:
+        cleaner.handle_missing_values(strategy=kwargs['missing_strategy'])
     
-    return stats
-
-def process_dataset(data, column):
-    """
-    Complete pipeline for outlier removal and statistical analysis.
+    if 'normalize' in kwargs and kwargs['normalize']:
+        cleaner.normalize_numeric()
     
-    Parameters:
-    data (pd.DataFrame): Input DataFrame
-    column (str): Column name to process
+    cleaned_df = cleaner.get_cleaned_data()
+    cleaned_df.to_csv(output_path, index=False)
     
-    Returns:
-    tuple: (cleaned_data, original_stats, cleaned_stats)
-    """
-    original_stats = calculate_statistics(data, column)
-    cleaned_data = remove_outliers_iqr(data, column)
-    cleaned_stats = calculate_statistics(cleaned_data, column)
-    
-    return cleaned_data, original_stats, cleaned_statsimport pandas as pd
-
-def clean_dataframe(df, drop_duplicates=True, fill_missing=True, fill_value=0):
-    """
-    Clean a pandas DataFrame by removing duplicates and handling missing values.
-    
-    Args:
-        df (pd.DataFrame): Input DataFrame to clean.
-        drop_duplicates (bool): Whether to drop duplicate rows.
-        fill_missing (bool): Whether to fill missing values.
-        fill_value: Value to use for filling missing data.
-    
-    Returns:
-        pd.DataFrame: Cleaned DataFrame.
-    """
-    cleaned_df = df.copy()
-    
-    if drop_duplicates:
-        cleaned_df = cleaned_df.drop_duplicates()
-    
-    if fill_missing:
-        cleaned_df = cleaned_df.fillna(fill_value)
-    
-    return cleaned_df
-
-def validate_dataframe(df, required_columns=None):
-    """
-    Validate DataFrame structure and content.
-    
-    Args:
-        df (pd.DataFrame): DataFrame to validate.
-        required_columns (list): List of required column names.
-    
-    Returns:
-        tuple: (is_valid, error_message)
-    """
-    if required_columns:
-        missing_columns = [col for col in required_columns if col not in df.columns]
-        if missing_columns:
-            return False, f"Missing required columns: {missing_columns}"
-    
-    if df.empty:
-        return False, "DataFrame is empty"
-    
-    return True, "DataFrame is valid"
-
-def process_data_file(file_path, output_path=None):
-    """
-    Process a data file by cleaning and validating it.
-    
-    Args:
-        file_path (str): Path to input data file.
-        output_path (str): Path to save cleaned data.
-    
-    Returns:
-        pd.DataFrame: Cleaned DataFrame.
-    """
-    try:
-        df = pd.read_csv(file_path)
-    except Exception as e:
-        raise ValueError(f"Failed to read file: {e}")
-    
-    is_valid, message = validate_dataframe(df)
-    if not is_valid:
-        raise ValueError(f"Data validation failed: {message}")
-    
-    cleaned_df = clean_dataframe(df)
-    
-    if output_path:
-        cleaned_df.to_csv(output_path, index=False)
-    
-    return cleaned_df
-
-if __name__ == "__main__":
-    sample_data = {
-        'id': [1, 2, 2, 3, 4],
-        'value': [10, 20, 20, None, 40],
-        'category': ['A', 'B', 'B', 'C', None]
-    }
-    
-    df = pd.DataFrame(sample_data)
-    print("Original DataFrame:")
-    print(df)
-    print("\nCleaned DataFrame:")
-    cleaned = clean_dataframe(df)
-    print(cleaned)
+    return cleaner.get_cleaning_report()
