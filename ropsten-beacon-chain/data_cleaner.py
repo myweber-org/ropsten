@@ -486,3 +486,11 @@ if __name__ == "__main__":
     
     is_valid = validate_dataset(cleaned, required_columns=['id', 'value'], min_rows=3)
     print(f"\nDataset validation: {'PASS' if is_valid else 'FAIL'}")
+def remove_duplicates_preserve_order(input_list):
+    seen = set()
+    result = []
+    for item in input_list:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
