@@ -115,3 +115,99 @@ def save_cleaned_data(df, output_path, index=False):
     except Exception as e:
         print(f"Error saving file: {e}")
         return False
+import pandas as pd
+import numpy as np
+from typing import List, Optional
+
+def remove_duplicate_rows(df: pd.DataFrame, subset: Optional[List[str]] = None) -> pd.DataFrame:
+    """
+    Remove duplicate rows from DataFrame.
+    
+    Args:
+        df: Input DataFrame
+        subset: Columns to consider for identifying duplicates
+    
+    Returns:
+        DataFrame with duplicates removed
+    """
+    return df.drop_duplicates(subset=subset, keep='first')
+
+def normalize_string_columns(df: pd.DataFrame, columns: List[str]) -> pd.DataFrame:
+    """
+    Normalize string columns by converting to lowercase and stripping whitespace.
+    
+    Args:
+        df: Input DataFrame
+        columns: List of column names to normalize
+    
+    Returns:
+        DataFrame with normalized string columns
+    """
+    df_copy = df.copy()
+    for col in columns:
+        if col in df_copy.columns and df_copy[col].dtype == 'object':
+            df_copy[col] = df_copy[col].astype(str).str.lower().str.strip()
+    return df_copy
+
+def clean_missing_values(df: pd.DataFrame, strategy: str = 'drop', fill_value: Optional[float] = None) -> pd.DataFrame:
+    """
+    Handle missing values in DataFrame.
+    
+    Args:
+        df: Input DataFrame
+        strategy: 'drop' to remove rows, 'fill' to fill with value
+        fill_value: Value to use when strategy is 'fill'
+    
+    Returns:
+        Cleaned DataFrame
+    """
+    if strategy == 'drop':
+        return df.dropna()
+    elif strategy == 'fill' and fill_value is not None:
+        return df.fillna(fill_value)
+    else:
+        raise ValueError("Invalid strategy or missing fill_value")
+
+def validate_dataframe(df: pd.DataFrame, required_columns: List[str]) -> bool:
+    """
+    Validate that DataFrame contains all required columns.
+    
+    Args:
+        df: DataFrame to validate
+        required_columns: List of column names that must be present
+    
+    Returns:
+        True if all required columns are present
+    """
+    return all(col in df.columns for col in required_columns)
+
+def example_usage():
+    """
+    Example usage of the data cleaning functions.
+    """
+    data = {
+        'name': ['John Doe', 'Jane Smith', 'John Doe', ' Bob Johnson '],
+        'age': [25, 30, 25, 35],
+        'email': ['john@example.com', 'jane@example.com', 'john@example.com', 'bob@example.com']
+    }
+    
+    df = pd.DataFrame(data)
+    print("Original DataFrame:")
+    print(df)
+    print("\n")
+    
+    df_no_duplicates = remove_duplicate_rows(df, subset=['email'])
+    print("After removing duplicates by email:")
+    print(df_no_duplicates)
+    print("\n")
+    
+    df_normalized = normalize_string_columns(df_no_duplicates, ['name'])
+    print("After normalizing name column:")
+    print(df_normalized)
+    print("\n")
+    
+    is_valid = validate_dataframe(df_normalized, ['name', 'age', 'email'])
+    print(f"DataFrame validation: {is_valid}")
+
+if __name__ == "__main__":
+    example_usage()
