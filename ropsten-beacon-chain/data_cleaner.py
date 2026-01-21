@@ -1,119 +1,101 @@
 
-import pandas as pd
 import numpy as np
-from typing import List, Optional
+import pandas as pd
 
-def remove_duplicates(df: pd.DataFrame, subset: Optional[List[str]] = None) -> pd.DataFrame:
+def remove_outliers_iqr(df, column):
     """
-    Remove duplicate rows from DataFrame.
+    Remove outliers from a DataFrame column using the Interquartile Range method.
     
-    Args:
-        df: Input DataFrame
-        subset: Columns to consider for identifying duplicates
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    column (str): Column name to clean
     
     Returns:
-        DataFrame with duplicates removed
+    pd.DataFrame: DataFrame with outliers removed
     """
-    return df.drop_duplicates(subset=subset, keep='first')
-
-def normalize_column(df: pd.DataFrame, column: str, method: str = 'minmax') -> pd.DataFrame:
-    """
-    Normalize specified column using selected method.
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
     
-    Args:
-        df: Input DataFrame
-        column: Column name to normalize
-        method: Normalization method ('minmax' or 'zscore')
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    
+    return filtered_df.reset_index(drop=True)
+
+def calculate_summary_stats(df, column):
+    """
+    Calculate summary statistics for a column.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    column (str): Column name
     
     Returns:
-        DataFrame with normalized column
+    dict: Dictionary containing summary statistics
     """
-    df_copy = df.copy()
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
     
-    if method == 'minmax':
-        min_val = df_copy[column].min()
-        max_val = df_copy[column].max()
-        if max_val > min_val:
-            df_copy[column] = (df_copy[column] - min_val) / (max_val - min_val)
+    stats = {
+        'mean': df[column].mean(),
+        'median': df[column].median(),
+        'std': df[column].std(),
+        'min': df[column].min(),
+        'max': df[column].max(),
+        'count': df[column].count(),
+        'missing': df[column].isnull().sum()
+    }
     
-    elif method == 'zscore':
-        mean_val = df_copy[column].mean()
-        std_val = df_copy[column].std()
-        if std_val > 0:
-            df_copy[column] = (df_copy[column] - mean_val) / std_val
-    
-    return df_copy
+    return stats
 
-def handle_missing_values(df: pd.DataFrame, strategy: str = 'mean') -> pd.DataFrame:
+def clean_dataset(df, numeric_columns=None):
     """
-    Handle missing values in numeric columns.
+    Clean a dataset by removing outliers from all numeric columns.
     
-    Args:
-        df: Input DataFrame
-        strategy: Imputation strategy ('mean', 'median', or 'drop')
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    numeric_columns (list): List of numeric column names. If None, uses all numeric columns.
     
     Returns:
-        DataFrame with handled missing values
+    pd.DataFrame: Cleaned DataFrame
     """
-    df_copy = df.copy()
-    numeric_cols = df_copy.select_dtypes(include=[np.number]).columns
+    if numeric_columns is None:
+        numeric_columns = df.select_dtypes(include=[np.number]).columns.tolist()
     
-    if strategy == 'drop':
-        return df_copy.dropna(subset=numeric_cols)
-    
-    for col in numeric_cols:
-        if strategy == 'mean':
-            fill_value = df_copy[col].mean()
-        elif strategy == 'median':
-            fill_value = df_copy[col].median()
-        else:
-            fill_value = 0
-        
-        df_copy[col] = df_copy[col].fillna(fill_value)
-    
-    return df_copy
-
-def clean_dataframe(df: pd.DataFrame, 
-                   deduplicate: bool = True,
-                   normalize_cols: Optional[List[str]] = None,
-                   missing_strategy: str = 'mean') -> pd.DataFrame:
-    """
-    Comprehensive data cleaning pipeline.
-    
-    Args:
-        df: Input DataFrame
-        deduplicate: Whether to remove duplicates
-        normalize_cols: Columns to normalize
-        missing_strategy: Strategy for handling missing values
-    
-    Returns:
-        Cleaned DataFrame
-    """
     cleaned_df = df.copy()
     
-    if deduplicate:
-        cleaned_df = remove_duplicates(cleaned_df)
-    
-    cleaned_df = handle_missing_values(cleaned_df, strategy=missing_strategy)
-    
-    if normalize_cols:
-        for col in normalize_cols:
-            if col in cleaned_df.columns:
-                cleaned_df = normalize_column(cleaned_df, col)
+    for column in numeric_columns:
+        if column in df.columns:
+            original_count = len(cleaned_df)
+            cleaned_df = remove_outliers_iqr(cleaned_df, column)
+            removed_count = original_count - len(cleaned_df)
+            print(f"Removed {removed_count} outliers from column '{column}'")
     
     return cleaned_df
 
 if __name__ == "__main__":
+    # Example usage
     sample_data = {
-        'id': [1, 2, 3, 4, 5, 5],
-        'value': [10, 20, None, 40, 50, 50],
-        'score': [100, 200, 300, 400, 500, 500]
+        'id': range(1, 101),
+        'value': np.random.normal(100, 15, 100)
     }
     
-    df = pd.DataFrame(sample_data)
-    print("Original DataFrame:")
-    print(df)
+    # Add some outliers
+    sample_df = pd.DataFrame(sample_data)
+    sample_df.loc[100] = [101, 500]  # Extreme outlier
+    sample_df.loc[101] = [102, -100]  # Negative outlier
     
-    cleaned = clean_dataframe(df, normalize_cols=['score'])
-    print("\nCleaned DataFrame:")
-    print(cleaned)
+    print("Original dataset shape:", sample_df.shape)
+    print("\nOriginal summary statistics:")
+    print(calculate_summary_stats(sample_df, 'value'))
+    
+    cleaned_df = clean_dataset(sample_df, ['value'])
+    
+    print("\nCleaned dataset shape:", cleaned_df.shape)
+    print("\nCleaned summary statistics:")
+    print(calculate_summary_stats(cleaned_df, 'value'))
