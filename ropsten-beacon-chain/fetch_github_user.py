@@ -31,3 +31,37 @@ if __name__ == "__main__":
         print(f"Account Created: {user_info['created_at']}")
     else:
         print(f"User '{username}' not found or API error occurred.")
+import requests
+import time
+
+def fetch_github_user(username, token=None):
+    """
+    Fetch public information for a GitHub user.
+    Handles rate limiting by waiting and retrying.
+    """
+    url = f"https://api.github.com/users/{username}"
+    headers = {"Accept": "application/vnd.github.v3+json"}
+    if token:
+        headers["Authorization"] = f"token {token}"
+
+    while True:
+        response = requests.get(url, headers=headers)
+        if response.status_code == 200:
+            return response.json()
+        elif response.status_code == 403 and 'rate limit' in response.text.lower():
+            reset_time = int(response.headers.get('X-RateLimit-Reset', time.time() + 60))
+            sleep_duration = max(reset_time - time.time(), 0) + 5
+            print(f"Rate limited. Waiting {sleep_duration:.0f} seconds.")
+            time.sleep(sleep_duration)
+            continue
+        else:
+            response.raise_for_status()
+
+if __name__ == "__main__":
+    try:
+        user_data = fetch_github_user("octocat")
+        print(f"User: {user_data.get('login')}")
+        print(f"Name: {user_data.get('name')}")
+        print(f"Public repos: {user_data.get('public_repos')}")
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching user data: {e}")
