@@ -1,152 +1,69 @@
-import numpy as np
+
 import pandas as pd
+import re
 
-def remove_outliers_iqr(data, column, factor=1.5):
+def clean_dataset(df, column_names):
     """
-    Remove outliers using the Interquartile Range method.
+    Clean a pandas DataFrame by removing duplicate rows and normalizing
+    specified string columns (strip whitespace, convert to lowercase).
     
     Args:
-        data: pandas DataFrame
-        column: column name to process
-        factor: IQR multiplier (default 1.5)
+        df (pd.DataFrame): Input DataFrame to clean
+        column_names (list): List of column names to normalize
     
     Returns:
-        DataFrame with outliers removed
+        pd.DataFrame: Cleaned DataFrame
     """
-    if column not in data.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
+    # Remove duplicate rows
+    df_clean = df.drop_duplicates().reset_index(drop=True)
     
-    q1 = data[column].quantile(0.25)
-    q3 = data[column].quantile(0.75)
-    iqr = q3 - q1
+    # Normalize specified string columns
+    for col in column_names:
+        if col in df_clean.columns and df_clean[col].dtype == 'object':
+            df_clean[col] = df_clean[col].astype(str).str.strip().str.lower()
     
-    lower_bound = q1 - factor * iqr
-    upper_bound = q3 + factor * iqr
-    
-    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
-    
-    return filtered_data
+    return df_clean
 
-def normalize_minmax(data, column):
+def validate_email_column(df, email_column):
     """
-    Normalize data using Min-Max scaling.
+    Validate email addresses in a specified column using regex pattern.
     
     Args:
-        data: pandas DataFrame
-        column: column name to normalize
+        df (pd.DataFrame): Input DataFrame
+        email_column (str): Name of column containing email addresses
     
     Returns:
-        DataFrame with normalized column
+        pd.DataFrame: DataFrame with valid email flag column added
     """
-    if column not in data.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
+    if email_column not in df.columns:
+        raise ValueError(f"Column '{email_column}' not found in DataFrame")
     
-    min_val = data[column].min()
-    max_val = data[column].max()
+    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    df['email_valid'] = df[email_column].astype(str).str.match(email_pattern)
     
-    if max_val == min_val:
-        data[f"{column}_normalized"] = 0.5
-    else:
-        data[f"{column}_normalized"] = (data[column] - min_val) / (max_val - min_val)
-    
-    return data
+    return df
 
-def standardize_zscore(data, column):
+def remove_outliers_iqr(df, column_name):
     """
-    Standardize data using Z-score normalization.
+    Remove outliers from a numeric column using the Interquartile Range method.
     
     Args:
-        data: pandas DataFrame
-        column: column name to standardize
+        df (pd.DataFrame): Input DataFrame
+        column_name (str): Name of numeric column to process
     
     Returns:
-        DataFrame with standardized column
+        pd.DataFrame: DataFrame with outliers removed
     """
-    if column not in data.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
+    if column_name not in df.columns:
+        raise ValueError(f"Column '{column_name}' not found in DataFrame")
     
-    mean_val = data[column].mean()
-    std_val = data[column].std()
+    Q1 = df[column_name].quantile(0.25)
+    Q3 = df[column_name].quantile(0.75)
+    IQR = Q3 - Q1
     
-    if std_val == 0:
-        data[f"{column}_standardized"] = 0
-    else:
-        data[f"{column}_standardized"] = (data[column] - mean_val) / std_val
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
     
-    return data
-
-def clean_dataset(data, numeric_columns, outlier_factor=1.5):
-    """
-    Comprehensive data cleaning pipeline.
+    df_filtered = df[(df[column_name] >= lower_bound) & (df[column_name] <= upper_bound)]
     
-    Args:
-        data: pandas DataFrame
-        numeric_columns: list of numeric column names to process
-        outlier_factor: IQR factor for outlier removal
-    
-    Returns:
-        Cleaned DataFrame
-    """
-    cleaned_data = data.copy()
-    
-    for column in numeric_columns:
-        if column in cleaned_data.columns:
-            cleaned_data = remove_outliers_iqr(cleaned_data, column, outlier_factor)
-            cleaned_data = normalize_minmax(cleaned_data, column)
-            cleaned_data = standardize_zscore(cleaned_data, column)
-    
-    return cleaned_data
-
-def calculate_statistics(data, column):
-    """
-    Calculate basic statistics for a column.
-    
-    Args:
-        data: pandas DataFrame
-        column: column name
-    
-    Returns:
-        Dictionary of statistics
-    """
-    if column not in data.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
-    
-    stats = {
-        'mean': data[column].mean(),
-        'median': data[column].median(),
-        'std': data[column].std(),
-        'min': data[column].min(),
-        'max': data[column].max(),
-        'count': data[column].count(),
-        'missing': data[column].isnull().sum()
-    }
-    
-    return stats
-
-def example_usage():
-    """
-    Example usage of the data cleaning utilities.
-    """
-    np.random.seed(42)
-    
-    sample_data = pd.DataFrame({
-        'feature_a': np.random.normal(100, 15, 1000),
-        'feature_b': np.random.exponential(50, 1000),
-        'category': np.random.choice(['A', 'B', 'C'], 1000)
-    })
-    
-    print("Original data shape:", sample_data.shape)
-    print("\nFeature A statistics:")
-    print(calculate_statistics(sample_data, 'feature_a'))
-    
-    cleaned_data = clean_dataset(sample_data, ['feature_a', 'feature_b'])
-    
-    print("\nCleaned data shape:", cleaned_data.shape)
-    print("\nFeature A statistics after cleaning:")
-    print(calculate_statistics(cleaned_data, 'feature_a'))
-    
-    return cleaned_data
-
-if __name__ == "__main__":
-    result = example_usage()
-    print("\nData cleaning completed successfully.")
+    return df_filtered.reset_index(drop=True)
