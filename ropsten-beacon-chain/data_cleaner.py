@@ -104,3 +104,68 @@ def validate_data(df, required_columns, numeric_threshold=0.8):
         'missing_values': df.isnull().sum().sum(),
         'duplicate_rows': df.duplicated().sum()
     }
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df):
+    """
+    Clean a pandas DataFrame by removing duplicates,
+    standardizing column names, and handling missing values.
+    """
+    # Remove duplicate rows
+    df_clean = df.drop_duplicates()
+    
+    # Standardize column names: lowercase and replace spaces with underscores
+    df_clean.columns = df_clean.columns.str.lower().str.replace(' ', '_')
+    
+    # Fill missing numeric values with column median
+    numeric_cols = df_clean.select_dtypes(include=[np.number]).columns
+    for col in numeric_cols:
+        df_clean[col] = df_clean[col].fillna(df_clean[col].median())
+    
+    # Fill missing categorical values with mode
+    categorical_cols = df_clean.select_dtypes(include=['object']).columns
+    for col in categorical_cols:
+        df_clean[col] = df_clean[col].fillna(df_clean[col].mode()[0] if not df_clean[col].mode().empty else 'unknown')
+    
+    return df_clean
+
+def validate_data(df):
+    """
+    Validate that the cleaned DataFrame meets basic quality checks.
+    """
+    checks = {}
+    
+    # Check for remaining null values
+    checks['has_nulls'] = df.isnull().any().any()
+    
+    # Check for duplicate rows
+    checks['has_duplicates'] = df.duplicated().any()
+    
+    # Check column name format (should be lowercase with underscores)
+    column_format_valid = all(col.islower() and ' ' not in col for col in df.columns)
+    checks['valid_column_names'] = column_format_valid
+    
+    return checks
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = pd.DataFrame({
+        'Customer ID': [1, 2, 2, 3, 4],
+        'Order Value': [100.0, 200.0, 200.0, None, 400.0],
+        'Product Category': ['A', 'B', 'B', None, 'C'],
+        'Region': ['North', 'South', 'South', 'East', 'West']
+    })
+    
+    print("Original dataset:")
+    print(sample_data)
+    print("\nCleaning dataset...")
+    
+    cleaned_data = clean_dataset(sample_data)
+    print("\nCleaned dataset:")
+    print(cleaned_data)
+    
+    validation_results = validate_data(cleaned_data)
+    print("\nData validation results:")
+    for check, result in validation_results.items():
+        print(f"{check}: {result}")
