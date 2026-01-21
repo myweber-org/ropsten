@@ -1,87 +1,106 @@
+
 import pandas as pd
+import numpy as np
 
-def clean_dataset(df, columns_to_check=None, fill_missing=True):
+def clean_missing_values(df, strategy='mean', columns=None):
     """
-    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    Clean missing values in a DataFrame using specified strategy.
     
-    Args:
-        df (pd.DataFrame): Input DataFrame to clean.
-        columns_to_check (list, optional): Specific columns to check for duplicates.
-                                          If None, checks all columns.
-        fill_missing (bool): If True, fill missing values with column mean for numeric
-                            columns and mode for categorical columns.
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    strategy (str): Strategy for handling missing values ('mean', 'median', 'mode', 'drop')
+    columns (list): Specific columns to clean, if None cleans all columns
     
     Returns:
-        pd.DataFrame: Cleaned DataFrame.
+    pd.DataFrame: Cleaned DataFrame
     """
-    cleaned_df = df.copy()
+    df_clean = df.copy()
     
-    # Remove duplicates
-    if columns_to_check:
-        cleaned_df = cleaned_df.drop_duplicates(subset=columns_to_check)
-    else:
-        cleaned_df = cleaned_df.drop_duplicates()
+    if columns is None:
+        columns = df_clean.columns
     
-    # Handle missing values
-    if fill_missing:
-        for column in cleaned_df.columns:
-            if cleaned_df[column].dtype in ['int64', 'float64']:
-                # Fill numeric columns with mean
-                mean_value = cleaned_df[column].mean()
-                cleaned_df[column] = cleaned_df[column].fillna(mean_value)
-            else:
-                # Fill categorical columns with mode
-                mode_value = cleaned_df[column].mode()[0] if not cleaned_df[column].mode().empty else 'Unknown'
-                cleaned_df[column] = cleaned_df[column].fillna(mode_value)
+    for col in columns:
+        if col in df_clean.columns:
+            if strategy == 'mean':
+                df_clean[col].fillna(df_clean[col].mean(), inplace=True)
+            elif strategy == 'median':
+                df_clean[col].fillna(df_clean[col].median(), inplace=True)
+            elif strategy == 'mode':
+                df_clean[col].fillna(df_clean[col].mode()[0], inplace=True)
+            elif strategy == 'drop':
+                df_clean.dropna(subset=[col], inplace=True)
     
-    return cleaned_df
+    return df_clean
 
-def validate_data(df, required_columns=None, min_rows=1):
+def remove_outliers(df, columns=None, threshold=3):
     """
-    Validate that DataFrame meets basic requirements.
+    Remove outliers using z-score method.
     
-    Args:
-        df (pd.DataFrame): DataFrame to validate.
-        required_columns (list): List of columns that must be present.
-        min_rows (int): Minimum number of rows required.
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    columns (list): Columns to check for outliers
+    threshold (float): Z-score threshold for outlier detection
     
     Returns:
-        tuple: (is_valid, error_message)
+    pd.DataFrame: DataFrame with outliers removed
     """
+    df_clean = df.copy()
+    
+    if columns is None:
+        columns = df_clean.select_dtypes(include=[np.number]).columns
+    
+    for col in columns:
+        if col in df_clean.columns and df_clean[col].dtype in [np.float64, np.int64]:
+            z_scores = np.abs((df_clean[col] - df_clean[col].mean()) / df_clean[col].std())
+            df_clean = df_clean[z_scores < threshold]
+    
+    return df_clean
+
+def standardize_columns(df, columns=None):
+    """
+    Standardize numerical columns to have zero mean and unit variance.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    columns (list): Columns to standardize
+    
+    Returns:
+    pd.DataFrame: DataFrame with standardized columns
+    """
+    df_clean = df.copy()
+    
+    if columns is None:
+        columns = df_clean.select_dtypes(include=[np.number]).columns
+    
+    for col in columns:
+        if col in df_clean.columns and df_clean[col].dtype in [np.float64, np.int64]:
+            mean = df_clean[col].mean()
+            std = df_clean[col].std()
+            if std > 0:
+                df_clean[col] = (df_clean[col] - mean) / std
+    
+    return df_clean
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate
+    required_columns (list): List of required column names
+    
+    Returns:
+    tuple: (is_valid, error_message)
+    """
+    if not isinstance(df, pd.DataFrame):
+        return False, "Input is not a pandas DataFrame"
+    
     if df.empty:
         return False, "DataFrame is empty"
-    
-    if len(df) < min_rows:
-        return False, f"DataFrame has fewer than {min_rows} rows"
     
     if required_columns:
         missing_columns = [col for col in required_columns if col not in df.columns]
         if missing_columns:
             return False, f"Missing required columns: {missing_columns}"
     
-    return True, "Data validation passed"
-
-# Example usage
-if __name__ == "__main__":
-    # Create sample data
-    sample_data = {
-        'id': [1, 2, 2, 3, 4, None],
-        'name': ['Alice', 'Bob', 'Bob', 'Charlie', None, 'Eve'],
-        'age': [25, 30, 30, None, 35, 28],
-        'score': [85.5, 92.0, 92.0, 78.5, None, 88.0]
-    }
-    
-    df = pd.DataFrame(sample_data)
-    print("Original DataFrame:")
-    print(df)
-    print("\n" + "="*50 + "\n")
-    
-    # Clean the data
-    cleaned = clean_dataset(df, columns_to_check=['id', 'name'])
-    print("Cleaned DataFrame:")
-    print(cleaned)
-    
-    # Validate the cleaned data
-    is_valid, message = validate_data(cleaned, required_columns=['id', 'name', 'age', 'score'])
-    print(f"\nValidation: {is_valid}")
-    print(f"Message: {message}")
+    return True, "DataFrame is valid"
