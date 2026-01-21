@@ -1,62 +1,87 @@
-
 import pandas as pd
-import numpy as np
-from scipy import stats
 
-class DataCleaner:
-    def __init__(self, df):
-        self.df = df.copy()
-        self.numeric_columns = df.select_dtypes(include=[np.number]).columns.tolist()
+def clean_dataset(df, columns_to_check=None, fill_missing=True):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
     
-    def remove_outliers_zscore(self, threshold=3):
-        df_clean = self.df.copy()
-        for col in self.numeric_columns:
-            z_scores = np.abs(stats.zscore(df_clean[col].dropna()))
-            df_clean = df_clean[(z_scores < threshold) | df_clean[col].isna()]
-        return df_clean
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean.
+        columns_to_check (list, optional): Specific columns to check for duplicates.
+                                          If None, checks all columns.
+        fill_missing (bool): If True, fill missing values with column mean for numeric
+                            columns and mode for categorical columns.
     
-    def normalize_minmax(self, columns=None):
-        if columns is None:
-            columns = self.numeric_columns
-        
-        df_normalized = self.df.copy()
-        for col in columns:
-            if col in self.numeric_columns:
-                col_min = df_normalized[col].min()
-                col_max = df_normalized[col].max()
-                if col_max != col_min:
-                    df_normalized[col] = (df_normalized[col] - col_min) / (col_max - col_min)
-        return df_normalized
+    Returns:
+        pd.DataFrame: Cleaned DataFrame.
+    """
+    cleaned_df = df.copy()
     
-    def fill_missing_median(self):
-        df_filled = self.df.copy()
-        for col in self.numeric_columns:
-            median_val = df_filled[col].median()
-            df_filled[col] = df_filled[col].fillna(median_val)
-        return df_filled
+    # Remove duplicates
+    if columns_to_check:
+        cleaned_df = cleaned_df.drop_duplicates(subset=columns_to_check)
+    else:
+        cleaned_df = cleaned_df.drop_duplicates()
     
-    def get_summary(self):
-        summary = {
-            'original_shape': self.df.shape,
-            'missing_values': self.df.isnull().sum().to_dict(),
-            'numeric_columns': self.numeric_columns,
-            'data_types': self.df.dtypes.to_dict()
-        }
-        return summary
+    # Handle missing values
+    if fill_missing:
+        for column in cleaned_df.columns:
+            if cleaned_df[column].dtype in ['int64', 'float64']:
+                # Fill numeric columns with mean
+                mean_value = cleaned_df[column].mean()
+                cleaned_df[column] = cleaned_df[column].fillna(mean_value)
+            else:
+                # Fill categorical columns with mode
+                mode_value = cleaned_df[column].mode()[0] if not cleaned_df[column].mode().empty else 'Unknown'
+                cleaned_df[column] = cleaned_df[column].fillna(mode_value)
+    
+    return cleaned_df
 
-def process_dataset(filepath, output_path=None):
-    df = pd.read_csv(filepath)
-    cleaner = DataCleaner(df)
+def validate_data(df, required_columns=None, min_rows=1):
+    """
+    Validate that DataFrame meets basic requirements.
     
-    print("Dataset Summary:")
-    print(f"Original shape: {cleaner.get_summary()['original_shape']}")
+    Args:
+        df (pd.DataFrame): DataFrame to validate.
+        required_columns (list): List of columns that must be present.
+        min_rows (int): Minimum number of rows required.
     
-    df_clean = cleaner.remove_outliers_zscore()
-    df_filled = cleaner.fill_missing_median()
-    df_normalized = cleaner.normalize_minmax()
+    Returns:
+        tuple: (is_valid, error_message)
+    """
+    if df.empty:
+        return False, "DataFrame is empty"
     
-    if output_path:
-        df_normalized.to_csv(output_path, index=False)
-        print(f"Cleaned data saved to: {output_path}")
+    if len(df) < min_rows:
+        return False, f"DataFrame has fewer than {min_rows} rows"
     
-    return df_normalized
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            return False, f"Missing required columns: {missing_columns}"
+    
+    return True, "Data validation passed"
+
+# Example usage
+if __name__ == "__main__":
+    # Create sample data
+    sample_data = {
+        'id': [1, 2, 2, 3, 4, None],
+        'name': ['Alice', 'Bob', 'Bob', 'Charlie', None, 'Eve'],
+        'age': [25, 30, 30, None, 35, 28],
+        'score': [85.5, 92.0, 92.0, 78.5, None, 88.0]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\n" + "="*50 + "\n")
+    
+    # Clean the data
+    cleaned = clean_dataset(df, columns_to_check=['id', 'name'])
+    print("Cleaned DataFrame:")
+    print(cleaned)
+    
+    # Validate the cleaned data
+    is_valid, message = validate_data(cleaned, required_columns=['id', 'name', 'age', 'score'])
+    print(f"\nValidation: {is_valid}")
+    print(f"Message: {message}")
