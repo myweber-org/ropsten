@@ -1,70 +1,64 @@
-
 import pandas as pd
-import numpy as np
 
-def remove_outliers_iqr(df, column):
+def clean_dataset(df, columns=None, drop_duplicates=True, fill_na_method='drop'):
     """
-    Remove outliers from a DataFrame column using the Interquartile Range method.
+    Clean a pandas DataFrame by handling missing values and removing duplicates.
     
     Parameters:
-    df (pd.DataFrame): Input DataFrame
-    column (str): Column name to clean
+    df (pd.DataFrame): Input DataFrame to clean.
+    columns (list): Specific columns to clean. If None, clean all columns.
+    drop_duplicates (bool): Whether to remove duplicate rows.
+    fill_na_method (str): Method to handle missing values ('drop', 'mean', 'median', 'mode', 'zero').
     
     Returns:
-    pd.DataFrame: DataFrame with outliers removed
+    pd.DataFrame: Cleaned DataFrame.
     """
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
+    df_clean = df.copy()
     
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
+    if columns is None:
+        columns = df_clean.columns.tolist()
     
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
+    for col in columns:
+        if col in df_clean.columns:
+            if fill_na_method == 'drop':
+                df_clean = df_clean.dropna(subset=[col])
+            elif fill_na_method == 'mean':
+                if pd.api.types.is_numeric_dtype(df_clean[col]):
+                    df_clean[col] = df_clean[col].fillna(df_clean[col].mean())
+            elif fill_na_method == 'median':
+                if pd.api.types.is_numeric_dtype(df_clean[col]):
+                    df_clean[col] = df_clean[col].fillna(df_clean[col].median())
+            elif fill_na_method == 'mode':
+                df_clean[col] = df_clean[col].fillna(df_clean[col].mode()[0] if not df_clean[col].mode().empty else None)
+            elif fill_na_method == 'zero':
+                df_clean[col] = df_clean[col].fillna(0)
     
-    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    if drop_duplicates:
+        df_clean = df_clean.drop_duplicates()
     
-    return filtered_df.reset_index(drop=True)
+    return df_clean
 
-def clean_dataset(df, numeric_columns=None):
+def validate_dataframe(df, required_columns=None, min_rows=1):
     """
-    Clean a dataset by removing outliers from all numeric columns.
+    Validate DataFrame structure and content.
     
     Parameters:
-    df (pd.DataFrame): Input DataFrame
-    numeric_columns (list): List of numeric column names to clean
+    df (pd.DataFrame): DataFrame to validate.
+    required_columns (list): List of required column names.
+    min_rows (int): Minimum number of rows required.
     
     Returns:
-    pd.DataFrame: Cleaned DataFrame
+    tuple: (is_valid, error_message)
     """
-    if numeric_columns is None:
-        numeric_columns = df.select_dtypes(include=[np.number]).columns.tolist()
+    if df.empty:
+        return False, "DataFrame is empty"
     
-    cleaned_df = df.copy()
+    if len(df) < min_rows:
+        return False, f"DataFrame has fewer than {min_rows} rows"
     
-    for column in numeric_columns:
-        if column in df.columns and pd.api.types.is_numeric_dtype(df[column]):
-            original_count = len(cleaned_df)
-            cleaned_df = remove_outliers_iqr(cleaned_df, column)
-            removed_count = original_count - len(cleaned_df)
-            print(f"Removed {removed_count} outliers from column '{column}'")
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            return False, f"Missing required columns: {missing_cols}"
     
-    return cleaned_df
-
-if __name__ == "__main__":
-    sample_data = {
-        'id': range(1, 101),
-        'value': np.concatenate([
-            np.random.normal(100, 10, 90),
-            np.random.normal(300, 50, 10)
-        ]),
-        'category': np.random.choice(['A', 'B', 'C'], 100)
-    }
-    
-    df = pd.DataFrame(sample_data)
-    print(f"Original dataset shape: {df.shape}")
-    
-    cleaned_df = clean_dataset(df, ['value'])
-    print(f"Cleaned dataset shape: {cleaned_df.shape}")
-    print(f"Outliers removed: {len(df) - len(cleaned_df)}")
+    return True, "DataFrame is valid"
