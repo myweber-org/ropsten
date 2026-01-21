@@ -35,4 +35,41 @@ if __name__ == "__main__":
         print(f"Error: {target_directory} is not a valid directory.")
         sys.exit(1)
     
-    rename_files_with_sequence(target_directory, name_prefix)
+    rename_files_with_sequence(target_directory, name_prefix)import os
+import sys
+
+def rename_files_sequentially(directory, prefix="file", extension=".txt"):
+    """
+    Renames all files in the specified directory with sequential numbering.
+    """
+    if not os.path.isdir(directory):
+        print(f"Error: {directory} is not a valid directory.")
+        return False
+    
+    files = [f for f in os.listdir(directory) if os.path.isfile(os.path.join(directory, f))]
+    files.sort()
+    
+    for index, filename in enumerate(files, start=1):
+        old_path = os.path.join(directory, filename)
+        new_filename = f"{prefix}_{index:03d}{extension}"
+        new_path = os.path.join(directory, new_filename)
+        
+        try:
+            os.rename(old_path, new_path)
+            print(f"Renamed: {filename} -> {new_filename}")
+        except OSError as e:
+            print(f"Failed to rename {filename}: {e}")
+    
+    print(f"Renaming complete. Processed {len(files)} files.")
+    return True
+
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        print("Usage: python file_renamer.py <directory> [prefix] [extension]")
+        sys.exit(1)
+    
+    target_dir = sys.argv[1]
+    prefix_arg = sys.argv[2] if len(sys.argv) > 2 else "file"
+    extension_arg = sys.argv[3] if len(sys.argv) > 3 else ".txt"
+    
+    rename_files_sequentially(target_dir, prefix_arg, extension_arg)
