@@ -1,85 +1,112 @@
-import pandas as pd
+
 import numpy as np
+import pandas as pd
+from scipy import stats
 
-def clean_csv_data(filepath, missing_strategy='mean', columns_to_drop=None):
+def remove_outliers_iqr(data, column, factor=1.5):
     """
-    Load and clean CSV data by handling missing values and optionally dropping columns.
-    
-    Parameters:
-    filepath (str): Path to the CSV file
-    missing_strategy (str): Strategy for handling missing values ('mean', 'median', 'mode', 'drop')
-    columns_to_drop (list): List of column names to drop from the dataset
-    
-    Returns:
-    pandas.DataFrame: Cleaned dataframe
+    Remove outliers using IQR method
     """
-    try:
-        df = pd.read_csv(filepath)
-        
-        if columns_to_drop:
-            df = df.drop(columns=columns_to_drop, errors='ignore')
-        
-        for column in df.select_dtypes(include=[np.number]).columns:
-            if df[column].isnull().any():
-                if missing_strategy == 'mean':
-                    df[column].fillna(df[column].mean(), inplace=True)
-                elif missing_strategy == 'median':
-                    df[column].fillna(df[column].median(), inplace=True)
-                elif missing_strategy == 'mode':
-                    df[column].fillna(df[column].mode()[0], inplace=True)
-                elif missing_strategy == 'drop':
-                    df.dropna(subset=[column], inplace=True)
-        
-        for column in df.select_dtypes(include=['object']).columns:
-            if df[column].isnull().any():
-                df[column].fillna('Unknown', inplace=True)
-        
-        df = df.reset_index(drop=True)
-        return df
-        
-    except FileNotFoundError:
-        print(f"Error: File not found at {filepath}")
-        return None
-    except Exception as e:
-        print(f"Error processing file: {str(e)}")
-        return None
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    Q1 = data[column].quantile(0.25)
+    Q3 = data[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - factor * IQR
+    upper_bound = Q3 + factor * IQR
+    
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    return filtered_data
 
-def validate_dataframe(df, required_columns=None):
+def remove_outliers_zscore(data, column, threshold=3):
     """
-    Validate dataframe structure and content.
-    
-    Parameters:
-    df (pandas.DataFrame): Dataframe to validate
-    required_columns (list): List of required column names
-    
-    Returns:
-    bool: True if validation passes, False otherwise
+    Remove outliers using Z-score method
     """
-    if df is None or df.empty:
-        return False
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    z_scores = np.abs(stats.zscore(data[column]))
+    filtered_data = data[z_scores < threshold]
+    return filtered_data
+
+def normalize_minmax(data, column):
+    """
+    Normalize data using Min-Max scaling
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    min_val = data[column].min()
+    max_val = data[column].max()
+    
+    if max_val == min_val:
+        return data[column].apply(lambda x: 0.5)
+    
+    normalized = (data[column] - min_val) / (max_val - min_val)
+    return normalized
+
+def normalize_zscore(data, column):
+    """
+    Normalize data using Z-score standardization
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    mean_val = data[column].mean()
+    std_val = data[column].std()
+    
+    if std_val == 0:
+        return data[column].apply(lambda x: 0)
+    
+    standardized = (data[column] - mean_val) / std_val
+    return standardized
+
+def clean_dataset(data, numeric_columns=None, outlier_method='iqr', normalize_method='minmax'):
+    """
+    Comprehensive data cleaning function
+    """
+    if numeric_columns is None:
+        numeric_columns = data.select_dtypes(include=[np.number]).columns.tolist()
+    
+    cleaned_data = data.copy()
+    
+    for column in numeric_columns:
+        if column not in cleaned_data.columns:
+            continue
+            
+        if outlier_method == 'iqr':
+            cleaned_data = remove_outliers_iqr(cleaned_data, column)
+        elif outlier_method == 'zscore':
+            cleaned_data = remove_outliers_zscore(cleaned_data, column)
+        
+        if normalize_method == 'minmax':
+            cleaned_data[f'{column}_normalized'] = normalize_minmax(cleaned_data, column)
+        elif normalize_method == 'zscore':
+            cleaned_data[f'{column}_standardized'] = normalize_zscore(cleaned_data, column)
+    
+    return cleaned_data
+
+def validate_data(data, required_columns=None, check_missing=True, check_duplicates=True):
+    """
+    Validate dataset for common issues
+    """
+    validation_results = {}
     
     if required_columns:
-        missing_columns = [col for col in required_columns if col not in df.columns]
-        if missing_columns:
-            print(f"Missing required columns: {missing_columns}")
-            return False
+        missing_columns = [col for col in required_columns if col not in data.columns]
+        validation_results['missing_columns'] = missing_columns
     
-    return True
-
-def save_cleaned_data(df, output_path):
-    """
-    Save cleaned dataframe to CSV file.
+    if check_missing:
+        missing_values = data.isnull().sum().sum()
+        validation_results['total_missing_values'] = missing_values
     
-    Parameters:
-    df (pandas.DataFrame): Dataframe to save
-    output_path (str): Path for output CSV file
+    if check_duplicates:
+        duplicate_rows = data.duplicated().sum()
+        validation_results['duplicate_rows'] = duplicate_rows
     
-    Returns:
-    bool: True if save successful, False otherwise
-    """
-    try:
-        df.to_csv(output_path, index=False)
-        return True
-    except Exception as e:
-        print(f"Error saving file: {str(e)}")
-        return False
+    validation_results['data_shape'] = data.shape
+    validation_results['data_types'] = data.dtypes.to_dict()
+    
+    return validation_results
