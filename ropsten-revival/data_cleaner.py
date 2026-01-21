@@ -319,4 +319,50 @@ if __name__ == "__main__":
     
     print(f"\nOriginal rows: {len(sample_df)}")
     print(f"Cleaned rows: {len(cleaned_df)}")
-    print(f"Outliers removed: {len(sample_df) - len(cleaned_df)}")
+    print(f"Outliers removed: {len(sample_df) - len(cleaned_df)}")import csv
+import re
+
+def clean_csv(input_file, output_file):
+    cleaned_rows = []
+    
+    with open(input_file, 'r', encoding='utf-8') as infile:
+        reader = csv.DictReader(infile)
+        fieldnames = reader.fieldnames
+        
+        for row in reader:
+            cleaned_row = {}
+            for key, value in row.items():
+                if value is None:
+                    cleaned_value = ''
+                else:
+                    cleaned_value = re.sub(r'\s+', ' ', value.strip())
+                    cleaned_value = re.sub(r'[^\x00-\x7F]+', '', cleaned_value)
+                
+                cleaned_row[key] = cleaned_value
+            
+            cleaned_rows.append(cleaned_row)
+    
+    with open(output_file, 'w', newline='', encoding='utf-8') as outfile:
+        writer = csv.DictWriter(outfile, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(cleaned_rows)
+    
+    return len(cleaned_rows)
+
+def validate_email(email):
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return bool(re.match(pattern, email))
+
+def remove_duplicates(input_list):
+    seen = set()
+    result = []
+    for item in input_list:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
+
+if __name__ == "__main__":
+    sample_data = ["test@example.com", "invalid-email", "another@test.org", "test@example.com"]
+    print("Valid emails:", [email for email in sample_data if validate_email(email)])
+    print("Unique items:", remove_duplicates(sample_data))
