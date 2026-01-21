@@ -283,4 +283,84 @@ if __name__ == "__main__":
     
     # Validate the cleaned DataFrame
     validation_passed = validate_dataframe(cleaned_df, required_columns=['id', 'name'])
-    print(f"\nDataFrame validation passed: {validation_passed}")
+    print(f"\nDataFrame validation passed: {validation_passed}")import pandas as pd
+
+def clean_dataset(df):
+    """
+    Clean a pandas DataFrame by removing null values and duplicates.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to be cleaned.
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame.
+    """
+    # Remove rows with any null values
+    df_cleaned = df.dropna()
+    
+    # Remove duplicate rows
+    df_cleaned = df_cleaned.drop_duplicates()
+    
+    # Reset index after cleaning
+    df_cleaned = df_cleaned.reset_index(drop=True)
+    
+    return df_cleaned
+
+def validate_data(df, required_columns):
+    """
+    Validate that DataFrame contains required columns and has data.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate.
+        required_columns (list): List of required column names.
+    
+    Returns:
+        bool: True if validation passes, False otherwise.
+    """
+    if df.empty:
+        print("Warning: DataFrame is empty")
+        return False
+    
+    missing_columns = [col for col in required_columns if col not in df.columns]
+    if missing_columns:
+        print(f"Warning: Missing required columns: {missing_columns}")
+        return False
+    
+    return True
+
+def process_data_file(file_path, required_columns=None):
+    """
+    Load and clean data from a CSV file.
+    
+    Args:
+        file_path (str): Path to the CSV file.
+        required_columns (list, optional): List of required columns for validation.
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame or None if processing fails.
+    """
+    try:
+        # Load data from CSV
+        df = pd.read_csv(file_path)
+        
+        # Validate data if required columns are specified
+        if required_columns:
+            if not validate_data(df, required_columns):
+                return None
+        
+        # Clean the data
+        df_cleaned = clean_dataset(df)
+        
+        print(f"Data cleaning completed. Original rows: {len(df)}, Cleaned rows: {len(df_cleaned)}")
+        
+        return df_cleaned
+        
+    except FileNotFoundError:
+        print(f"Error: File not found at {file_path}")
+        return None
+    except pd.errors.EmptyDataError:
+        print("Error: The file is empty")
+        return None
+    except Exception as e:
+        print(f"Error processing file: {str(e)}")
+        return None
