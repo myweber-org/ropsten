@@ -195,4 +195,107 @@ if __name__ == "__main__":
     cleaned = clean_dataset(sample_data, ['feature_a', 'feature_b'])
     print(f"Original shape: {sample_data.shape}")
     print(f"Cleaned shape: {cleaned.shape}")
-    print(cleaned.head())
+    print(cleaned.head())import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(data, column):
+    """
+    Remove outliers from a pandas Series using the IQR method.
+    Returns cleaned Series and outlier indices.
+    """
+    Q1 = data[column].quantile(0.25)
+    Q3 = data[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    outlier_mask = (data[column] < lower_bound) | (data[column] > upper_bound)
+    cleaned_data = data[~outlier_mask].copy()
+    outlier_indices = data[outlier_mask].index.tolist()
+    
+    return cleaned_data, outlier_indices
+
+def normalize_minmax(data, column):
+    """
+    Normalize data to [0, 1] range using min-max scaling.
+    """
+    min_val = data[column].min()
+    max_val = data[column].max()
+    
+    if max_val == min_val:
+        return data[column].apply(lambda x: 0.5)
+    
+    normalized = (data[column] - min_val) / (max_val - min_val)
+    return normalized
+
+def standardize_zscore(data, column):
+    """
+    Standardize data using z-score normalization (mean=0, std=1).
+    """
+    mean_val = data[column].mean()
+    std_val = data[column].std()
+    
+    if std_val == 0:
+        return data[column].apply(lambda x: 0)
+    
+    standardized = (data[column] - mean_val) / std_val
+    return standardized
+
+def handle_missing_interpolation(data, column, method='linear'):
+    """
+    Handle missing values using interpolation.
+    """
+    if method not in ['linear', 'time', 'index', 'values']:
+        method = 'linear'
+    
+    interpolated = data[column].interpolate(method=method, limit_direction='both')
+    return interpolated
+
+def clean_dataset(df, numeric_columns):
+    """
+    Main cleaning pipeline for numeric columns.
+    """
+    cleaned_df = df.copy()
+    outlier_report = {}
+    
+    for col in numeric_columns:
+        if col in cleaned_df.columns:
+            # Remove outliers
+            cleaned_df, outliers = remove_outliers_iqr(cleaned_df, col)
+            outlier_report[col] = len(outliers)
+            
+            # Handle missing values
+            if cleaned_df[col].isnull().any():
+                cleaned_df[col] = handle_missing_interpolation(cleaned_df, col)
+            
+            # Normalize data
+            cleaned_df[f'{col}_normalized'] = normalize_minmax(cleaned_df, col)
+            cleaned_df[f'{col}_standardized'] = standardize_zscore(cleaned_df, col)
+    
+    return cleaned_df, outlier_report
+
+# Example usage (commented out for module import)
+if __name__ == "__main__":
+    # Create sample data
+    np.random.seed(42)
+    sample_data = pd.DataFrame({
+        'feature_a': np.random.normal(100, 15, 100),
+        'feature_b': np.random.exponential(50, 100),
+        'category': np.random.choice(['A', 'B', 'C'], 100)
+    })
+    
+    # Add some outliers
+    sample_data.loc[10, 'feature_a'] = 300
+    sample_data.loc[20, 'feature_b'] = 500
+    
+    # Add missing values
+    sample_data.loc[30:35, 'feature_a'] = np.nan
+    
+    # Clean the dataset
+    numeric_cols = ['feature_a', 'feature_b']
+    cleaned_data, report = clean_dataset(sample_data, numeric_cols)
+    
+    print(f"Original shape: {sample_data.shape}")
+    print(f"Cleaned shape: {cleaned_data.shape}")
+    print(f"Outliers removed: {report}")
