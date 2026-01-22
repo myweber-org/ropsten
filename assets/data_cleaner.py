@@ -1,103 +1,57 @@
 
 import pandas as pd
-import numpy as np
-from typing import List, Optional
 
-class DataCleaner:
-    def __init__(self, df: pd.DataFrame):
-        self.df = df.copy()
-        self.original_shape = df.shape
-        
-    def remove_duplicates(self, subset: Optional[List[str]] = None) -> pd.DataFrame:
-        initial_count = len(self.df)
-        self.df = self.df.drop_duplicates(subset=subset, keep='first')
-        removed = initial_count - len(self.df)
-        print(f"Removed {removed} duplicate rows")
-        return self.df
+def clean_dataset(df, drop_duplicates=True, fill_missing=None):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
     
-    def normalize_text_columns(self, columns: List[str]) -> pd.DataFrame:
-        for col in columns:
-            if col in self.df.columns and self.df[col].dtype == 'object':
-                self.df[col] = self.df[col].str.strip().str.lower()
-                self.df[col] = self.df[col].replace('', np.nan)
-        print(f"Normalized text columns: {columns}")
-        return self.df
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean.
+        drop_duplicates (bool): Whether to drop duplicate rows.
+        fill_missing (str or dict): Method to fill missing values.
+            Options: 'mean', 'median', 'mode', or a dictionary of column:value pairs.
     
-    def fill_missing_values(self, strategy: str = 'mean', columns: Optional[List[str]] = None) -> pd.DataFrame:
-        if columns is None:
-            columns = self.df.select_dtypes(include=[np.number]).columns.tolist()
-        
-        for col in columns:
-            if col in self.df.columns:
-                if strategy == 'mean' and pd.api.types.is_numeric_dtype(self.df[col]):
-                    self.df[col].fillna(self.df[col].mean(), inplace=True)
-                elif strategy == 'median' and pd.api.types.is_numeric_dtype(self.df[col]):
-                    self.df[col].fillna(self.df[col].median(), inplace=True)
-                elif strategy == 'mode':
-                    self.df[col].fillna(self.df[col].mode()[0] if not self.df[col].mode().empty else None, inplace=True)
-                elif strategy == 'ffill':
-                    self.df[col].fillna(method='ffill', inplace=True)
-                elif strategy == 'bfill':
-                    self.df[col].fillna(method='bfill', inplace=True)
-        
-        print(f"Filled missing values using {strategy} strategy for columns: {columns}")
-        return self.df
+    Returns:
+        pd.DataFrame: Cleaned DataFrame.
+    """
+    cleaned_df = df.copy()
     
-    def remove_outliers_iqr(self, columns: List[str], multiplier: float = 1.5) -> pd.DataFrame:
-        initial_count = len(self.df)
-        
-        for col in columns:
-            if col in self.df.columns and pd.api.types.is_numeric_dtype(self.df[col]):
-                Q1 = self.df[col].quantile(0.25)
-                Q3 = self.df[col].quantile(0.75)
-                IQR = Q3 - Q1
-                lower_bound = Q1 - multiplier * IQR
-                upper_bound = Q3 + multiplier * IQR
-                
-                mask = (self.df[col] >= lower_bound) & (self.df[col] <= upper_bound)
-                self.df = self.df[mask]
-        
-        removed = initial_count - len(self.df)
-        print(f"Removed {removed} outliers using IQR method")
-        return self.df
+    if drop_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates()
     
-    def get_cleaning_report(self) -> dict:
-        final_shape = self.df.shape
-        return {
-            'original_rows': self.original_shape[0],
-            'original_columns': self.original_shape[1],
-            'final_rows': final_shape[0],
-            'final_columns': final_shape[1],
-            'rows_removed': self.original_shape[0] - final_shape[0],
-            'columns_removed': self.original_shape[1] - final_shape[1]
-        }
+    if fill_missing is not None:
+        if isinstance(fill_missing, dict):
+            cleaned_df = cleaned_df.fillna(fill_missing)
+        elif fill_missing == 'mean':
+            cleaned_df = cleaned_df.fillna(cleaned_df.mean(numeric_only=True))
+        elif fill_missing == 'median':
+            cleaned_df = cleaned_df.fillna(cleaned_df.median(numeric_only=True))
+        elif fill_missing == 'mode':
+            cleaned_df = cleaned_df.fillna(cleaned_df.mode().iloc[0])
     
-    def save_cleaned_data(self, filepath: str) -> None:
-        self.df.to_csv(filepath, index=False)
-        print(f"Cleaned data saved to {filepath}")
+    return cleaned_df
 
-def create_sample_data() -> pd.DataFrame:
-    data = {
-        'id': [1, 2, 3, 4, 5, 5, 6, 7],
-        'name': ['John', 'Jane', 'Bob', 'Alice', 'John', 'John', 'Eve', 'Frank'],
-        'age': [25, 30, 35, 28, 25, 25, 40, 100],
-        'salary': [50000, 60000, 70000, None, 50000, 50000, 80000, 500000],
-        'department': ['IT', 'HR', 'IT', 'Finance', 'IT', 'IT', 'HR', 'CEO']
-    }
-    return pd.DataFrame(data)
-
-if __name__ == "__main__":
-    df = create_sample_data()
-    cleaner = DataCleaner(df)
+def validate_data(df, required_columns=None, min_rows=1):
+    """
+    Validate the structure and content of a DataFrame.
     
-    cleaner.remove_duplicates(subset=['id', 'name'])
-    cleaner.normalize_text_columns(['name', 'department'])
-    cleaner.fill_missing_values(strategy='mean', columns=['salary'])
-    cleaner.remove_outliers_iqr(columns=['age', 'salary'], multiplier=1.5)
+    Args:
+        df (pd.DataFrame): DataFrame to validate.
+        required_columns (list): List of column names that must be present.
+        min_rows (int): Minimum number of rows required.
     
-    report = cleaner.get_cleaning_report()
-    print("\nCleaning Report:")
-    for key, value in report.items():
-        print(f"{key}: {value}")
+    Returns:
+        tuple: (is_valid, error_message)
+    """
+    if df.empty:
+        return False, "DataFrame is empty"
     
-    cleaner.save_cleaned_data('cleaned_data.csv')
+    if len(df) < min_rows:
+        return False, f"DataFrame has fewer than {min_rows} rows"
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            return False, f"Missing required columns: {missing_cols}"
+    
+    return True, "Data validation passed"
