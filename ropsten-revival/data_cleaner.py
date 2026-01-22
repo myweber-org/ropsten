@@ -394,3 +394,60 @@ if __name__ == "__main__":
     cleaned_data = clean_dataset('sample_data.csv', ['age', 'income', 'score'])
     cleaned_data.to_csv('cleaned_data.csv', index=False)
     print("Data cleaning completed. Saved to cleaned_data.csv")
+import pandas as pd
+import re
+
+def clean_dataframe(df, column_mapping=None, drop_duplicates=True, normalize_text=True):
+    """
+    Clean a pandas DataFrame by removing duplicates and normalizing text columns.
+    
+    Args:
+        df: pandas DataFrame to clean
+        column_mapping: dictionary mapping old column names to new ones
+        drop_duplicates: whether to remove duplicate rows
+        normalize_text: whether to normalize text columns (lowercase, strip whitespace)
+    
+    Returns:
+        Cleaned pandas DataFrame
+    """
+    df_clean = df.copy()
+    
+    if column_mapping:
+        df_clean = df_clean.rename(columns=column_mapping)
+    
+    if drop_duplicates:
+        df_clean = df_clean.drop_duplicates().reset_index(drop=True)
+    
+    if normalize_text:
+        for col in df_clean.select_dtypes(include=['object']).columns:
+            df_clean[col] = df_clean[col].astype(str).apply(
+                lambda x: re.sub(r'\s+', ' ', x.strip().lower())
+            )
+    
+    return df_clean
+
+def validate_email(email):
+    """
+    Validate email format using regex pattern.
+    
+    Args:
+        email: string email address to validate
+    
+    Returns:
+        Boolean indicating if email is valid
+    """
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return bool(re.match(pattern, email))
+
+def extract_numeric(text):
+    """
+    Extract numeric values from text string.
+    
+    Args:
+        text: string containing numeric values
+    
+    Returns:
+        List of numeric values found in text
+    """
+    numbers = re.findall(r'\d+\.?\d*', text)
+    return [float(num) if '.' in num else int(num) for num in numbers]
