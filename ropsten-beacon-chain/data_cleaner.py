@@ -340,3 +340,87 @@ if __name__ == "__main__":
     print("\nCleaned dataset shape:", cleaned_df.shape)
     print("\nCleaned statistics:")
     print(calculate_statistics(cleaned_df, 'value'))
+import pandas as pd
+import numpy as np
+
+def clean_dataframe(df, drop_duplicates=True, fill_missing=True):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean
+        drop_duplicates (bool): Whether to remove duplicate rows
+        fill_missing (bool): Whether to fill missing values with column mean
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame
+    """
+    cleaned_df = df.copy()
+    
+    if drop_duplicates:
+        initial_rows = len(cleaned_df)
+        cleaned_df = cleaned_df.drop_duplicates()
+        removed = initial_rows - len(cleaned_df)
+        print(f"Removed {removed} duplicate rows")
+    
+    if fill_missing:
+        numeric_cols = cleaned_df.select_dtypes(include=[np.number]).columns
+        for col in numeric_cols:
+            if cleaned_df[col].isnull().any():
+                mean_val = cleaned_df[col].mean()
+                cleaned_df[col] = cleaned_df[col].fillna(mean_val)
+                print(f"Filled missing values in column '{col}' with mean: {mean_val:.2f}")
+    
+    categorical_cols = cleaned_df.select_dtypes(include=['object']).columns
+    for col in categorical_cols:
+        if cleaned_df[col].isnull().any():
+            cleaned_df[col] = cleaned_df[col].fillna('Unknown')
+            print(f"Filled missing values in column '{col}' with 'Unknown'")
+    
+    return cleaned_df
+
+def validate_dataframe(df):
+    """
+    Validate DataFrame for common data quality issues.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate
+    
+    Returns:
+        dict: Dictionary containing validation results
+    """
+    validation_results = {
+        'total_rows': len(df),
+        'total_columns': len(df.columns),
+        'missing_values': df.isnull().sum().sum(),
+        'duplicate_rows': df.duplicated().sum(),
+        'numeric_columns': list(df.select_dtypes(include=[np.number]).columns),
+        'categorical_columns': list(df.select_dtypes(include=['object']).columns)
+    }
+    
+    return validation_results
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'id': [1, 2, 3, 4, 5, 5],
+        'name': ['Alice', 'Bob', 'Charlie', None, 'Eve', 'Eve'],
+        'age': [25, 30, None, 35, 40, 40],
+        'score': [85.5, 92.0, 78.5, None, 88.0, 88.0]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\n" + "="*50 + "\n")
+    
+    print("Validation Results:")
+    validation = validate_dataframe(df)
+    for key, value in validation.items():
+        print(f"{key}: {value}")
+    
+    print("\n" + "="*50 + "\n")
+    
+    cleaned_df = clean_dataframe(df)
+    print("\nCleaned DataFrame:")
+    print(cleaned_df)
