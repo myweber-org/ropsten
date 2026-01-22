@@ -637,4 +637,141 @@ if __name__ == "__main__":
     
     print("Data cleaning completed.")
     print(f"Original shape: {sample_data.shape}")
-    print(f"Cleaned shape: {cleaned.shape}")
+    print(f"Cleaned shape: {cleaned.shape}")import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(data, column, factor=1.5):
+    """
+    Remove outliers using IQR method
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    q1 = data[column].quantile(0.25)
+    q3 = data[column].quantile(0.75)
+    iqr = q3 - q1
+    
+    lower_bound = q1 - factor * iqr
+    upper_bound = q3 + factor * iqr
+    
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    return filtered_data
+
+def normalize_minmax(data, column):
+    """
+    Normalize data using min-max scaling
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    min_val = data[column].min()
+    max_val = data[column].max()
+    
+    if max_val == min_val:
+        return data[column].apply(lambda x: 0.5)
+    
+    normalized = (data[column] - min_val) / (max_val - min_val)
+    return normalized
+
+def standardize_zscore(data, column):
+    """
+    Standardize data using z-score normalization
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    mean_val = data[column].mean()
+    std_val = data[column].std()
+    
+    if std_val == 0:
+        return data[column].apply(lambda x: 0)
+    
+    standardized = (data[column] - mean_val) / std_val
+    return standardized
+
+def clean_dataset(df, numeric_columns=None, outlier_method='iqr', normalize_method=None):
+    """
+    Main function to clean dataset with multiple options
+    """
+    cleaned_df = df.copy()
+    
+    if numeric_columns is None:
+        numeric_columns = df.select_dtypes(include=[np.number]).columns.tolist()
+    
+    for col in numeric_columns:
+        if col not in df.columns:
+            continue
+            
+        if outlier_method == 'iqr':
+            q1 = df[col].quantile(0.25)
+            q3 = df[col].quantile(0.75)
+            iqr = q3 - q1
+            lower_bound = q1 - 1.5 * iqr
+            upper_bound = q3 + 1.5 * iqr
+            mask = (df[col] >= lower_bound) & (df[col] <= upper_bound)
+            cleaned_df = cleaned_df[mask]
+        
+        elif outlier_method == 'zscore':
+            z_scores = np.abs(stats.zscore(df[col].dropna()))
+            mask = z_scores < 3
+            cleaned_df = cleaned_df[mask]
+    
+    if normalize_method == 'minmax':
+        for col in numeric_columns:
+            if col in cleaned_df.columns:
+                cleaned_df[col] = normalize_minmax(cleaned_df, col)
+    
+    elif normalize_method == 'zscore':
+        for col in numeric_columns:
+            if col in cleaned_df.columns:
+                cleaned_df[col] = standardize_zscore(cleaned_df, col)
+    
+    return cleaned_df.reset_index(drop=True)
+
+def handle_missing_values(df, strategy='mean', columns=None):
+    """
+    Handle missing values in specified columns
+    """
+    df_filled = df.copy()
+    
+    if columns is None:
+        columns = df.columns.tolist()
+    
+    for col in columns:
+        if col not in df.columns:
+            continue
+            
+        if df[col].isnull().any():
+            if strategy == 'mean' and pd.api.types.is_numeric_dtype(df[col]):
+                fill_value = df[col].mean()
+            elif strategy == 'median' and pd.api.types.is_numeric_dtype(df[col]):
+                fill_value = df[col].median()
+            elif strategy == 'mode':
+                fill_value = df[col].mode()[0] if not df[col].mode().empty else None
+            elif strategy == 'drop':
+                df_filled = df_filled.dropna(subset=[col])
+                continue
+            else:
+                fill_value = 0
+            
+            df_filled[col] = df_filled[col].fillna(fill_value)
+    
+    return df_filled
+
+def validate_dataframe(df, required_columns=None, min_rows=1):
+    """
+    Validate dataframe structure and content
+    """
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError("Input must be a pandas DataFrame")
+    
+    if len(df) < min_rows:
+        raise ValueError(f"DataFrame must have at least {min_rows} rows")
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            raise ValueError(f"Missing required columns: {missing_cols}")
+    
+    return True
