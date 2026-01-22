@@ -126,3 +126,99 @@ def calculate_basic_stats(data, column):
     }
     
     return stats
+import pandas as pd
+import numpy as np
+from typing import List, Optional
+
+class DataCleaner:
+    def __init__(self, df: pd.DataFrame):
+        self.df = df.copy()
+        self.original_shape = df.shape
+        
+    def remove_duplicates(self, subset: Optional[List[str]] = None) -> 'DataCleaner':
+        self.df = self.df.drop_duplicates(subset=subset, keep='first')
+        return self
+        
+    def normalize_column(self, column_name: str) -> 'DataCleaner':
+        if column_name in self.df.columns:
+            col_data = self.df[column_name]
+            if pd.api.types.is_numeric_dtype(col_data):
+                mean_val = col_data.mean()
+                std_val = col_data.std()
+                if std_val > 0:
+                    self.df[column_name] = (col_data - mean_val) / std_val
+        return self
+        
+    def fill_missing_values(self, strategy: str = 'mean') -> 'DataCleaner':
+        numeric_cols = self.df.select_dtypes(include=[np.number]).columns
+        
+        for col in numeric_cols:
+            if self.df[col].isnull().any():
+                if strategy == 'mean':
+                    fill_value = self.df[col].mean()
+                elif strategy == 'median':
+                    fill_value = self.df[col].median()
+                elif strategy == 'mode':
+                    fill_value = self.df[col].mode()[0]
+                else:
+                    fill_value = 0
+                    
+                self.df[col] = self.df[col].fillna(fill_value)
+                
+        return self
+        
+    def remove_outliers(self, column_name: str, n_std: float = 3) -> 'DataCleaner':
+        if column_name in self.df.columns and pd.api.types.is_numeric_dtype(self.df[column_name]):
+            mean_val = self.df[column_name].mean()
+            std_val = self.df[column_name].std()
+            
+            lower_bound = mean_val - n_std * std_val
+            upper_bound = mean_val + n_std * std_val
+            
+            self.df = self.df[
+                (self.df[column_name] >= lower_bound) & 
+                (self.df[column_name] <= upper_bound)
+            ]
+            
+        return self
+        
+    def get_cleaned_data(self) -> pd.DataFrame:
+        return self.df
+        
+    def get_cleaning_report(self) -> dict:
+        cleaned_shape = self.df.shape
+        return {
+            'original_rows': self.original_shape[0],
+            'original_columns': self.original_shape[1],
+            'cleaned_rows': cleaned_shape[0],
+            'cleaned_columns': cleaned_shape[1],
+            'rows_removed': self.original_shape[0] - cleaned_shape[0],
+            'columns_removed': self.original_shape[1] - cleaned_shape[1]
+        }
+
+def create_sample_data() -> pd.DataFrame:
+    data = {
+        'id': [1, 2, 3, 4, 5, 5, 6],
+        'value': [10.5, 20.3, 15.7, np.nan, 1000.0, 10.5, 12.8],
+        'category': ['A', 'B', 'A', 'B', 'C', 'A', 'B']
+    }
+    return pd.DataFrame(data)
+
+if __name__ == "__main__":
+    sample_df = create_sample_data()
+    print("Original data:")
+    print(sample_df)
+    print("\n" + "="*50 + "\n")
+    
+    cleaner = DataCleaner(sample_df)
+    cleaned_df = (cleaner
+                 .remove_duplicates(['id'])
+                 .fill_missing_values('mean')
+                 .remove_outliers('value', 2)
+                 .normalize_column('value')
+                 .get_cleaned_data())
+    
+    print("Cleaned data:")
+    print(cleaned_df)
+    print("\nCleaning report:")
+    print(cleaner.get_cleaning_report())
