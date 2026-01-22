@@ -451,3 +451,16 @@ def extract_numeric(text):
     """
     numbers = re.findall(r'\d+\.?\d*', text)
     return [float(num) if '.' in num else int(num) for num in numbers]
+def remove_duplicates(sequence):
+    seen = set()
+    result = []
+    for item in sequence:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
+
+def clean_data(data_list):
+    if not isinstance(data_list, list):
+        raise TypeError("Input must be a list")
+    return remove_duplicates(data_list)
