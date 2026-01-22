@@ -161,3 +161,7 @@ def remove_outliers(df, column, method='iqr', threshold=1.5):
         raise ValueError("Method must be 'iqr' or 'zscore'")
     
     return df[mask]
+def remove_duplicates(seq):
+    seen = set()
+    seen_add = seen.add
+    return [x for x in seq if not (x in seen or seen_add(x))]
