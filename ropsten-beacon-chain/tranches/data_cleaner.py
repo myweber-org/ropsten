@@ -104,3 +104,74 @@ def validate_dataframe(df, required_columns=None):
             return False, f"Missing required columns: {missing_columns}"
     
     return True, "DataFrame is valid"
+import pandas as pd
+import numpy as np
+from scipy import stats
+
+class DataCleaner:
+    def __init__(self, df):
+        self.df = df.copy()
+        self.numeric_columns = df.select_dtypes(include=[np.number]).columns.tolist()
+    
+    def remove_outliers_zscore(self, threshold=3):
+        df_clean = self.df.copy()
+        for col in self.numeric_columns:
+            z_scores = np.abs(stats.zscore(df_clean[col].dropna()))
+            df_clean = df_clean[(z_scores < threshold) | df_clean[col].isna()]
+        return df_clean
+    
+    def normalize_minmax(self, columns=None):
+        if columns is None:
+            columns = self.numeric_columns
+        
+        df_normalized = self.df.copy()
+        for col in columns:
+            if col in self.numeric_columns:
+                col_min = df_normalized[col].min()
+                col_max = df_normalized[col].max()
+                if col_max - col_min > 0:
+                    df_normalized[col] = (df_normalized[col] - col_min) / (col_max - col_min)
+        return df_normalized
+    
+    def fill_missing_median(self):
+        df_filled = self.df.copy()
+        for col in self.numeric_columns:
+            median_val = df_filled[col].median()
+            df_filled[col] = df_filled[col].fillna(median_val)
+        return df_filled
+    
+    def get_summary(self):
+        summary = {
+            'original_rows': len(self.df),
+            'original_columns': len(self.df.columns),
+            'numeric_columns': self.numeric_columns,
+            'missing_values': self.df.isnull().sum().sum(),
+            'data_types': self.df.dtypes.to_dict()
+        }
+        return summary
+
+def create_sample_data():
+    np.random.seed(42)
+    data = {
+        'feature_a': np.random.normal(100, 15, 100),
+        'feature_b': np.random.exponential(50, 100),
+        'category': np.random.choice(['A', 'B', 'C'], 100)
+    }
+    data['feature_a'][[10, 25, 50]] = [500, -200, 1000]
+    data['feature_b'][[15, 30, 70]] = [np.nan, np.nan, 1000]
+    return pd.DataFrame(data)
+
+if __name__ == "__main__":
+    sample_df = create_sample_data()
+    cleaner = DataCleaner(sample_df)
+    
+    print("Data Summary:")
+    print(cleaner.get_summary())
+    
+    cleaned_df = cleaner.remove_outliers_zscore()
+    filled_df = cleaner.fill_missing_median()
+    normalized_df = cleaner.normalize_minmax()
+    
+    print(f"\nOriginal shape: {sample_df.shape}")
+    print(f"Cleaned shape: {cleaned_df.shape}")
+    print(f"Normalized range - feature_a: [{normalized_df['feature_a'].min():.3f}, {normalized_df['feature_a'].max():.3f}]")
