@@ -1,47 +1,90 @@
 
 import numpy as np
 import pandas as pd
-from scipy import stats
 
-def normalize_data(data, method='zscore'):
-    if method == 'zscore':
-        return (data - np.mean(data)) / np.std(data)
-    elif method == 'minmax':
-        return (data - np.min(data)) / (np.max(data) - np.min(data))
-    else:
-        raise ValueError("Method must be 'zscore' or 'minmax'")
-
-def remove_outliers_iqr(data, multiplier=1.5):
-    q1 = np.percentile(data, 25)
-    q3 = np.percentile(data, 75)
-    iqr = q3 - q1
-    lower_bound = q1 - multiplier * iqr
-    upper_bound = q3 + multiplier * iqr
-    return data[(data >= lower_bound) & (data <= upper_bound)]
-
-def clean_dataset(df, column, normalize=True, remove_outliers=True):
+def remove_outliers_iqr(df, column):
+    """
+    Remove outliers from a DataFrame column using the Interquartile Range method.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    column (str): Column name to process
+    
+    Returns:
+    pd.DataFrame: DataFrame with outliers removed
+    """
     if column not in df.columns:
-        raise KeyError(f"Column '{column}' not found in DataFrame")
+        raise ValueError(f"Column '{column}' not found in DataFrame")
     
-    cleaned_data = df[column].copy()
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
     
-    if remove_outliers:
-        cleaned_data = remove_outliers_iqr(cleaned_data)
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
     
-    if normalize:
-        cleaned_data = normalize_data(cleaned_data)
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
     
-    return cleaned_data
+    return filtered_df.copy()
 
-def process_numerical_columns(df, columns=None, normalize=True, remove_outliers=True):
-    if columns is None:
-        columns = df.select_dtypes(include=[np.number]).columns
+def calculate_summary_statistics(df, column):
+    """
+    Calculate summary statistics for a column after outlier removal.
     
-    cleaned_df = pd.DataFrame()
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    column (str): Column name to analyze
+    
+    Returns:
+    dict: Dictionary containing summary statistics
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    stats = {
+        'mean': df[column].mean(),
+        'median': df[column].median(),
+        'std': df[column].std(),
+        'min': df[column].min(),
+        'max': df[column].max(),
+        'count': df[column].count()
+    }
+    
+    return stats
+
+def process_numerical_data(df, columns):
+    """
+    Process multiple numerical columns by removing outliers.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    columns (list): List of column names to process
+    
+    Returns:
+    pd.DataFrame: Processed DataFrame
+    """
+    result_df = df.copy()
+    
     for col in columns:
-        try:
-            cleaned_df[col] = clean_dataset(df, col, normalize, remove_outliers)
-        except Exception as e:
-            print(f"Error processing column {col}: {e}")
+        if col in result_df.columns and pd.api.types.is_numeric_dtype(result_df[col]):
+            result_df = remove_outliers_iqr(result_df, col)
     
-    return cleaned_df
+    return result_df
+
+if __name__ == "__main__":
+    sample_data = {
+        'values': [10, 12, 12, 13, 12, 11, 14, 13, 15, 102, 12, 14, 13, 12, 11, 14, 13, 12, 11, 10]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original data:")
+    print(df.describe())
+    
+    cleaned_df = remove_outliers_iqr(df, 'values')
+    print("\nCleaned data:")
+    print(cleaned_df.describe())
+    
+    stats = calculate_summary_statistics(cleaned_df, 'values')
+    print("\nSummary statistics:")
+    for key, value in stats.items():
+        print(f"{key}: {value:.2f}")
