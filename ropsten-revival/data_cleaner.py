@@ -52,3 +52,16 @@ if __name__ == "__main__":
     
     cleaned_df = remove_duplicates(input_file, output_file)
     print("Data cleaning completed successfully")
+def remove_duplicates(sequence):
+    seen = set()
+    result = []
+    for item in sequence:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
+
+def clean_data(data_list):
+    if not isinstance(data_list, list):
+        raise TypeError("Input must be a list")
+    return remove_duplicates(data_list)
