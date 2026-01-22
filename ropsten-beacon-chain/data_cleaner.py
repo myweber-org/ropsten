@@ -518,3 +518,123 @@ if __name__ == "__main__":
     summary = cleaner.get_summary()
     for key, value in summary.items():
         print(f"{key}: {value}")
+import pandas as pd
+import numpy as np
+from typing import Optional, List
+
+def clean_csv_data(
+    input_path: str,
+    output_path: str,
+    missing_strategy: str = 'drop',
+    fill_value: Optional[float] = None,
+    columns_to_drop: Optional[List[str]] = None
+) -> pd.DataFrame:
+    """
+    Clean CSV data by handling missing values and optional column removal.
+    
+    Parameters:
+    input_path: Path to input CSV file
+    output_path: Path to save cleaned CSV file
+    missing_strategy: Strategy for handling missing values ('drop', 'fill', 'mean')
+    fill_value: Value to use when missing_strategy is 'fill'
+    columns_to_drop: List of column names to remove
+    
+    Returns:
+    Cleaned DataFrame
+    """
+    
+    df = pd.read_csv(input_path)
+    
+    if columns_to_drop:
+        df = df.drop(columns=columns_to_drop, errors='ignore')
+    
+    if missing_strategy == 'drop':
+        df = df.dropna()
+    elif missing_strategy == 'fill':
+        if fill_value is not None:
+            df = df.fillna(fill_value)
+        else:
+            df = df.fillna(0)
+    elif missing_strategy == 'mean':
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].mean())
+    
+    df.to_csv(output_path, index=False)
+    return df
+
+def detect_outliers_iqr(
+    df: pd.DataFrame,
+    column: str,
+    multiplier: float = 1.5
+) -> pd.Series:
+    """
+    Detect outliers using the Interquartile Range method.
+    
+    Parameters:
+    df: Input DataFrame
+    column: Column name to analyze
+    multiplier: IQR multiplier for outlier detection
+    
+    Returns:
+    Boolean Series indicating outliers
+    """
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - multiplier * IQR
+    upper_bound = Q3 + multiplier * IQR
+    
+    return (df[column] < lower_bound) | (df[column] > upper_bound)
+
+def normalize_column(
+    df: pd.DataFrame,
+    column: str,
+    method: str = 'minmax'
+) -> pd.DataFrame:
+    """
+    Normalize a column using specified method.
+    
+    Parameters:
+    df: Input DataFrame
+    column: Column name to normalize
+    method: Normalization method ('minmax' or 'zscore')
+    
+    Returns:
+    DataFrame with normalized column
+    """
+    df_copy = df.copy()
+    
+    if method == 'minmax':
+        min_val = df_copy[column].min()
+        max_val = df_copy[column].max()
+        if max_val != min_val:
+            df_copy[column] = (df_copy[column] - min_val) / (max_val - min_val)
+    
+    elif method == 'zscore':
+        mean_val = df_copy[column].mean()
+        std_val = df_copy[column].std()
+        if std_val != 0:
+            df_copy[column] = (df_copy[column] - mean_val) / std_val
+    
+    return df_copy
+
+if __name__ == "__main__":
+    sample_data = pd.DataFrame({
+        'A': [1, 2, np.nan, 4, 5],
+        'B': [10, 20, 30, np.nan, 50],
+        'C': [100, 200, 300, 400, 500]
+    })
+    
+    sample_data.to_csv('sample_data.csv', index=False)
+    
+    cleaned = clean_csv_data(
+        'sample_data.csv',
+        'cleaned_data.csv',
+        missing_strategy='mean',
+        columns_to_drop=['C']
+    )
+    
+    print("Data cleaning completed.")
+    print(f"Original shape: {sample_data.shape}")
+    print(f"Cleaned shape: {cleaned.shape}")
