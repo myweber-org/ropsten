@@ -327,3 +327,37 @@ if __name__ == "__main__":
     
     print("\nFirst 5 rows of cleaned data:")
     print(cleaned_df.head())
+import pandas as pd
+import numpy as np
+
+def remove_outliers_iqr(df, column):
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+
+def normalize_column(df, column):
+    min_val = df[column].min()
+    max_val = df[column].max()
+    df[column + '_normalized'] = (df[column] - min_val) / (max_val - min_val)
+    return df
+
+def clean_dataset(df, numeric_columns):
+    for column in numeric_columns:
+        df = remove_outliers_iqr(df, column)
+        df = normalize_column(df, column)
+    return df
+
+if __name__ == "__main__":
+    sample_data = {
+        'feature1': [10, 12, 14, 100, 15, 13, 11, 16, 12, 14],
+        'feature2': [20, 22, 24, 200, 25, 23, 21, 26, 22, 24]
+    }
+    df = pd.DataFrame(sample_data)
+    cleaned_df = clean_dataset(df, ['feature1', 'feature2'])
+    print("Original dataset:")
+    print(df)
+    print("\nCleaned dataset:")
+    print(cleaned_df)
