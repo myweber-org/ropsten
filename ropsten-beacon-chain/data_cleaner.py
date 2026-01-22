@@ -78,3 +78,76 @@ if __name__ == "__main__":
     print(f"Cleaned shape: {cleaned_df.shape}")
     print(f"Normalized range: [{normalized_df['feature_a'].min():.3f}, {normalized_df['feature_a'].max():.3f}]")
     print(f"Missing values after fill: {filled_df.isnull().sum().sum()}")
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df, column_mapping=None, drop_duplicates=True, normalize_text=True):
+    """
+    Clean a pandas DataFrame by removing duplicates and normalizing text columns.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame to clean
+    column_mapping (dict): Optional dictionary mapping old column names to new ones
+    drop_duplicates (bool): Whether to remove duplicate rows
+    normalize_text (bool): Whether to normalize text columns (strip, lower case)
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame
+    """
+    df_clean = df.copy()
+    
+    if column_mapping:
+        df_clean = df_clean.rename(columns=column_mapping)
+    
+    if drop_duplicates:
+        df_clean = df_clean.drop_duplicates().reset_index(drop=True)
+    
+    if normalize_text:
+        for col in df_clean.select_dtypes(include=['object']).columns:
+            df_clean[col] = df_clean[col].astype(str).str.strip().str.lower()
+    
+    df_clean = df_clean.replace(['none', 'null', 'nan', ''], np.nan)
+    
+    return df_clean
+
+def validate_data(df, required_columns=None, min_rows=1):
+    """
+    Validate DataFrame structure and content.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate
+    required_columns (list): List of column names that must be present
+    min_rows (int): Minimum number of rows required
+    
+    Returns:
+    tuple: (is_valid, error_message)
+    """
+    if df.empty:
+        return False, "DataFrame is empty"
+    
+    if len(df) < min_rows:
+        return False, f"DataFrame has fewer than {min_rows} rows"
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            return False, f"Missing required columns: {missing_cols}"
+    
+    return True, "Data validation passed"
+
+def sample_data(df, sample_size=1000, random_state=42):
+    """
+    Sample data from DataFrame for testing or analysis.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    sample_size (int): Number of rows to sample
+    random_state (int): Random seed for reproducibility
+    
+    Returns:
+    pd.DataFrame: Sampled DataFrame
+    """
+    if len(df) <= sample_size:
+        return df
+    
+    return df.sample(n=sample_size, random_state=random_state).reset_index(drop=True)
