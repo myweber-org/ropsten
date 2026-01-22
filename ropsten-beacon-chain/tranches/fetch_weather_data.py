@@ -85,3 +85,71 @@ if __name__ == "__main__":
     
     weather_data = get_weather(api_key, city)
     display_weather(weather_data)
+import requests
+import json
+from datetime import datetime
+
+def get_weather_data(api_key, city):
+    base_url = "http://api.openweathermap.org/data/2.5/weather"
+    params = {
+        'q': city,
+        'appid': api_key,
+        'units': 'metric'
+    }
+    
+    try:
+        response = requests.get(base_url, params=params)
+        response.raise_for_status()
+        data = response.json()
+        
+        weather_info = {
+            'city': data['name'],
+            'temperature': data['main']['temp'],
+            'feels_like': data['main']['feels_like'],
+            'humidity': data['main']['humidity'],
+            'description': data['weather'][0]['description'],
+            'wind_speed': data['wind']['speed'],
+            'timestamp': datetime.fromtimestamp(data['dt']).strftime('%Y-%m-%d %H:%M:%S')
+        }
+        
+        return weather_info
+        
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching weather data: {e}")
+        return None
+    except KeyError as e:
+        print(f"Unexpected API response format: {e}")
+        return None
+
+def save_weather_data(data, filename='weather_data.json'):
+    if data:
+        try:
+            with open(filename, 'a') as f:
+                json.dump(data, f, indent=2)
+                f.write('\n')
+            print(f"Weather data saved to {filename}")
+        except IOError as e:
+            print(f"Error saving data: {e}")
+
+def display_weather(data):
+    if data:
+        print("\n" + "="*40)
+        print(f"Weather in {data['city']}")
+        print("="*40)
+        print(f"Temperature: {data['temperature']}°C")
+        print(f"Feels like: {data['feels_like']}°C")
+        print(f"Humidity: {data['humidity']}%")
+        print(f"Conditions: {data['description'].title()}")
+        print(f"Wind Speed: {data['wind_speed']} m/s")
+        print(f"Last Updated: {data['timestamp']}")
+        print("="*40)
+
+if __name__ == "__main__":
+    API_KEY = "your_api_key_here"
+    CITY = "London"
+    
+    weather_data = get_weather_data(API_KEY, CITY)
+    
+    if weather_data:
+        display_weather(weather_data)
+        save_weather_data(weather_data)
