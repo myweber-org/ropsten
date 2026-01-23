@@ -1,78 +1,56 @@
-import pandas as pd
-import numpy as np
+import re
+import unicodedata
 
-def remove_outliers_iqr(df, column):
+def clean_text(text, remove_digits=False, keep_punctuation=False):
     """
-    Remove outliers from a DataFrame column using the Interquartile Range (IQR) method.
-    
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    column (str): Column name to process
-    
-    Returns:
-    pd.DataFrame: DataFrame with outliers removed
+    Clean and normalize text by:
+    1. Converting to lowercase
+    2. Removing extra whitespace
+    3. Normalizing unicode characters
+    4. Optionally removing digits
+    5. Optionally removing punctuation
     """
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
-    
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
-    
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
-    
-    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
-    
-    return filtered_df
+    if not isinstance(text, str):
+        return ""
 
-def calculate_summary_statistics(df, column):
-    """
-    Calculate summary statistics for a DataFrame column.
-    
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    column (str): Column name to analyze
-    
-    Returns:
-    dict: Dictionary containing summary statistics
-    """
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
-    
-    stats = {
-        'mean': df[column].mean(),
-        'median': df[column].median(),
-        'std': df[column].std(),
-        'min': df[column].min(),
-        'max': df[column].max(),
-        'count': df[column].count(),
-        'missing': df[column].isnull().sum()
-    }
-    
-    return stats
+    # Normalize unicode (e.g., convert é to e)
+    text = unicodedata.normalize('NFKD', text).encode('ascii', 'ignore').decode('utf-8')
 
-def main():
+    # Convert to lowercase
+    text = text.lower()
+
+    # Remove digits if specified
+    if remove_digits:
+        text = re.sub(r'\d+', '', text)
+
+    # Handle punctuation
+    if not keep_punctuation:
+        # Remove punctuation except for basic sentence boundaries (., !, ?)
+        # This pattern keeps periods, exclamation marks, and question marks
+        text = re.sub(r'[^\w\s.!?]', '', text)
+        # Optionally, collapse multiple punctuation marks
+        text = re.sub(r'[.!?]+', '.', text)
+
+    # Remove extra whitespace and newlines
+    text = re.sub(r'\s+', ' ', text).strip()
+
+    return text
+
+def tokenize_text(text, tokenizer=None):
     """
-    Example usage of the data cleaning functions.
+    Tokenize text using a simple split or custom tokenizer.
     """
-    data = {
-        'values': [10, 12, 12, 13, 12, 11, 14, 13, 15, 100, 12, 13, 12, 11, 10, 14, 13, 12, 11, 10]
-    }
-    
-    df = pd.DataFrame(data)
-    
-    print("Original DataFrame:")
-    print(df)
-    print("\nOriginal Statistics:")
-    print(calculate_summary_statistics(df, 'values'))
-    
-    cleaned_df = remove_outliers_iqr(df, 'values')
-    
-    print("\nCleaned DataFrame:")
-    print(cleaned_df)
-    print("\nCleaned Statistics:")
-    print(calculate_summary_statistics(cleaned_df, 'values'))
+    if tokenizer is None:
+        # Simple word tokenizer (splits on whitespace)
+        tokens = text.split()
+    else:
+        tokens = tokenizer(text)
+    return tokens
 
 if __name__ == "__main__":
-    main()
+    # Example usage
+    sample_text = "Hello, World! This is a TEST. 123 Main St. Let's go!!!"
+    cleaned = clean_text(sample_text, remove_digits=True, keep_punctuation=False)
+    print(f"Original: {sample_text}")
+    print(f"Cleaned: {cleaned}")
+    print(f"Tokens: {tokenize_text(cleaned)}")
