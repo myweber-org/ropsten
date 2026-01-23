@@ -1,35 +1,40 @@
-
 import pandas as pd
-import numpy as np
+import re
 
-def remove_outliers_iqr(df, column):
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
-    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+def clean_dataframe(df, text_columns=None):
+    """
+    Remove duplicate rows and standardize text in specified columns.
+    """
+    # Remove duplicates
+    df_clean = df.drop_duplicates().reset_index(drop=True)
+    
+    if text_columns:
+        for col in text_columns:
+            if col in df_clean.columns:
+                df_clean[col] = df_clean[col].apply(_standardize_text)
+    
+    return df_clean
 
-def normalize_column(df, column):
-    min_val = df[column].min()
-    max_val = df[column].max()
-    df[column + '_normalized'] = (df[column] - min_val) / (max_val - min_val)
+def _standardize_text(text):
+    """
+    Standardize text: lowercase, remove extra spaces, and strip.
+    """
+    if pd.isna(text):
+        return text
+    text = str(text)
+    text = text.lower()
+    text = re.sub(r'\s+', ' ', text)
+    return text.strip()
+
+def validate_email_column(df, email_column):
+    """
+    Validate email format in a specified column.
+    """
+    if email_column not in df.columns:
+        raise ValueError(f"Column '{email_column}' not found in DataFrame")
+    
+    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    df['email_valid'] = df[email_column].apply(
+        lambda x: bool(re.match(email_pattern, str(x))) if pd.notna(x) else False
+    )
     return df
-
-def clean_dataset(file_path):
-    df = pd.read_csv(file_path)
-    
-    numeric_columns = df.select_dtypes(include=[np.number]).columns
-    
-    for col in numeric_columns:
-        df = remove_outliers_iqr(df, col)
-        df = normalize_column(df, col)
-    
-    df.dropna(inplace=True)
-    
-    return df
-
-if __name__ == "__main__":
-    cleaned_data = clean_dataset('raw_data.csv')
-    cleaned_data.to_csv('cleaned_data.csv', index=False)
-    print(f"Data cleaning completed. Original shape: {pd.read_csv('raw_data.csv').shape}, Cleaned shape: {cleaned_data.shape}")
