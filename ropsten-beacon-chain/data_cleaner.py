@@ -140,4 +140,119 @@ if __name__ == "__main__":
     print(cleaned.describe())
     
     is_valid = validate_data(cleaned, ['feature1', 'feature2'])
-    print(f"\nData validation result: {is_valid}")
+    print(f"\nData validation result: {is_valid}")import pandas as pd
+
+def clean_dataset(df, drop_duplicates=True, fill_method=None):
+    """
+    Clean a pandas DataFrame by handling missing values and duplicates.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean
+        drop_duplicates (bool): Whether to drop duplicate rows
+        fill_method (str or None): Method to fill missing values: 
+                                  'mean', 'median', 'mode', or None to drop
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame
+    """
+    cleaned_df = df.copy()
+    
+    # Handle missing values
+    if fill_method is None:
+        cleaned_df = cleaned_df.dropna()
+    else:
+        numeric_cols = cleaned_df.select_dtypes(include=['number']).columns
+        
+        if fill_method == 'mean':
+            for col in numeric_cols:
+                cleaned_df[col].fillna(cleaned_df[col].mean(), inplace=True)
+        elif fill_method == 'median':
+            for col in numeric_cols:
+                cleaned_df[col].fillna(cleaned_df[col].median(), inplace=True)
+        elif fill_method == 'mode':
+            for col in cleaned_df.columns:
+                cleaned_df[col].fillna(cleaned_df[col].mode()[0] if not cleaned_df[col].mode().empty else None, inplace=True)
+    
+    # Handle duplicates
+    if drop_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates()
+    
+    # Reset index after cleaning
+    cleaned_df.reset_index(drop=True, inplace=True)
+    
+    return cleaned_df
+
+def validate_dataset(df, required_columns=None):
+    """
+    Validate dataset structure and content.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate
+        required_columns (list): List of required column names
+    
+    Returns:
+        dict: Validation results with keys: 'is_valid', 'missing_columns', 'null_counts'
+    """
+    validation_result = {
+        'is_valid': True,
+        'missing_columns': [],
+        'null_counts': {},
+        'duplicate_rows': 0
+    }
+    
+    # Check required columns
+    if required_columns:
+        missing = [col for col in required_columns if col not in df.columns]
+        if missing:
+            validation_result['missing_columns'] = missing
+            validation_result['is_valid'] = False
+    
+    # Count null values
+    null_counts = df.isnull().sum()
+    validation_result['null_counts'] = null_counts[null_counts > 0].to_dict()
+    
+    # Count duplicates
+    validation_result['duplicate_rows'] = df.duplicated().sum()
+    
+    return validation_result
+
+def get_dataset_stats(df):
+    """
+    Get basic statistics about the dataset.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+    
+    Returns:
+        dict: Dataset statistics
+    """
+    stats = {
+        'shape': df.shape,
+        'columns': list(df.columns),
+        'dtypes': df.dtypes.to_dict(),
+        'memory_usage': df.memory_usage(deep=True).sum(),
+        'numeric_columns': list(df.select_dtypes(include=['number']).columns),
+        'categorical_columns': list(df.select_dtypes(include=['object', 'category']).columns)
+    }
+    
+    return stats
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'A': [1, 2, None, 4, 5, 5],
+        'B': [10, 20, 30, None, 50, 50],
+        'C': ['x', 'y', 'z', 'x', None, 'x']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original dataset:")
+    print(df)
+    print("\nDataset stats:", get_dataset_stats(df))
+    
+    cleaned = clean_dataset(df, fill_method='mean')
+    print("\nCleaned dataset:")
+    print(cleaned)
+    
+    validation = validate_dataset(df, required_columns=['A', 'B', 'C'])
+    print("\nValidation result:", validation)
