@@ -149,3 +149,165 @@ def main():
 
 if __name__ == "__main__":
     main()
+import os
+import shutil
+import tempfile
+from pathlib import Path
+from typing import List, Optional
+
+class TemporaryFileCleaner:
+    """Utility class to identify and remove temporary files."""
+    
+    TEMP_EXTENSIONS = {'.tmp', '.temp', '.bak', '.swp', '.swo'}
+    TEMP_PREFIXES = ('~$', '~', '.~', '#', '.#')
+    
+    def __init__(self, target_dir: Optional[str] = None):
+        """
+        Initialize the cleaner with a target directory.
+        
+        Args:
+            target_dir: Directory to clean. If None, uses current directory.
+        """
+        self.target_dir = Path(target_dir) if target_dir else Path.cwd()
+        
+    def find_temp_files(self) -> List[Path]:
+        """
+        Find all temporary files in the target directory.
+        
+        Returns:
+            List of Path objects for temporary files.
+        """
+        temp_files = []
+        
+        for file_path in self.target_dir.rglob('*'):
+            if file_path.is_file():
+                if self._is_temp_file(file_path):
+                    temp_files.append(file_path)
+        
+        return temp_files
+    
+    def _is_temp_file(self, file_path: Path) -> bool:
+        """
+        Check if a file is a temporary file.
+        
+        Args:
+            file_path: Path to the file to check.
+            
+        Returns:
+            True if the file is a temporary file, False otherwise.
+        """
+        filename = file_path.name
+        
+        # Check for temporary extensions
+        if file_path.suffix.lower() in self.TEMP_EXTENSIONS:
+            return True
+        
+        # Check for temporary prefixes
+        if filename.startswith(self.TEMP_PREFIXES):
+            return True
+        
+        # Check for common temporary file patterns
+        if filename.endswith('~') or '.swp' in filename:
+            return True
+        
+        return False
+    
+    def clean_temp_files(self, dry_run: bool = True) -> dict:
+        """
+        Remove temporary files from the target directory.
+        
+        Args:
+            dry_run: If True, only list files without deleting.
+            
+        Returns:
+            Dictionary with results of the operation.
+        """
+        temp_files = self.find_temp_files()
+        results = {
+            'total_found': len(temp_files),
+            'deleted': [],
+            'skipped': [],
+            'errors': []
+        }
+        
+        for file_path in temp_files:
+            try:
+                if dry_run:
+                    results['skipped'].append(str(file_path))
+                else:
+                    file_path.unlink()
+                    results['deleted'].append(str(file_path))
+            except Exception as e:
+                results['errors'].append({
+                    'file': str(file_path),
+                    'error': str(e)
+                })
+        
+        return results
+    
+    def create_test_temp_files(self, count: int = 5) -> List[Path]:
+        """
+        Create test temporary files for demonstration purposes.
+        
+        Args:
+            count: Number of test files to create.
+            
+        Returns:
+            List of created file paths.
+        """
+        created_files = []
+        
+        for i in range(count):
+            # Create different types of temporary files
+            patterns = [
+                f'temp_file_{i}.tmp',
+                f'~backup_{i}.txt',
+                f'.#lockfile_{i}',
+                f'autosave_{i}.bak',
+                f'swapfile_{i}.swp'
+            ]
+            
+            for pattern in patterns[:min(count - i, len(patterns))]:
+                temp_file = self.target_dir / pattern
+                temp_file.write_text(f'Test temporary content for {pattern}')
+                created_files.append(temp_file)
+        
+        return created_files
+
+def main():
+    """Example usage of the TemporaryFileCleaner."""
+    # Create a temporary directory for testing
+    test_dir = Path(tempfile.mkdtemp(prefix='cleaner_test_'))
+    print(f"Testing in directory: {test_dir}")
+    
+    # Initialize cleaner
+    cleaner = TemporaryFileCleaner(str(test_dir))
+    
+    # Create some test temporary files
+    print("\nCreating test temporary files...")
+    test_files = cleaner.create_test_temp_files(3)
+    print(f"Created {len(test_files)} test files")
+    
+    # Find temporary files
+    print("\nFinding temporary files...")
+    found_files = cleaner.find_temp_files()
+    print(f"Found {len(found_files)} temporary files:")
+    for file in found_files:
+        print(f"  - {file.name}")
+    
+    # Dry run - show what would be deleted
+    print("\nPerforming dry run...")
+    dry_run_results = cleaner.clean_temp_files(dry_run=True)
+    print(f"Would delete {dry_run_results['total_found']} files")
+    
+    # Actual cleanup
+    print("\nPerforming actual cleanup...")
+    cleanup_results = cleaner.clean_temp_files(dry_run=False)
+    print(f"Deleted {len(cleanup_results['deleted'])} files")
+    
+    # Clean up test directory
+    shutil.rmtree(test_dir)
+    print(f"\nCleaned up test directory: {test_dir}")
+
+if __name__ == '__main__':
+    main()
