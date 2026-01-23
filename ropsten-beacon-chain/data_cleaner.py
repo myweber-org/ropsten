@@ -76,3 +76,107 @@ if __name__ == "__main__":
     
     is_valid = validate_data(cleaned, required_columns=['A', 'B'], min_rows=3)
     print(f"\nData validation result: {is_valid}")
+import pandas as pd
+import numpy as np
+
+def clean_dataframe(df, drop_duplicates=True, standardize_columns=True):
+    """
+    Clean a pandas DataFrame by removing duplicates and standardizing column names.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame to clean.
+    drop_duplicates (bool): Whether to drop duplicate rows.
+    standardize_columns (bool): Whether to standardize column names.
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame.
+    """
+    df_clean = df.copy()
+    
+    if drop_duplicates:
+        initial_rows = df_clean.shape[0]
+        df_clean = df_clean.drop_duplicates()
+        removed = initial_rows - df_clean.shape[0]
+        print(f"Removed {removed} duplicate rows.")
+    
+    if standardize_columns:
+        df_clean.columns = (
+            df_clean.columns
+            .str.strip()
+            .str.lower()
+            .str.replace(' ', '_')
+            .str.replace(r'[^\w_]', '', regex=True)
+        )
+        print("Column names standardized.")
+    
+    return df_clean
+
+def validate_data(df, required_columns=None, check_missing=True):
+    """
+    Validate DataFrame structure and content.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate.
+    required_columns (list): List of required column names.
+    check_missing (bool): Whether to check for missing values.
+    
+    Returns:
+    dict: Dictionary containing validation results.
+    """
+    validation_results = {
+        'is_valid': True,
+        'issues': []
+    }
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            validation_results['is_valid'] = False
+            validation_results['issues'].append(f"Missing columns: {missing_columns}")
+    
+    if check_missing:
+        missing_counts = df.isnull().sum()
+        columns_with_missing = missing_counts[missing_counts > 0]
+        if not columns_with_missing.empty:
+            validation_results['issues'].append(
+                f"Columns with missing values:\n{columns_with_missing.to_string()}"
+            )
+    
+    return validation_results
+
+def sample_data_cleaning():
+    """
+    Example usage of the data cleaning functions.
+    """
+    data = {
+        'Customer ID': [1, 2, 2, 3, 4],
+        'Order Date': ['2023-01-01', '2023-01-02', '2023-01-02', '2023-01-03', None],
+        'Product Name': ['Widget A', 'Widget B', 'Widget B', 'Widget C', 'Widget D'],
+        'Total Price': [100.0, 200.0, 200.0, 150.0, 300.0]
+    }
+    
+    df = pd.DataFrame(data)
+    print("Original DataFrame:")
+    print(df)
+    print("\n" + "="*50 + "\n")
+    
+    cleaned_df = clean_dataframe(df)
+    print("Cleaned DataFrame:")
+    print(cleaned_df)
+    print("\n" + "="*50 + "\n")
+    
+    validation = validate_data(
+        cleaned_df,
+        required_columns=['customer_id', 'order_date', 'product_name', 'total_price'],
+        check_missing=True
+    )
+    
+    print("Validation Results:")
+    print(f"Is Valid: {validation['is_valid']}")
+    if validation['issues']:
+        print("Issues Found:")
+        for issue in validation['issues']:
+            print(f"- {issue}")
+
+if __name__ == "__main__":
+    sample_data_cleaning()
