@@ -264,4 +264,97 @@ def validate_data(df, required_columns=None, min_rows=1):
         if missing_columns:
             return False, f"Missing required columns: {missing_columns}"
     
-    return True, "Data validation passed"
+    return True, "Data validation passed"import pandas as pd
+
+def remove_duplicates(df, subset=None, keep='first'):
+    """
+    Remove duplicate rows from a DataFrame.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        subset (list, optional): Column labels to consider for duplicates
+        keep (str, optional): Which duplicates to keep ('first', 'last', False)
+    
+    Returns:
+        pd.DataFrame: DataFrame with duplicates removed
+    """
+    if subset is None:
+        subset = df.columns.tolist()
+    
+    cleaned_df = df.drop_duplicates(subset=subset, keep=keep)
+    
+    print(f"Removed {len(df) - len(cleaned_df)} duplicate rows")
+    print(f"Original shape: {df.shape}, Cleaned shape: {cleaned_df.shape}")
+    
+    return cleaned_df
+
+def validate_dataframe(df):
+    """
+    Perform basic validation checks on DataFrame.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate
+    
+    Returns:
+        dict: Dictionary containing validation results
+    """
+    validation_results = {
+        'total_rows': len(df),
+        'total_columns': len(df.columns),
+        'null_values': df.isnull().sum().sum(),
+        'duplicate_rows': df.duplicated().sum(),
+        'dtypes': df.dtypes.to_dict()
+    }
+    
+    return validation_results
+
+def clean_numeric_columns(df, columns):
+    """
+    Clean numeric columns by removing non-numeric characters.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        columns (list): List of column names to clean
+    
+    Returns:
+        pd.DataFrame: DataFrame with cleaned numeric columns
+    """
+    df_clean = df.copy()
+    
+    for col in columns:
+        if col in df_clean.columns:
+            df_clean[col] = pd.to_numeric(
+                df_clean[col].astype(str).str.replace(r'[^\d.-]', '', regex=True),
+                errors='coerce'
+            )
+    
+    return df_clean
+
+if __name__ == "__main__":
+    sample_data = {
+        'id': [1, 2, 2, 3, 4, 4],
+        'name': ['Alice', 'Bob', 'Bob', 'Charlie', 'David', 'David'],
+        'value': ['100', '200', '200', '300', '400', '400'],
+        'score': ['95.5', '87.3', '87.3', '92.1', '88.9', '88.9']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    
+    print("Original DataFrame:")
+    print(df)
+    print()
+    
+    validation = validate_dataframe(df)
+    print("Validation Results:")
+    for key, value in validation.items():
+        print(f"{key}: {value}")
+    print()
+    
+    cleaned_df = remove_duplicates(df, subset=['id', 'name'])
+    print("Cleaned DataFrame:")
+    print(cleaned_df)
+    print()
+    
+    numeric_df = clean_numeric_columns(cleaned_df, ['value', 'score'])
+    print("DataFrame with cleaned numeric columns:")
+    print(numeric_df)
