@@ -1,74 +1,6 @@
+
 import pandas as pd
 import numpy as np
-
-def remove_outliers_iqr(df, column):
-    """
-    Remove outliers from a DataFrame column using the IQR method.
-    
-    Args:
-        df (pd.DataFrame): Input DataFrame
-        column (str): Column name to process
-    
-    Returns:
-        pd.DataFrame: DataFrame with outliers removed
-    """
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
-    
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
-    
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
-    
-    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
-    
-    return filtered_df
-
-def clean_numeric_data(df, numeric_columns):
-    """
-    Clean numeric columns by removing outliers and filling missing values.
-    
-    Args:
-        df (pd.DataFrame): Input DataFrame
-        numeric_columns (list): List of numeric column names
-    
-    Returns:
-        pd.DataFrame: Cleaned DataFrame
-    """
-    cleaned_df = df.copy()
-    
-    for col in numeric_columns:
-        if col in cleaned_df.columns:
-            cleaned_df = remove_outliers_iqr(cleaned_df, col)
-            cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].median())
-    
-    return cleaned_df
-
-def main():
-    sample_data = {
-        'id': range(1, 21),
-        'value': [10, 12, 13, 15, 16, 18, 19, 20, 21, 22,
-                  23, 24, 25, 26, 27, 28, 29, 30, 100, 150]
-    }
-    
-    df = pd.DataFrame(sample_data)
-    print("Original data:")
-    print(df)
-    print(f"\nOriginal shape: {df.shape}")
-    
-    cleaned_df = clean_numeric_data(df, ['value'])
-    print("\nCleaned data:")
-    print(cleaned_df)
-    print(f"\nCleaned shape: {cleaned_df.shape}")
-    
-    removed_count = len(df) - len(cleaned_df)
-    print(f"\nRemoved {removed_count} outliers")
-
-if __name__ == "__main__":
-    main()import numpy as np
-import pandas as pd
 
 def remove_outliers_iqr(df, column):
     Q1 = df[column].quantile(0.25)
@@ -78,36 +10,32 @@ def remove_outliers_iqr(df, column):
     upper_bound = Q3 + 1.5 * IQR
     return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
 
-def normalize_minmax(df, column):
-    min_val = df[column].min()
-    max_val = df[column].max()
-    if max_val == min_val:
-        return df[column]
-    return (df[column] - min_val) / (max_val - min_val)
-
-def clean_dataset(df, numeric_columns):
-    cleaned_df = df.copy()
-    for col in numeric_columns:
-        if col in cleaned_df.columns:
-            cleaned_df = remove_outliers_iqr(cleaned_df, col)
-            cleaned_df[col] = normalize_minmax(cleaned_df, col)
-    return cleaned_df.reset_index(drop=True)
-
-def validate_data(df, required_columns):
-    missing_cols = [col for col in required_columns if col not in df.columns]
-    if missing_cols:
-        raise ValueError(f"Missing required columns: {missing_cols}")
-    return True
+def clean_dataset(file_path):
+    try:
+        data = pd.read_csv(file_path)
+        print(f"Original dataset shape: {data.shape}")
+        
+        numeric_columns = data.select_dtypes(include=[np.number]).columns
+        
+        for column in numeric_columns:
+            original_len = len(data)
+            data = remove_outliers_iqr(data, column)
+            removed_count = original_len - len(data)
+            if removed_count > 0:
+                print(f"Removed {removed_count} outliers from column: {column}")
+        
+        print(f"Cleaned dataset shape: {data.shape}")
+        return data
+        
+    except FileNotFoundError:
+        print(f"Error: File '{file_path}' not found.")
+        return None
+    except Exception as e:
+        print(f"Error during processing: {str(e)}")
+        return None
 
 if __name__ == "__main__":
-    sample_data = pd.DataFrame({
-        'feature_a': np.random.normal(50, 15, 100),
-        'feature_b': np.random.exponential(2, 100),
-        'category': np.random.choice(['A', 'B', 'C'], 100)
-    })
-    
-    numeric_cols = ['feature_a', 'feature_b']
-    cleaned = clean_dataset(sample_data, numeric_cols)
-    print(f"Original shape: {sample_data.shape}")
-    print(f"Cleaned shape: {cleaned.shape}")
-    print(cleaned.describe())
+    cleaned_data = clean_dataset("sample_data.csv")
+    if cleaned_data is not None:
+        cleaned_data.to_csv("cleaned_data.csv", index=False)
+        print("Cleaned data saved to 'cleaned_data.csv'")
