@@ -149,4 +149,18 @@ def remove_outliers_iqr(data, column):
     upper_bound = Q3 + 1.5 * IQR
     
     filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
-    return filtered_data
+    return filtered_datadef clean_strings(strings):
+    """
+    Filter out empty strings and strip whitespace from each string in the list.
+    Returns a new list with cleaned, non-empty strings.
+    """
+    if not isinstance(strings, list):
+        raise TypeError("Input must be a list of strings")
+    
+    cleaned = []
+    for s in strings:
+        if isinstance(s, str):
+            stripped = s.strip()
+            if stripped:
+                cleaned.append(stripped)
+    return cleaned
