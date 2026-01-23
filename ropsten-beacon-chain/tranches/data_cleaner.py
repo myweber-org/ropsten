@@ -333,4 +333,71 @@ class DataCleaner:
             'cleaned_rows': cleaned_count,
             'removed_rows': removed_count,
             'removal_percentage': removal_percentage
-        }
+        }import re
+import pandas as pd
+from typing import Union, List, Optional
+
+def normalize_string(text: str, case: str = 'lower', strip: bool = True) -> str:
+    """
+    Normalize a string by adjusting case and stripping whitespace.
+    """
+    if not isinstance(text, str):
+        return text
+
+    if strip:
+        text = text.strip()
+
+    if case == 'lower':
+        text = text.lower()
+    elif case == 'upper':
+        text = text.upper()
+    elif case == 'title':
+        text = text.title()
+
+    return text
+
+def remove_special_chars(text: str, keep_chars: str = '') -> str:
+    """
+    Remove special characters from a string, optionally keeping specified characters.
+    """
+    if not isinstance(text, str):
+        return text
+
+    pattern = f'[^A-Za-z0-9\\s{re.escape(keep_chars)}]'
+    return re.sub(pattern, '', text)
+
+def clean_column_names(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Clean column names of a DataFrame by normalizing and removing special characters.
+    """
+    cleaned_names = []
+    for col in df.columns:
+        col_str = str(col)
+        col_str = normalize_string(col_str, case='lower')
+        col_str = remove_special_chars(col_str, keep_chars='_')
+        col_str = re.sub(r'\\s+', '_', col_str)
+        cleaned_names.append(col_str)
+    df.columns = cleaned_names
+    return df
+
+def fill_missing_with_mean(df: pd.DataFrame, columns: Optional[List[str]] = None) -> pd.DataFrame:
+    """
+    Fill missing values in specified columns with the column mean.
+    If columns is None, applies to all numeric columns.
+    """
+    df_filled = df.copy()
+    if columns is None:
+        columns = df_filled.select_dtypes(include=['number']).columns.tolist()
+
+    for col in columns:
+        if col in df_filled.columns and pd.api.types.is_numeric_dtype(df_filled[col]):
+            mean_val = df_filled[col].mean()
+            df_filled[col].fillna(mean_val, inplace=True)
+
+    return df_filled
+
+def drop_duplicates_subset(df: pd.DataFrame, subset: Optional[List[str]] = None, keep: str = 'first') -> pd.DataFrame:
+    """
+    Drop duplicate rows based on a subset of columns.
+    """
+    return df.drop_duplicates(subset=subset, keep=keep)
