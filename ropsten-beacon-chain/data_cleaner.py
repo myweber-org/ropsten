@@ -1,41 +1,81 @@
 
-import pandas as pd
 import numpy as np
+import pandas as pd
+from scipy import stats
 
-def remove_outliers_iqr(df, column):
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
+def remove_outliers_iqr(data, column):
+    Q1 = data[column].quantile(0.25)
+    Q3 = data[column].quantile(0.75)
     IQR = Q3 - Q1
     lower_bound = Q1 - 1.5 * IQR
     upper_bound = Q3 + 1.5 * IQR
-    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    return data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
 
-def clean_dataset(file_path):
-    try:
-        data = pd.read_csv(file_path)
-        print(f"Original dataset shape: {data.shape}")
+def remove_outliers_zscore(data, column, threshold=3):
+    z_scores = np.abs(stats.zscore(data[column]))
+    return data[z_scores < threshold]
+
+def normalize_minmax(data, column):
+    min_val = data[column].min()
+    max_val = data[column].max()
+    data[column + '_normalized'] = (data[column] - min_val) / (max_val - min_val)
+    return data
+
+def normalize_zscore(data, column):
+    mean_val = data[column].mean()
+    std_val = data[column].std()
+    data[column + '_standardized'] = (data[column] - mean_val) / std_val
+    return data
+
+def clean_dataset(df, numeric_columns, outlier_method='iqr', normalize_method='minmax'):
+    cleaned_df = df.copy()
+    
+    for col in numeric_columns:
+        if outlier_method == 'iqr':
+            cleaned_df = remove_outliers_iqr(cleaned_df, col)
+        elif outlier_method == 'zscore':
+            cleaned_df = remove_outliers_zscore(cleaned_df, col)
         
-        numeric_columns = data.select_dtypes(include=[np.number]).columns
-        
-        for column in numeric_columns:
-            original_len = len(data)
-            data = remove_outliers_iqr(data, column)
-            removed_count = original_len - len(data)
-            if removed_count > 0:
-                print(f"Removed {removed_count} outliers from column: {column}")
-        
-        print(f"Cleaned dataset shape: {data.shape}")
-        return data
-        
-    except FileNotFoundError:
-        print(f"Error: File '{file_path}' not found.")
-        return None
-    except Exception as e:
-        print(f"Error during processing: {str(e)}")
-        return None
+        if normalize_method == 'minmax':
+            cleaned_df = normalize_minmax(cleaned_df, col)
+        elif normalize_method == 'zscore':
+            cleaned_df = normalize_zscore(cleaned_df, col)
+    
+    return cleaned_df
+
+def validate_cleaning(df, original_df, numeric_columns):
+    report = {}
+    for col in numeric_columns:
+        report[col] = {
+            'original_mean': original_df[col].mean(),
+            'cleaned_mean': df[col].mean(),
+            'original_std': original_df[col].std(),
+            'cleaned_std': df[col].std(),
+            'outliers_removed': len(original_df) - len(df)
+        }
+    return pd.DataFrame(report).T
 
 if __name__ == "__main__":
-    cleaned_data = clean_dataset("sample_data.csv")
-    if cleaned_data is not None:
-        cleaned_data.to_csv("cleaned_data.csv", index=False)
-        print("Cleaned data saved to 'cleaned_data.csv'")
+    sample_data = pd.DataFrame({
+        'feature1': np.random.normal(100, 15, 1000),
+        'feature2': np.random.exponential(50, 1000),
+        'feature3': np.random.uniform(0, 200, 1000)
+    })
+    
+    cleaned_data = clean_dataset(
+        sample_data, 
+        ['feature1', 'feature2', 'feature3'],
+        outlier_method='zscore',
+        normalize_method='zscore'
+    )
+    
+    validation_report = validate_cleaning(
+        cleaned_data, 
+        sample_data, 
+        ['feature1', 'feature2', 'feature3']
+    )
+    
+    print("Original data shape:", sample_data.shape)
+    print("Cleaned data shape:", cleaned_data.shape)
+    print("\nValidation Report:")
+    print(validation_report)
