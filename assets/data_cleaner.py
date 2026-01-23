@@ -77,3 +77,77 @@ if __name__ == "__main__":
     
     is_valid, message = validate_dataset(cleaned)
     print(f"\nValidation: {is_valid} - {message}")
+import pandas as pd
+import numpy as np
+from scipy import stats
+
+class DataCleaner:
+    def __init__(self, df):
+        self.df = df.copy()
+        self.numeric_columns = self.df.select_dtypes(include=[np.number]).columns
+        
+    def fill_missing_with_mean(self, columns=None):
+        if columns is None:
+            columns = self.numeric_columns
+            
+        for col in columns:
+            if col in self.df.columns:
+                self.df[col] = self.df[col].fillna(self.df[col].mean())
+        return self.df
+    
+    def remove_outliers_iqr(self, columns=None, threshold=1.5):
+        if columns is None:
+            columns = self.numeric_columns
+            
+        clean_df = self.df.copy()
+        for col in columns:
+            if col in clean_df.columns:
+                Q1 = clean_df[col].quantile(0.25)
+                Q3 = clean_df[col].quantile(0.75)
+                IQR = Q3 - Q1
+                lower_bound = Q1 - threshold * IQR
+                upper_bound = Q3 + threshold * IQR
+                
+                mask = (clean_df[col] >= lower_bound) & (clean_df[col] <= upper_bound)
+                clean_df = clean_df[mask]
+        
+        self.df = clean_df
+        return self.df
+    
+    def standardize_numeric(self, columns=None):
+        if columns is None:
+            columns = self.numeric_columns
+            
+        for col in columns:
+            if col in self.df.columns:
+                mean = self.df[col].mean()
+                std = self.df[col].std()
+                if std > 0:
+                    self.df[col] = (self.df[col] - mean) / std
+        return self.df
+    
+    def get_cleaned_data(self):
+        return self.df.copy()
+    
+    def get_summary(self):
+        summary = {
+            'original_rows': len(self.df),
+            'original_columns': len(self.df.columns),
+            'missing_values': self.df.isnull().sum().sum(),
+            'numeric_columns': list(self.numeric_columns)
+        }
+        return summary
+
+def clean_dataset(df, fill_missing=True, remove_outliers=True, standardize=True):
+    cleaner = DataCleaner(df)
+    
+    if fill_missing:
+        cleaner.fill_missing_with_mean()
+    
+    if remove_outliers:
+        cleaner.remove_outliers_iqr()
+    
+    if standardize:
+        cleaner.standardize_numeric()
+    
+    return cleaner.get_cleaned_data(), cleaner.get_summary()
