@@ -466,3 +466,132 @@ def clean_dataset(filepath):
 if __name__ == "__main__":
     cleaned_df = clean_dataset('raw_data.csv')
     print(f"Dataset cleaned. Shape: {cleaned_df.shape}")
+import pandas as pd
+import numpy as np
+from typing import List, Optional
+
+def remove_duplicates(df: pd.DataFrame, subset: Optional[List[str]] = None) -> pd.DataFrame:
+    """
+    Remove duplicate rows from DataFrame.
+    
+    Args:
+        df: Input DataFrame
+        subset: Columns to consider for identifying duplicates
+    
+    Returns:
+        DataFrame with duplicates removed
+    """
+    return df.drop_duplicates(subset=subset, keep='first')
+
+def normalize_column(df: pd.DataFrame, column: str, method: str = 'minmax') -> pd.DataFrame:
+    """
+    Normalize a column using specified method.
+    
+    Args:
+        df: Input DataFrame
+        column: Column name to normalize
+        method: Normalization method ('minmax' or 'zscore')
+    
+    Returns:
+        DataFrame with normalized column
+    """
+    df_copy = df.copy()
+    
+    if method == 'minmax':
+        min_val = df_copy[column].min()
+        max_val = df_copy[column].max()
+        if max_val > min_val:
+            df_copy[f'{column}_normalized'] = (df_copy[column] - min_val) / (max_val - min_val)
+    
+    elif method == 'zscore':
+        mean_val = df_copy[column].mean()
+        std_val = df_copy[column].std()
+        if std_val > 0:
+            df_copy[f'{column}_normalized'] = (df_copy[column] - mean_val) / std_val
+    
+    return df_copy
+
+def clean_missing_values(df: pd.DataFrame, strategy: str = 'mean') -> pd.DataFrame:
+    """
+    Handle missing values in DataFrame.
+    
+    Args:
+        df: Input DataFrame
+        strategy: Strategy for handling missing values ('mean', 'median', 'mode', 'drop')
+    
+    Returns:
+        DataFrame with handled missing values
+    """
+    df_copy = df.copy()
+    
+    numeric_cols = df_copy.select_dtypes(include=[np.number]).columns
+    
+    if strategy == 'mean':
+        for col in numeric_cols:
+            df_copy[col].fillna(df_copy[col].mean(), inplace=True)
+    
+    elif strategy == 'median':
+        for col in numeric_cols:
+            df_copy[col].fillna(df_copy[col].median(), inplace=True)
+    
+    elif strategy == 'mode':
+        for col in numeric_cols:
+            df_copy[col].fillna(df_copy[col].mode()[0], inplace=True)
+    
+    elif strategy == 'drop':
+        df_copy.dropna(inplace=True)
+    
+    return df_copy
+
+def validate_dataframe(df: pd.DataFrame) -> dict:
+    """
+    Validate DataFrame and return statistics.
+    
+    Args:
+        df: Input DataFrame to validate
+    
+    Returns:
+        Dictionary with validation statistics
+    """
+    stats = {
+        'total_rows': len(df),
+        'total_columns': len(df.columns),
+        'missing_values': df.isnull().sum().sum(),
+        'duplicate_rows': df.duplicated().sum(),
+        'data_types': df.dtypes.to_dict(),
+        'numeric_columns': list(df.select_dtypes(include=[np.number]).columns),
+        'categorical_columns': list(df.select_dtypes(include=['object']).columns)
+    }
+    
+    return stats
+
+def process_data_pipeline(df: pd.DataFrame, 
+                         remove_dups: bool = True,
+                         clean_missing: bool = True,
+                         normalize_cols: Optional[List[str]] = None) -> pd.DataFrame:
+    """
+    Complete data processing pipeline.
+    
+    Args:
+        df: Input DataFrame
+        remove_dups: Whether to remove duplicates
+        clean_missing: Whether to clean missing values
+        normalize_cols: List of columns to normalize
+    
+    Returns:
+        Processed DataFrame
+    """
+    processed_df = df.copy()
+    
+    if remove_dups:
+        processed_df = remove_duplicates(processed_df)
+    
+    if clean_missing:
+        processed_df = clean_missing_values(processed_df, strategy='mean')
+    
+    if normalize_cols:
+        for col in normalize_cols:
+            if col in processed_df.columns:
+                processed_df = normalize_column(processed_df, col, method='minmax')
+    
+    return processed_df
