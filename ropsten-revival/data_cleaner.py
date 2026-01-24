@@ -1,40 +1,102 @@
+
 import pandas as pd
-import re
+import numpy as np
 
-def clean_dataframe(df, text_columns=None):
+def remove_outliers_iqr(df, column):
     """
-    Remove duplicate rows and standardize text in specified columns.
+    Remove outliers from a DataFrame column using the Interquartile Range method.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    column (str): Column name to clean
+    
+    Returns:
+    pd.DataFrame: DataFrame with outliers removed
     """
-    # Remove duplicates
-    df_clean = df.drop_duplicates().reset_index(drop=True)
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
     
-    if text_columns:
-        for col in text_columns:
-            if col in df_clean.columns:
-                df_clean[col] = df_clean[col].apply(_standardize_text)
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
     
-    return df_clean
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    
+    outliers_removed = len(df) - len(filtered_df)
+    print(f"Removed {outliers_removed} outliers from column '{column}'")
+    
+    return filtered_df.reset_index(drop=True)
 
-def _standardize_text(text):
+def calculate_summary_statistics(df, column):
     """
-    Standardize text: lowercase, remove extra spaces, and strip.
-    """
-    if pd.isna(text):
-        return text
-    text = str(text)
-    text = text.lower()
-    text = re.sub(r'\s+', ' ', text)
-    return text.strip()
-
-def validate_email_column(df, email_column):
-    """
-    Validate email format in a specified column.
-    """
-    if email_column not in df.columns:
-        raise ValueError(f"Column '{email_column}' not found in DataFrame")
+    Calculate summary statistics for a column.
     
-    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-    df['email_valid'] = df[email_column].apply(
-        lambda x: bool(re.match(email_pattern, str(x))) if pd.notna(x) else False
-    )
-    return df
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    column (str): Column name
+    
+    Returns:
+    dict: Dictionary containing summary statistics
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    stats = {
+        'mean': df[column].mean(),
+        'median': df[column].median(),
+        'std': df[column].std(),
+        'min': df[column].min(),
+        'max': df[column].max(),
+        'count': df[column].count(),
+        'missing': df[column].isnull().sum()
+    }
+    
+    return stats
+
+def clean_numeric_data(df, columns=None):
+    """
+    Clean numeric columns by removing outliers and filling missing values.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    columns (list): List of column names to clean. If None, clean all numeric columns.
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns.tolist()
+    
+    cleaned_df = df.copy()
+    
+    for column in columns:
+        if column in df.columns and pd.api.types.is_numeric_dtype(df[column]):
+            # Fill missing values with median
+            median_value = cleaned_df[column].median()
+            cleaned_df[column] = cleaned_df[column].fillna(median_value)
+            
+            # Remove outliers
+            cleaned_df = remove_outliers_iqr(cleaned_df, column)
+    
+    return cleaned_df
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'A': [1, 2, 3, 4, 5, 100, 7, 8, 9, 10],
+        'B': [10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
+        'C': [1.1, 2.2, 3.3, 4.4, 5.5, 6.6, 7.7, 8.8, 9.9, 10.0]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\nSummary statistics for column 'A':")
+    print(calculate_summary_statistics(df, 'A'))
+    
+    cleaned_df = clean_numeric_data(df, columns=['A'])
+    print("\nCleaned DataFrame:")
+    print(cleaned_df)
