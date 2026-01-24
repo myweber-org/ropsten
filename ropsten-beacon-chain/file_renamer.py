@@ -1,40 +1,45 @@
 
 import os
 import sys
-from datetime import datetime
+from pathlib import Path
 
-def rename_files_by_date(directory, prefix="file"):
+def rename_files_sequentially(directory_path, prefix="file"):
     try:
-        files = [f for f in os.listdir(directory) if os.path.isfile(os.path.join(directory, f))]
-        
-        for filename in files:
-            filepath = os.path.join(directory, filename)
-            creation_time = os.path.getctime(filepath)
-            date_str = datetime.fromtimestamp(creation_time).strftime("%Y%m%d_%H%M%S")
-            
-            name, ext = os.path.splitext(filename)
-            new_filename = f"{prefix}_{date_str}{ext}"
-            new_filepath = os.path.join(directory, new_filename)
-            
-            os.rename(filepath, new_filepath)
-            print(f"Renamed: {filename} -> {new_filename}")
-            
+        path = Path(directory_path)
+        if not path.exists() or not path.is_dir():
+            print(f"Error: {directory_path} is not a valid directory.")
+            return False
+
+        files = []
+        for item in path.iterdir():
+            if item.is_file():
+                mtime = item.stat().st_mtime
+                files.append((mtime, item))
+
+        files.sort(key=lambda x: x[0])
+
+        for index, (_, file_path) in enumerate(files, start=1):
+            extension = file_path.suffix
+            new_name = f"{prefix}_{index:03d}{extension}"
+            new_path = file_path.parent / new_name
+
+            try:
+                file_path.rename(new_path)
+                print(f"Renamed: {file_path.name} -> {new_name}")
+            except Exception as e:
+                print(f"Failed to rename {file_path.name}: {e}")
+
         return True
+
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"An error occurred: {e}")
         return False
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Usage: python file_renamer.py <directory> [prefix]")
+        print("Usage: python file_renamer.py <directory_path> [prefix]")
         sys.exit(1)
-    
-    target_dir = sys.argv[1]
-    file_prefix = sys.argv[2] if len(sys.argv) > 2 else "file"
-    
-    if not os.path.isdir(target_dir):
-        print(f"Error: {target_dir} is not a valid directory")
-        sys.exit(1)
-    
-    success = rename_files_by_date(target_dir, file_prefix)
-    sys.exit(0 if success else 1)
+
+    dir_path = sys.argv[1]
+    prefix = sys.argv[2] if len(sys.argv) > 2 else "file"
+    rename_files_sequentially(dir_path, prefix)
