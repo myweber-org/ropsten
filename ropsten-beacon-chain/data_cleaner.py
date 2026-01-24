@@ -34,3 +34,13 @@ if __name__ == "__main__":
     print(f"Original shape: {sample_data.shape}")
     print(f"Cleaned shape: {result.shape}")
     print(f"Removed {len(sample_data) - len(result)} outliers")
+import numpy as np
+
+def remove_outliers_iqr(data, column):
+    Q1 = np.percentile(data[column], 25)
+    Q3 = np.percentile(data[column], 75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    return filtered_data
