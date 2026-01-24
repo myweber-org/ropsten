@@ -99,3 +99,11 @@ def clean_dataset(df, outlier_method='iqr', normalize_method='minmax', missing_s
         df_cleaned = normalize_zscore(df_cleaned, numeric_cols)
     
     return df_cleaned
+def remove_duplicates_preserve_order(sequence):
+    seen = set()
+    result = []
+    for item in sequence:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
