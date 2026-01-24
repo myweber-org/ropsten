@@ -70,4 +70,60 @@ if __name__ == "__main__":
     print(cleaned)
     
     is_valid, message = validate_dataframe(cleaned, required_columns=['A', 'B'])
-    print(f"\nValidation: {message}")
+    print(f"\nValidation: {message}")import pandas as pd
+import numpy as np
+from scipy import stats
+
+class DataCleaner:
+    def __init__(self, df):
+        self.df = df.copy()
+        self.numeric_columns = df.select_dtypes(include=[np.number]).columns.tolist()
+    
+    def remove_missing(self, threshold=0.8):
+        for col in self.df.columns:
+            missing_ratio = self.df[col].isna().sum() / len(self.df)
+            if missing_ratio > threshold:
+                self.df.drop(columns=[col], inplace=True)
+            else:
+                self.df[col].fillna(self.df[col].median(), inplace=True)
+        return self
+    
+    def remove_outliers(self, z_threshold=3):
+        for col in self.numeric_columns:
+            if col in self.df.columns:
+                z_scores = np.abs(stats.zscore(self.df[col]))
+                self.df = self.df[z_scores < z_threshold]
+        return self
+    
+    def normalize_data(self, method='minmax'):
+        if method == 'minmax':
+            for col in self.numeric_columns:
+                if col in self.df.columns:
+                    min_val = self.df[col].min()
+                    max_val = self.df[col].max()
+                    if max_val > min_val:
+                        self.df[col] = (self.df[col] - min_val) / (max_val - min_val)
+        elif method == 'standard':
+            for col in self.numeric_columns:
+                if col in self.df.columns:
+                    mean_val = self.df[col].mean()
+                    std_val = self.df[col].std()
+                    if std_val > 0:
+                        self.df[col] = (self.df[col] - mean_val) / std_val
+        return self
+    
+    def get_cleaned_data(self):
+        return self.df.reset_index(drop=True)
+
+def process_dataset(file_path):
+    try:
+        df = pd.read_csv(file_path)
+        cleaner = DataCleaner(df)
+        cleaned_df = (cleaner.remove_missing(threshold=0.7)
+                              .remove_outliers(z_threshold=2.5)
+                              .normalize_data(method='standard')
+                              .get_cleaned_data())
+        return cleaned_df
+    except Exception as e:
+        print(f"Error processing dataset: {e}")
+        return None
