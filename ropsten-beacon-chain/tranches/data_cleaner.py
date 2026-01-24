@@ -70,4 +70,84 @@ if __name__ == "__main__":
     print(cleaned)
     
     is_valid, message = validate_data(cleaned, required_columns=['A', 'B'])
-    print(f"\nValidation: {is_valid} - {message}")
+    print(f"\nValidation: {is_valid} - {message}")import csv
+import os
+from typing import List, Dict, Any
+
+def read_csv(filepath: str) -> List[Dict[str, Any]]:
+    """Read a CSV file and return a list of dictionaries."""
+    data = []
+    try:
+        with open(filepath, 'r', newline='', encoding='utf-8') as csvfile:
+            reader = csv.DictReader(csvfile)
+            for row in reader:
+                data.append(row)
+    except FileNotFoundError:
+        print(f"Error: File '{filepath}' not found.")
+    except Exception as e:
+        print(f"Error reading CSV: {e}")
+    return data
+
+def clean_numeric_fields(data: List[Dict[str, Any]], fields: List[str]) -> List[Dict[str, Any]]:
+    """Clean specified numeric fields by removing non-numeric characters."""
+    cleaned_data = []
+    for row in data:
+        cleaned_row = row.copy()
+        for field in fields:
+            if field in cleaned_row:
+                value = cleaned_row[field]
+                if isinstance(value, str):
+                    cleaned_value = ''.join(char for char in value if char.isdigit() or char == '.')
+                    try:
+                        cleaned_row[field] = float(cleaned_value) if '.' in cleaned_value else int(cleaned_value)
+                    except ValueError:
+                        cleaned_row[field] = None
+        cleaned_data.append(cleaned_row)
+    return cleaned_data
+
+def remove_empty_rows(data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Remove rows where all values are empty or None."""
+    return [row for row in data if any(val is not None and str(val).strip() != '' for val in row.values())]
+
+def write_csv(data: List[Dict[str, Any]], filepath: str) -> bool:
+    """Write data to a CSV file."""
+    if not data:
+        print("No data to write.")
+        return False
+    try:
+        fieldnames = data[0].keys()
+        with open(filepath, 'w', newline='', encoding='utf-8') as csvfile:
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(data)
+        return True
+    except Exception as e:
+        print(f"Error writing CSV: {e}")
+        return False
+
+def process_csv(input_path: str, output_path: str, numeric_fields: List[str] = None) -> None:
+    """Main function to process and clean a CSV file."""
+    if numeric_fields is None:
+        numeric_fields = []
+    
+    print(f"Reading data from {input_path}")
+    data = read_csv(input_path)
+    
+    if not data:
+        print("No data loaded. Exiting.")
+        return
+    
+    print(f"Loaded {len(data)} rows.")
+    
+    if numeric_fields:
+        print(f"Cleaning numeric fields: {numeric_fields}")
+        data = clean_numeric_fields(data, numeric_fields)
+    
+    print("Removing empty rows...")
+    data = remove_empty_rows(data)
+    print(f"Remaining rows after cleaning: {len(data)}")
+    
+    if write_csv(data, output_path):
+        print(f"Cleaned data written to {output_path}")
+    else:
+        print("Failed to write output file.")
