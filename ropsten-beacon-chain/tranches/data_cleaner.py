@@ -143,4 +143,119 @@ def validate_data(df, required_columns=None, min_rows=1):
         if missing_columns:
             return False, f"Missing required columns: {missing_columns}"
     
-    return True, "Data validation passed"
+    return True, "Data validation passed"import pandas as pd
+import numpy as np
+
+def clean_csv_data(file_path, output_path=None, fill_strategy='mean'):
+    """
+    Load a CSV file, clean missing values, and optionally save cleaned data.
+    
+    Args:
+        file_path (str): Path to input CSV file
+        output_path (str, optional): Path to save cleaned CSV. If None, returns DataFrame
+        fill_strategy (str): Strategy for filling missing values ('mean', 'median', 'mode', 'zero')
+    
+    Returns:
+        pd.DataFrame or None: Cleaned DataFrame if output_path is None, else None
+    """
+    try:
+        df = pd.read_csv(file_path)
+        print(f"Loaded data with shape: {df.shape}")
+        
+        # Check for missing values
+        missing_count = df.isnull().sum().sum()
+        if missing_count > 0:
+            print(f"Found {missing_count} missing values")
+            
+            # Fill missing values based on strategy
+            numeric_cols = df.select_dtypes(include=[np.number]).columns
+            
+            if fill_strategy == 'mean':
+                df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].mean())
+            elif fill_strategy == 'median':
+                df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].median())
+            elif fill_strategy == 'mode':
+                df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].mode().iloc[0])
+            elif fill_strategy == 'zero':
+                df[numeric_cols] = df[numeric_cols].fillna(0)
+            else:
+                raise ValueError(f"Unknown fill strategy: {fill_strategy}")
+            
+            # For non-numeric columns, fill with empty string
+            non_numeric_cols = df.select_dtypes(exclude=[np.number]).columns
+            df[non_numeric_cols] = df[non_numeric_cols].fillna('')
+            
+            print("Missing values filled successfully")
+        
+        # Remove duplicate rows
+        initial_rows = len(df)
+        df = df.drop_duplicates()
+        duplicates_removed = initial_rows - len(df)
+        if duplicates_removed > 0:
+            print(f"Removed {duplicates_removed} duplicate rows")
+        
+        # Reset index after cleaning
+        df = df.reset_index(drop=True)
+        
+        if output_path:
+            df.to_csv(output_path, index=False)
+            print(f"Cleaned data saved to: {output_path}")
+            return None
+        else:
+            print(f"Final data shape: {df.shape}")
+            return df
+            
+    except FileNotFoundError:
+        print(f"Error: File not found at {file_path}")
+        return None
+    except Exception as e:
+        print(f"Error during data cleaning: {str(e)}")
+        return None
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate
+        required_columns (list, optional): List of required column names
+    
+    Returns:
+        bool: True if validation passes, False otherwise
+    """
+    if df is None or df.empty:
+        print("Error: DataFrame is empty or None")
+        return False
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            print(f"Error: Missing required columns: {missing_cols}")
+            return False
+    
+    # Check for infinite values in numeric columns
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    if not numeric_cols.empty:
+        inf_count = np.isinf(df[numeric_cols]).sum().sum()
+        if inf_count > 0:
+            print(f"Warning: Found {inf_count} infinite values in numeric columns")
+    
+    return True
+
+if __name__ == "__main__":
+    # Example usage
+    input_file = "sample_data.csv"
+    output_file = "cleaned_data.csv"
+    
+    # Clean data and save to file
+    cleaned_df = clean_csv_data(input_file, output_file, fill_strategy='median')
+    
+    # Or clean data and work with DataFrame directly
+    if cleaned_df is not None:
+        is_valid = validate_dataframe(cleaned_df)
+        if is_valid:
+            print("Data validation passed")
+            print(f"DataFrame info:")
+            print(cleaned_df.info())
+            print(f"\nSummary statistics:")
+            print(cleaned_df.describe())
