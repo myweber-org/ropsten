@@ -246,3 +246,65 @@ def validate_dataframe(df, required_columns=None):
 #     
 #     is_valid, message = validate_dataframe(cleaned, ['name', 'age'])
 #     print(f"\nValidation: {is_valid}, Message: {message}")
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df, column_mapping=None, drop_duplicates=True, fill_na=True):
+    """
+    Clean a pandas DataFrame by standardizing columns, removing duplicates,
+    and handling missing values.
+    """
+    cleaned_df = df.copy()
+    
+    if column_mapping:
+        cleaned_df = cleaned_df.rename(columns=column_mapping)
+    
+    if drop_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates()
+    
+    if fill_na:
+        for col in cleaned_df.select_dtypes(include=[np.number]).columns:
+            cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].median())
+        for col in cleaned_df.select_dtypes(exclude=[np.number]).columns:
+            cleaned_df[col] = cleaned_df[col].fillna('Unknown')
+    
+    cleaned_df = cleaned_df.reset_index(drop=True)
+    return cleaned_df
+
+def validate_data(df, required_columns=None, unique_columns=None):
+    """
+    Validate data integrity by checking required columns and uniqueness constraints.
+    """
+    validation_report = {}
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        validation_report['missing_columns'] = missing_columns
+    
+    if unique_columns:
+        duplicate_counts = {}
+        for col in unique_columns:
+            if col in df.columns:
+                duplicates = df[col].duplicated().sum()
+                duplicate_counts[col] = duplicates
+        validation_report['duplicate_counts'] = duplicate_counts
+    
+    validation_report['total_rows'] = len(df)
+    validation_report['total_columns'] = len(df.columns)
+    
+    return validation_report
+
+def export_cleaned_data(df, output_path, format='csv'):
+    """
+    Export cleaned data to specified format.
+    """
+    if format.lower() == 'csv':
+        df.to_csv(output_path, index=False)
+    elif format.lower() == 'excel':
+        df.to_excel(output_path, index=False)
+    elif format.lower() == 'json':
+        df.to_json(output_path, orient='records')
+    else:
+        raise ValueError(f"Unsupported format: {format}")
+    
+    return True
