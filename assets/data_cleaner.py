@@ -1,76 +1,69 @@
-
-def remove_duplicates_preserve_order(iterable):
-    seen = set()
-    result = []
-    for item in iterable:
-        if item not in seen:
-            seen.add(item)
-            result.append(item)
-    return result
 import pandas as pd
 import numpy as np
-from scipy import stats
 
 def remove_outliers_iqr(df, column):
+    """
+    Remove outliers from a DataFrame column using the Interquartile Range (IQR) method.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    column (str): Column name to process
+    
+    Returns:
+    pd.DataFrame: DataFrame with outliers removed
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
     Q1 = df[column].quantile(0.25)
     Q3 = df[column].quantile(0.75)
     IQR = Q3 - Q1
+    
     lower_bound = Q1 - 1.5 * IQR
     upper_bound = Q3 + 1.5 * IQR
-    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    
+    return filtered_df
 
-def normalize_minmax(df, column):
-    min_val = df[column].min()
-    max_val = df[column].max()
-    df[column + '_normalized'] = (df[column] - min_val) / (max_val - min_val)
-    return df
-
-def clean_dataset(input_path, output_path):
-    df = pd.read_csv(input_path)
-    
-    numeric_cols = df.select_dtypes(include=[np.number]).columns
-    
-    for col in numeric_cols:
-        df = remove_outliers_iqr(df, col)
-    
-    for col in numeric_cols:
-        df = normalize_minmax(df, col)
-    
-    df.to_csv(output_path, index=False)
-    print(f"Cleaned data saved to {output_path}")
-    
-    return df
-
-if __name__ == "__main__":
-    input_file = "raw_data.csv"
-    output_file = "cleaned_data.csv"
-    cleaned_df = clean_dataset(input_file, output_file)
-import numpy as np
-
-def remove_outliers_iqr(data, column):
+def calculate_summary_statistics(df, column):
     """
-    Remove outliers from a specified column in a dataset using the IQR method.
+    Calculate summary statistics for a column after outlier removal.
     
     Parameters:
-    data (numpy.ndarray): The dataset.
-    column (int): Index of the column to process.
+    df (pd.DataFrame): Input DataFrame
+    column (str): Column name to analyze
     
     Returns:
-    numpy.ndarray: Dataset with outliers removed from the specified column.
+    dict: Dictionary containing summary statistics
     """
-    if not isinstance(data, np.ndarray):
-        raise TypeError("Input data must be a numpy array")
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
     
-    if column >= data.shape[1] or column < 0:
-        raise IndexError("Column index out of bounds")
+    stats = {
+        'mean': df[column].mean(),
+        'median': df[column].median(),
+        'std': df[column].std(),
+        'min': df[column].min(),
+        'max': df[column].max(),
+        'count': df[column].count()
+    }
     
-    col_data = data[:, column]
-    q1 = np.percentile(col_data, 25)
-    q3 = np.percentile(col_data, 75)
-    iqr = q3 - q1
+    return stats
+
+def process_dataframe(df, column):
+    """
+    Complete data processing pipeline: remove outliers and return statistics.
     
-    lower_bound = q1 - 1.5 * iqr
-    upper_bound = q3 + 1.5 * iqr
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    column (str): Column name to process
     
-    mask = (col_data >= lower_bound) & (col_data <= upper_bound)
-    return data[mask]
+    Returns:
+    tuple: (cleaned_df, original_stats, cleaned_stats)
+    """
+    original_stats = calculate_summary_statistics(df, column)
+    cleaned_df = remove_outliers_iqr(df, column)
+    cleaned_stats = calculate_summary_statistics(cleaned_df, column)
+    
+    return cleaned_df, original_stats, cleaned_stats
