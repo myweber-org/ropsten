@@ -204,3 +204,33 @@ if __name__ == "__main__":
     print(cleaner.get_summary())
     print("\nFirst 5 rows after cleaning:")
     print(cleaner.df.head())
+import pandas as pd
+import numpy as np
+
+def remove_outliers_iqr(df, column):
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+
+def clean_dataset(df, numeric_columns):
+    original_shape = df.shape
+    for col in numeric_columns:
+        if col in df.columns:
+            df = remove_outliers_iqr(df, col)
+    cleaned_shape = df.shape
+    removed_count = original_shape[0] - cleaned_shape[0]
+    print(f"Removed {removed_count} outliers")
+    return df
+
+def validate_data(df, required_columns):
+    missing_columns = [col for col in required_columns if col not in df.columns]
+    if missing_columns:
+        raise ValueError(f"Missing required columns: {missing_columns}")
+    return True
+
+def save_cleaned_data(df, output_path):
+    df.to_csv(output_path, index=False)
+    print(f"Cleaned data saved to {output_path}")
