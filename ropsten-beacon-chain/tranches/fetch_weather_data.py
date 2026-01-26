@@ -1,94 +1,88 @@
 
 import requests
 import json
+import os
 from datetime import datetime
-from typing import Optional, Dict, Any
 
-class WeatherFetcher:
-    def __init__(self, api_key: str, base_url: str = "http://api.openweathermap.org/data/2.5/weather"):
-        self.api_key = api_key
-        self.base_url = base_url
-        self.session = requests.Session()
+def get_weather(city_name, api_key):
+    base_url = "http://api.openweathermap.org/data/2.5/weather"
+    params = {
+        'q': city_name,
+        'appid': api_key,
+        'units': 'metric'
+    }
     
-    def get_weather_by_city(self, city_name: str, country_code: Optional[str] = None) -> Dict[str, Any]:
-        query = city_name
-        if country_code:
-            query = f"{city_name},{country_code}"
+    try:
+        response = requests.get(base_url, params=params)
+        response.raise_for_status()
+        data = response.json()
         
-        params = {
-            'q': query,
-            'appid': self.api_key,
-            'units': 'metric'
+        if data['cod'] != 200:
+            print(f"Error: {data.get('message', 'Unknown error')}")
+            return None
+        
+        return {
+            'city': data['name'],
+            'country': data['sys']['country'],
+            'temperature': data['main']['temp'],
+            'feels_like': data['main']['feels_like'],
+            'humidity': data['main']['humidity'],
+            'pressure': data['main']['pressure'],
+            'weather': data['weather'][0]['description'],
+            'wind_speed': data['wind']['speed'],
+            'timestamp': datetime.fromtimestamp(data['dt'])
         }
         
-        try:
-            response = self.session.get(self.base_url, params=params, timeout=10)
-            response.raise_for_status()
-            data = response.json()
-            
-            return {
-                'success': True,
-                'city': data['name'],
-                'country': data['sys']['country'],
-                'temperature': data['main']['temp'],
-                'feels_like': data['main']['feels_like'],
-                'humidity': data['main']['humidity'],
-                'pressure': data['main']['pressure'],
-                'weather': data['weather'][0]['description'],
-                'wind_speed': data['wind']['speed'],
-                'timestamp': datetime.fromtimestamp(data['dt']).isoformat(),
-                'raw_data': data
-            }
-        except requests.exceptions.RequestException as e:
-            return {
-                'success': False,
-                'error': f"Network error: {str(e)}",
-                'timestamp': datetime.now().isoformat()
-            }
-        except (KeyError, json.JSONDecodeError) as e:
-            return {
-                'success': False,
-                'error': f"Data parsing error: {str(e)}",
-                'timestamp': datetime.now().isoformat()
-            }
+    except requests.exceptions.RequestException as e:
+        print(f"Network error occurred: {e}")
+        return None
+    except (KeyError, json.JSONDecodeError) as e:
+        print(f"Data parsing error: {e}")
+        return None
+
+def display_weather(weather_data):
+    if not weather_data:
+        print("No weather data to display.")
+        return
     
-    def save_to_file(self, data: Dict[str, Any], filename: str = "weather_data.json"):
-        try:
-            with open(filename, 'w') as f:
-                json.dump(data, f, indent=2)
-            return True
-        except IOError as e:
-            print(f"Error saving file: {e}")
-            return False
+    print("\n" + "="*40)
+    print(f"Weather in {weather_data['city']}, {weather_data['country']}")
+    print("="*40)
+    print(f"Temperature: {weather_data['temperature']}°C")
+    print(f"Feels like: {weather_data['feels_like']}°C")
+    print(f"Weather: {weather_data['weather'].title()}")
+    print(f"Humidity: {weather_data['humidity']}%")
+    print(f"Pressure: {weather_data['pressure']} hPa")
+    print(f"Wind Speed: {weather_data['wind_speed']} m/s")
+    print(f"Last Updated: {weather_data['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}")
+    print("="*40)
 
 def main():
-    api_key = "your_api_key_here"
-    fetcher = WeatherFetcher(api_key)
+    api_key = os.environ.get('OPENWEATHER_API_KEY')
     
-    cities = [
-        ("London", "UK"),
-        ("New York", "US"),
-        ("Tokyo", "JP")
-    ]
+    if not api_key:
+        print("Please set OPENWEATHER_API_KEY environment variable.")
+        print("You can get a free API key from https://openweathermap.org/api")
+        return
     
-    all_weather_data = []
+    city = input("Enter city name: ").strip()
     
-    for city, country in cities:
-        print(f"Fetching weather for {city}, {country}...")
-        weather_data = fetcher.get_weather_by_city(city, country)
+    if not city:
+        print("City name cannot be empty.")
+        return
+    
+    print(f"Fetching weather data for {city}...")
+    weather_data = get_weather(city, api_key)
+    
+    if weather_data:
+        display_weather(weather_data)
         
-        if weather_data['success']:
-            print(f"  Temperature: {weather_data['temperature']}°C")
-            print(f"  Conditions: {weather_data['weather']}")
-            all_weather_data.append(weather_data)
-        else:
-            print(f"  Error: {weather_data['error']}")
-    
-    if all_weather_data:
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"weather_report_{timestamp}.json"
-        fetcher.save_to_file(all_weather_data, filename)
-        print(f"\nWeather data saved to {filename}")
+        save_option = input("\nSave to file? (y/n): ").strip().lower()
+        if save_option == 'y':
+            filename = f"weather_{city.lower().replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+            with open(filename, 'w') as f:
+                json.dump(weather_data, f, default=str, indent=2)
+            print(f"Weather data saved to {filename}")
 
 if __name__ == "__main__":
     main()
