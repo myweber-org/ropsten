@@ -43,3 +43,34 @@ if __name__ == "__main__":
     dir_path = sys.argv[1]
     prefix = sys.argv[2] if len(sys.argv) > 2 else "file"
     rename_files_sequentially(dir_path, prefix)
+import os
+import datetime
+import sys
+
+def add_timestamp_prefix(filepath):
+    """Add a timestamp prefix to the filename."""
+    if not os.path.exists(filepath):
+        return f"Error: File '{filepath}' does not exist."
+    
+    directory, filename = os.path.split(filepath)
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    new_filename = f"{timestamp}_{filename}"
+    new_filepath = os.path.join(directory, new_filename)
+    
+    try:
+        os.rename(filepath, new_filepath)
+        return f"Renamed '{filename}' to '{new_filename}'"
+    except Exception as e:
+        return f"Error renaming file: {e}"
+
+def main():
+    if len(sys.argv) < 2:
+        print("Usage: python file_renamer.py <filepath1> [filepath2 ...]")
+        sys.exit(1)
+    
+    for filepath in sys.argv[1:]:
+        result = add_timestamp_prefix(filepath)
+        print(result)
+
+if __name__ == "__main__":
+    main()
