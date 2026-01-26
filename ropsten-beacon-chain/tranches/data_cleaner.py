@@ -163,3 +163,70 @@ if __name__ == "__main__":
     
     is_valid, message = validate_dataframe(cleaned)
     print(f"\nValidation: {message}")
+import pandas as pd
+
+def clean_dataframe(df, drop_na=True, rename_cols=True):
+    """
+    Clean a pandas DataFrame by removing null values and standardizing column names.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean.
+        drop_na (bool): If True, drop rows with any null values.
+        rename_cols (bool): If True, rename columns to lowercase with underscores.
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame.
+    """
+    df_clean = df.copy()
+    
+    if drop_na:
+        df_clean = df_clean.dropna()
+    
+    if rename_cols:
+        df_clean.columns = (
+            df_clean.columns
+            .str.lower()
+            .str.replace(r'[^a-z0-9]+', '_', regex=True)
+            .str.strip('_')
+        )
+    
+    return df_clean
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and required columns.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate.
+        required_columns (list): List of required column names.
+    
+    Returns:
+        bool: True if validation passes, False otherwise.
+    """
+    if not isinstance(df, pd.DataFrame):
+        return False
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            print(f"Missing required columns: {missing_cols}")
+            return False
+    
+    return True
+
+if __name__ == "__main__":
+    sample_data = {
+        'User ID': [1, 2, None, 4],
+        'First Name': ['Alice', 'Bob', 'Charlie', None],
+        'Order Total': [100.50, 200.75, 150.00, 300.25]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\nCleaned DataFrame:")
+    cleaned_df = clean_dataframe(df)
+    print(cleaned_df)
+    
+    is_valid = validate_dataframe(cleaned_df, ['user_id', 'order_total'])
+    print(f"\nDataFrame validation result: {is_valid}")
