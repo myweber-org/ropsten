@@ -175,3 +175,108 @@ def validate_data(df, required_columns=None, allow_nan=True, max_nan_ratio=0.1):
     
     is_valid = len(errors) == 0
     return is_valid, errors
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(dataframe, column, threshold=1.5):
+    """
+    Remove outliers from specified column using IQR method
+    """
+    if column not in dataframe.columns:
+        raise ValueError(f"Column '{column}' not found in dataframe")
+    
+    q1 = dataframe[column].quantile(0.25)
+    q3 = dataframe[column].quantile(0.75)
+    iqr = q3 - q1
+    
+    lower_bound = q1 - threshold * iqr
+    upper_bound = q3 + threshold * iqr
+    
+    filtered_df = dataframe[(dataframe[column] >= lower_bound) & 
+                           (dataframe[column] <= upper_bound)]
+    
+    return filtered_df
+
+def normalize_minmax(dataframe, columns=None):
+    """
+    Normalize specified columns using min-max scaling
+    """
+    if columns is None:
+        columns = dataframe.select_dtypes(include=[np.number]).columns
+    
+    normalized_df = dataframe.copy()
+    
+    for col in columns:
+        if col in dataframe.columns and pd.api.types.is_numeric_dtype(dataframe[col]):
+            col_min = dataframe[col].min()
+            col_max = dataframe[col].max()
+            
+            if col_max != col_min:
+                normalized_df[col] = (dataframe[col] - col_min) / (col_max - col_min)
+            else:
+                normalized_df[col] = 0
+    
+    return normalized_df
+
+def handle_missing_values(dataframe, strategy='mean', columns=None):
+    """
+    Handle missing values using specified strategy
+    """
+    if columns is None:
+        columns = dataframe.columns
+    
+    processed_df = dataframe.copy()
+    
+    for col in columns:
+        if col in dataframe.columns and dataframe[col].isnull().any():
+            if strategy == 'mean' and pd.api.types.is_numeric_dtype(dataframe[col]):
+                processed_df[col].fillna(dataframe[col].mean(), inplace=True)
+            elif strategy == 'median' and pd.api.types.is_numeric_dtype(dataframe[col]):
+                processed_df[col].fillna(dataframe[col].median(), inplace=True)
+            elif strategy == 'mode':
+                processed_df[col].fillna(dataframe[col].mode()[0], inplace=True)
+            elif strategy == 'drop':
+                processed_df = processed_df.dropna(subset=[col])
+    
+    return processed_df
+
+def validate_dataframe(dataframe, required_columns=None, min_rows=1):
+    """
+    Validate dataframe structure and content
+    """
+    if not isinstance(dataframe, pd.DataFrame):
+        raise TypeError("Input must be a pandas DataFrame")
+    
+    if len(dataframe) < min_rows:
+        raise ValueError(f"Dataframe must have at least {min_rows} rows")
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in dataframe.columns]
+        if missing_cols:
+            raise ValueError(f"Missing required columns: {missing_cols}")
+    
+    return True
+
+def calculate_statistics(dataframe, columns=None):
+    """
+    Calculate descriptive statistics for specified columns
+    """
+    if columns is None:
+        columns = dataframe.select_dtypes(include=[np.number]).columns
+    
+    stats_dict = {}
+    
+    for col in columns:
+        if col in dataframe.columns and pd.api.types.is_numeric_dtype(dataframe[col]):
+            stats_dict[col] = {
+                'mean': dataframe[col].mean(),
+                'median': dataframe[col].median(),
+                'std': dataframe[col].std(),
+                'min': dataframe[col].min(),
+                'max': dataframe[col].max(),
+                'skewness': dataframe[col].skew(),
+                'kurtosis': dataframe[col].kurtosis()
+            }
+    
+    return stats_dict
