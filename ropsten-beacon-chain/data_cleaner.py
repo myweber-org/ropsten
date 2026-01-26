@@ -1,44 +1,3 @@
-import numpy as np
-import pandas as pd
-
-def remove_outliers_iqr(data, column):
-    Q1 = data[column].quantile(0.25)
-    Q3 = data[column].quantile(0.75)
-    IQR = Q3 - Q1
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
-    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
-    return filtered_data
-
-def normalize_minmax(data, column):
-    min_val = data[column].min()
-    max_val = data[column].max()
-    if max_val - min_val == 0:
-        return data[column]
-    normalized = (data[column] - min_val) / (max_val - min_val)
-    return normalized
-
-def standardize_zscore(data, column):
-    mean_val = data[column].mean()
-    std_val = data[column].std()
-    if std_val == 0:
-        return data[column]
-    standardized = (data[column] - mean_val) / std_val
-    return standardized
-
-def clean_dataset(df, numeric_columns, outlier_removal=True, normalization='standard'):
-    cleaned_df = df.copy()
-    if outlier_removal:
-        for col in numeric_columns:
-            cleaned_df = remove_outliers_iqr(cleaned_df, col)
-    
-    for col in numeric_columns:
-        if normalization == 'minmax':
-            cleaned_df[col] = normalize_minmax(cleaned_df, col)
-        elif normalization == 'standard':
-            cleaned_df[col] = standardize_zscore(cleaned_df, col)
-    
-    return cleaned_df
 import pandas as pd
 import numpy as np
 
@@ -48,7 +7,7 @@ def remove_outliers_iqr(df, column):
     
     Parameters:
     df (pd.DataFrame): Input DataFrame
-    column (str): Column name to clean
+    column (str): Column name to process
     
     Returns:
     pd.DataFrame: DataFrame with outliers removed
@@ -67,44 +26,103 @@ def remove_outliers_iqr(df, column):
     
     return filtered_df
 
-def clean_dataset(df, numeric_columns=None):
+def clean_numeric_data(df, columns=None):
     """
-    Clean a dataset by removing outliers from all numeric columns.
+    Clean numeric data by removing outliers from specified columns.
+    If no columns specified, clean all numeric columns.
     
     Parameters:
     df (pd.DataFrame): Input DataFrame
-    numeric_columns (list): List of numeric column names to clean
+    columns (list): List of column names to clean
     
     Returns:
     pd.DataFrame: Cleaned DataFrame
     """
-    if numeric_columns is None:
-        numeric_columns = df.select_dtypes(include=[np.number]).columns.tolist()
+    if columns is None:
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        columns = list(numeric_cols)
     
     cleaned_df = df.copy()
     
-    for column in numeric_columns:
-        if column in df.columns:
-            original_len = len(cleaned_df)
-            cleaned_df = remove_outliers_iqr(cleaned_df, column)
-            removed_count = original_len - len(cleaned_df)
-            print(f"Removed {removed_count} outliers from column '{column}'")
+    for col in columns:
+        if col in cleaned_df.columns:
+            original_count = len(cleaned_df)
+            cleaned_df = remove_outliers_iqr(cleaned_df, col)
+            removed_count = original_count - len(cleaned_df)
+            print(f"Removed {removed_count} outliers from column '{col}'")
     
     return cleaned_df
 
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate
+    required_columns (list): List of required column names
+    
+    Returns:
+    bool: True if validation passes
+    """
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError("Input must be a pandas DataFrame")
+    
+    if df.empty:
+        raise ValueError("DataFrame is empty")
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            raise ValueError(f"Missing required columns: {missing_cols}")
+    
+    return True
+
+def process_data_file(file_path, output_path=None):
+    """
+    Process a data file: load, clean, and optionally save.
+    
+    Parameters:
+    file_path (str): Path to input data file
+    output_path (str): Path to save cleaned data (optional)
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame
+    """
+    try:
+        if file_path.endswith('.csv'):
+            df = pd.read_csv(file_path)
+        elif file_path.endswith('.xlsx'):
+            df = pd.read_excel(file_path)
+        else:
+            raise ValueError("Unsupported file format. Use .csv or .xlsx")
+        
+        validate_dataframe(df)
+        
+        cleaned_df = clean_numeric_data(df)
+        
+        if output_path:
+            if output_path.endswith('.csv'):
+                cleaned_df.to_csv(output_path, index=False)
+            elif output_path.endswith('.xlsx'):
+                cleaned_df.to_excel(output_path, index=False)
+            print(f"Cleaned data saved to: {output_path}")
+        
+        return cleaned_df
+        
+    except Exception as e:
+        print(f"Error processing file: {str(e)}")
+        raise
+
 if __name__ == "__main__":
-    sample_data = {
-        'id': range(1, 21),
-        'value': [10, 12, 13, 14, 15, 16, 17, 18, 19, 20, 
-                  21, 22, 23, 24, 25, 100, -50, 26, 27, 28]
-    }
+    sample_data = pd.DataFrame({
+        'id': range(1, 101),
+        'value': np.concatenate([
+            np.random.normal(50, 10, 90),
+            np.random.normal(150, 30, 10)
+        ]),
+        'category': np.random.choice(['A', 'B', 'C'], 100)
+    })
     
-    df = pd.DataFrame(sample_data)
-    print("Original dataset:")
-    print(df)
-    print(f"\nOriginal shape: {df.shape}")
-    
-    cleaned_df = clean_dataset(df, ['value'])
-    print(f"\nCleaned shape: {cleaned_df.shape}")
-    print("\nCleaned dataset:")
-    print(cleaned_df)
+    print("Original data shape:", sample_data.shape)
+    cleaned_data = clean_numeric_data(sample_data, ['value'])
+    print("Cleaned data shape:", cleaned_data.shape)
