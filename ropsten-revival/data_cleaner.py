@@ -115,3 +115,48 @@ if __name__ == "__main__":
     
     is_valid = validate_data(cleaned, required_columns=['A', 'B'], min_rows=3)
     print(f"\nData validation result: {is_valid}")
+import re
+
+def clean_text(text):
+    """
+    Clean and normalize text by:
+    1. Removing leading/trailing whitespace
+    2. Converting multiple spaces/newlines/tabs to a single space
+    3. Converting to lowercase
+    """
+    if not isinstance(text, str):
+        return ""
+    
+    # Remove leading/trailing whitespace
+    text = text.strip()
+    
+    # Replace multiple whitespace characters with a single space
+    text = re.sub(r'\s+', ' ', text)
+    
+    # Convert to lowercase
+    text = text.lower()
+    
+    return text
+
+def clean_text_list(text_list):
+    """
+    Clean a list of text strings using clean_text function.
+    Returns a new list with cleaned text.
+    """
+    if not isinstance(text_list, list):
+        return []
+    
+    return [clean_text(text) for text in text_list]
+
+if __name__ == "__main__":
+    # Example usage
+    dirty_text = "  Hello   World!\nThis is a TEST.  "
+    cleaned = clean_text(dirty_text)
+    print(f"Original: '{dirty_text}'")
+    print(f"Cleaned: '{cleaned}'")
+    
+    # Test with list
+    dirty_list = ["  First Item  ", "SECOND\nITEM", "  third  "]
+    cleaned_list = clean_text_list(dirty_list)
+    print(f"\nOriginal list: {dirty_list}")
+    print(f"Cleaned list: {cleaned_list}")
