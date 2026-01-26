@@ -110,3 +110,107 @@ def validate_data(df, required_columns=None, check_missing=True, check_duplicate
         validation_results['duplicate_rows'] = duplicate_rows
     
     return validation_results
+import pandas as pd
+
+def clean_dataset(df, drop_duplicates=True, fill_missing=True, fill_value=0):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame to clean
+    drop_duplicates (bool): Whether to remove duplicate rows
+    fill_missing (bool): Whether to fill missing values
+    fill_value: Value to use for filling missing data
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame
+    """
+    cleaned_df = df.copy()
+    
+    if drop_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates()
+    
+    if fill_missing:
+        cleaned_df = cleaned_df.fillna(fill_value)
+    
+    return cleaned_df
+
+def validate_data(df, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate
+    required_columns (list): List of column names that must be present
+    
+    Returns:
+    tuple: (is_valid, error_message)
+    """
+    if df.empty:
+        return False, "DataFrame is empty"
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            return False, f"Missing required columns: {missing_columns}"
+    
+    return True, "Data validation passed"
+
+def remove_outliers(df, column, method='iqr', threshold=1.5):
+    """
+    Remove outliers from a specific column using specified method.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    column (str): Column name to process
+    method (str): 'iqr' for interquartile range or 'zscore' for standard deviation
+    threshold (float): Threshold for outlier detection
+    
+    Returns:
+    pd.DataFrame: DataFrame with outliers removed
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    data = df[column].copy()
+    
+    if method == 'iqr':
+        Q1 = data.quantile(0.25)
+        Q3 = data.quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - threshold * IQR
+        upper_bound = Q3 + threshold * IQR
+        mask = (data >= lower_bound) & (data <= upper_bound)
+    
+    elif method == 'zscore':
+        mean = data.mean()
+        std = data.std()
+        z_scores = (data - mean) / std
+        mask = abs(z_scores) <= threshold
+    
+    else:
+        raise ValueError("Method must be 'iqr' or 'zscore'")
+    
+    return df[mask]
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = pd.DataFrame({
+        'A': [1, 2, 2, 3, None, 5, 100],
+        'B': [10, 20, 20, 30, 40, 50, 60],
+        'C': ['x', 'y', 'y', 'z', 'z', 'x', 'x']
+    })
+    
+    print("Original data:")
+    print(sample_data)
+    
+    cleaned = clean_dataset(sample_data)
+    print("\nCleaned data:")
+    print(cleaned)
+    
+    is_valid, message = validate_data(cleaned, required_columns=['A', 'B'])
+    print(f"\nValidation: {is_valid} - {message}")
+    
+    filtered = remove_outliers(cleaned, 'A', method='iqr')
+    print("\nData after outlier removal:")
+    print(filtered)
