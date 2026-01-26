@@ -1,69 +1,38 @@
-import pandas as pd
 
-def clean_dataset(df, drop_duplicates=True, fill_missing=True, fill_value=0):
-    """
-    Clean a pandas DataFrame by removing duplicates and handling missing values.
-    
-    Parameters:
-    df (pd.DataFrame): Input DataFrame to clean.
-    drop_duplicates (bool): Whether to drop duplicate rows.
-    fill_missing (bool): Whether to fill missing values.
-    fill_value: Value to use for filling missing data.
-    
-    Returns:
-    pd.DataFrame: Cleaned DataFrame.
-    """
+import pandas as pd
+import numpy as np
+
+def remove_outliers_iqr(df, column):
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+
+def normalize_minmax(df, column):
+    min_val = df[column].min()
+    max_val = df[column].max()
+    df[column + '_normalized'] = (df[column] - min_val) / (max_val - min_val)
+    return df
+
+def clean_dataset(df, numeric_columns):
     cleaned_df = df.copy()
-    
-    if drop_duplicates:
-        cleaned_df = cleaned_df.drop_duplicates()
-    
-    if fill_missing:
-        cleaned_df = cleaned_df.fillna(fill_value)
-    
+    for col in numeric_columns:
+        if col in cleaned_df.columns:
+            cleaned_df = remove_outliers_iqr(cleaned_df, col)
+            cleaned_df = normalize_minmax(cleaned_df, col)
     return cleaned_df
 
-def validate_numeric_columns(df, columns):
-    """
-    Validate that specified columns contain only numeric values.
-    
-    Parameters:
-    df (pd.DataFrame): Input DataFrame.
-    columns (list): List of column names to validate.
-    
-    Returns:
-    dict: Dictionary with validation results for each column.
-    """
-    results = {}
-    
-    for col in columns:
-        if col in df.columns:
-            non_numeric = pd.to_numeric(df[col], errors='coerce').isna().sum()
-            results[col] = {
-                'total_rows': len(df),
-                'non_numeric_count': non_numeric,
-                'is_valid': non_numeric == 0
-            }
-    
-    return results
-
 if __name__ == "__main__":
-    # Example usage
-    sample_data = {
-        'A': [1, 2, 2, None, 5],
-        'B': [10, 20, 20, 40, 50],
-        'C': ['x', 'y', 'y', 'z', None]
-    }
+    sample_data = pd.DataFrame({
+        'feature_a': np.random.normal(100, 15, 200),
+        'feature_b': np.random.exponential(50, 200),
+        'category': np.random.choice(['X', 'Y', 'Z'], 200)
+    })
     
-    df = pd.DataFrame(sample_data)
-    print("Original DataFrame:")
-    print(df)
-    print("\nCleaned DataFrame:")
-    cleaned = clean_dataset(df, fill_value='unknown')
-    print(cleaned)
-    
-    # Validate numeric columns
-    validation = validate_numeric_columns(df, ['A', 'B'])
-    print("\nColumn Validation:")
-    for col, result in validation.items():
-        print(f"{col}: {result}")
+    numeric_cols = ['feature_a', 'feature_b']
+    result = clean_dataset(sample_data, numeric_cols)
+    print(f"Original shape: {sample_data.shape}")
+    print(f"Cleaned shape: {result.shape}")
+    print(result.head())
