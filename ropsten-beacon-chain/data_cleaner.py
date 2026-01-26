@@ -1,111 +1,134 @@
 
-import pandas as pd
 import numpy as np
+import pandas as pd
+from scipy import stats
 
-def clean_csv_data(input_file, output_file, missing_strategy='mean'):
+def remove_outliers_iqr(data, column, factor=1.5):
     """
-    Clean CSV data by handling missing values and removing duplicates.
-    
-    Args:
-        input_file (str): Path to input CSV file
-        output_file (str): Path to save cleaned CSV file
-        missing_strategy (str): Strategy for handling missing values ('mean', 'median', 'drop')
+    Remove outliers using IQR method
     """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
     
-    try:
-        df = pd.read_csv(input_file)
-        print(f"Original data shape: {df.shape}")
-        
-        # Remove duplicate rows
-        df = df.drop_duplicates()
-        print(f"After removing duplicates: {df.shape}")
-        
-        # Handle missing values
-        numeric_cols = df.select_dtypes(include=[np.number]).columns
-        
-        if missing_strategy == 'mean':
-            for col in numeric_cols:
-                df[col] = df[col].fillna(df[col].mean())
-        elif missing_strategy == 'median':
-            for col in numeric_cols:
-                df[col] = df[col].fillna(df[col].median())
-        elif missing_strategy == 'drop':
-            df = df.dropna(subset=numeric_cols)
+    Q1 = data[column].quantile(0.25)
+    Q3 = data[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - factor * IQR
+    upper_bound = Q3 + factor * IQR
+    
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    removed_count = len(data) - len(filtered_data)
+    
+    return filtered_data, removed_count
+
+def remove_outliers_zscore(data, column, threshold=3):
+    """
+    Remove outliers using Z-score method
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    z_scores = np.abs(stats.zscore(data[column]))
+    filtered_data = data[z_scores < threshold]
+    removed_count = len(data) - len(filtered_data)
+    
+    return filtered_data, removed_count
+
+def normalize_minmax(data, column):
+    """
+    Normalize data using Min-Max scaling
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    min_val = data[column].min()
+    max_val = data[column].max()
+    
+    if min_val == max_val:
+        return data[column].apply(lambda x: 0.5)
+    
+    normalized = (data[column] - min_val) / (max_val - min_val)
+    return normalized
+
+def normalize_zscore(data, column):
+    """
+    Normalize data using Z-score standardization
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    mean_val = data[column].mean()
+    std_val = data[column].std()
+    
+    if std_val == 0:
+        return data[column].apply(lambda x: 0)
+    
+    standardized = (data[column] - mean_val) / std_val
+    return standardized
+
+def clean_dataset(data, numeric_columns, outlier_method='iqr', normalize_method='minmax'):
+    """
+    Comprehensive data cleaning pipeline
+    """
+    cleaned_data = data.copy()
+    removal_stats = {}
+    
+    for column in numeric_columns:
+        if column not in cleaned_data.columns:
+            continue
+            
+        if outlier_method == 'iqr':
+            cleaned_data, removed = remove_outliers_iqr(cleaned_data, column)
+        elif outlier_method == 'zscore':
+            cleaned_data, removed = remove_outliers_zscore(cleaned_data, column)
         else:
-            raise ValueError("Invalid missing_strategy. Use 'mean', 'median', or 'drop'")
+            raise ValueError(f"Unknown outlier method: {outlier_method}")
         
-        print(f"After handling missing values: {df.shape}")
+        removal_stats[column] = removed
         
-        # Save cleaned data
-        df.to_csv(output_file, index=False)
-        print(f"Cleaned data saved to: {output_file}")
-        
-        return df
-        
-    except FileNotFoundError:
-        print(f"Error: Input file '{input_file}' not found.")
-        return None
-    except pd.errors.EmptyDataError:
-        print("Error: Input file is empty.")
-        return None
-    except Exception as e:
-        print(f"Error during data cleaning: {str(e)}")
-        return None
+        if normalize_method == 'minmax':
+            cleaned_data[column] = normalize_minmax(cleaned_data, column)
+        elif normalize_method == 'zscore':
+            cleaned_data[column] = normalize_zscore(cleaned_data, column)
+        else:
+            raise ValueError(f"Unknown normalize method: {normalize_method}")
+    
+    return cleaned_data, removal_stats
 
-if __name__ == "__main__":
-    # Example usage
-    input_csv = "raw_data.csv"
-    output_csv = "cleaned_data.csv"
+def validate_data(data, numeric_columns):
+    """
+    Validate cleaned data statistics
+    """
+    validation_report = {}
     
-    cleaned_df = clean_csv_data(input_csv, output_csv, missing_strategy='mean')
+    for column in numeric_columns:
+        if column not in data.columns:
+            continue
+            
+        col_data = data[column]
+        validation_report[column] = {
+            'mean': col_data.mean(),
+            'std': col_data.std(),
+            'min': col_data.min(),
+            'max': col_data.max(),
+            'has_nan': col_data.isna().any(),
+            'has_inf': np.isinf(col_data).any()
+        }
     
-    if cleaned_df is not None:
-        print("Data cleaning completed successfully.")
-        print(f"Sample of cleaned data:\n{cleaned_df.head()}")import pandas as pd
-import re
+    return validation_report
 
-def clean_dataframe(df, columns_to_clean=None, remove_duplicates=True, normalize_text=True):
+def save_cleaned_data(data, filename, format='csv'):
     """
-    Clean a pandas DataFrame by removing duplicates and normalizing text columns.
+    Save cleaned data to file
     """
-    df_clean = df.copy()
+    if format == 'csv':
+        data.to_csv(filename, index=False)
+    elif format == 'parquet':
+        data.to_parquet(filename, index=False)
+    elif format == 'json':
+        data.to_json(filename, orient='records')
+    else:
+        raise ValueError(f"Unsupported format: {format}")
     
-    if remove_duplicates:
-        initial_rows = len(df_clean)
-        df_clean = df_clean.drop_duplicates()
-        removed = initial_rows - len(df_clean)
-        print(f"Removed {removed} duplicate rows.")
-    
-    if normalize_text and columns_to_clean:
-        for col in columns_to_clean:
-            if col in df_clean.columns and df_clean[col].dtype == 'object':
-                df_clean[col] = df_clean[col].apply(_normalize_string)
-                print(f"Normalized text in column: {col}")
-    
-    return df_clean
-
-def _normalize_string(text):
-    """
-    Normalize a string: lowercase, strip whitespace, remove extra spaces.
-    """
-    if pd.isna(text):
-        return text
-    text = str(text)
-    text = text.lower()
-    text = text.strip()
-    text = re.sub(r'\s+', ' ', text)
-    return text
-
-def validate_email_column(df, email_column):
-    """
-    Validate email addresses in a specified column.
-    """
-    if email_column not in df.columns:
-        raise ValueError(f"Column '{email_column}' not found in DataFrame.")
-    
-    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-    df['email_valid'] = df[email_column].apply(lambda x: bool(re.match(pattern, str(x))) if pd.notna(x) else False)
-    valid_count = df['email_valid'].sum()
-    total_count = len(df)
-    print(f"Valid emails: {valid_count}/{total_count}")
-    return df
+    return True
