@@ -389,3 +389,11 @@ def create_clean_data_pipeline(data, config):
                 cleaned_data[col] = standardize_zscore(cleaned_data, col)
     
     return cleaned_data
+def remove_duplicates_preserve_order(sequence):
+    seen = set()
+    result = []
+    for item in sequence:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
