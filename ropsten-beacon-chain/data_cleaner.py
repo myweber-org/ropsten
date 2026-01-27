@@ -251,4 +251,83 @@ def clean_dataset(data, numeric_columns):
         if column in cleaned_data.columns:
             cleaned_data = remove_outliers_iqr(cleaned_data, column)
     
-    return cleaned_data
+    return cleaned_dataimport pandas as pd
+import numpy as np
+
+def clean_dataset(df, numeric_columns, method='mean', outlier_threshold=3):
+    """
+    Clean a dataset by handling missing values and removing outliers.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame.
+    numeric_columns (list): List of numeric column names to clean.
+    method (str): Method for missing value imputation ('mean', 'median', 'mode').
+    outlier_threshold (float): Number of standard deviations to consider as outlier.
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame.
+    """
+    df_clean = df.copy()
+    
+    for col in numeric_columns:
+        if col not in df_clean.columns:
+            continue
+            
+        # Handle missing values
+        if method == 'mean':
+            fill_value = df_clean[col].mean()
+        elif method == 'median':
+            fill_value = df_clean[col].median()
+        elif method == 'mode':
+            fill_value = df_clean[col].mode()[0] if not df_clean[col].mode().empty else 0
+        else:
+            fill_value = 0
+            
+        df_clean[col].fillna(fill_value, inplace=True)
+        
+        # Remove outliers using z-score method
+        if outlier_threshold > 0:
+            z_scores = np.abs((df_clean[col] - df_clean[col].mean()) / df_clean[col].std())
+            df_clean = df_clean[z_scores < outlier_threshold]
+    
+    return df_clean.reset_index(drop=True)
+
+def validate_dataframe(df, required_columns):
+    """
+    Validate that DataFrame contains required columns and has no empty data.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate.
+    required_columns (list): List of required column names.
+    
+    Returns:
+    tuple: (is_valid, error_message)
+    """
+    missing_columns = [col for col in required_columns if col not in df.columns]
+    
+    if missing_columns:
+        return False, f"Missing required columns: {missing_columns}"
+    
+    if df.empty:
+        return False, "DataFrame is empty"
+    
+    return True, "DataFrame is valid"
+
+# Example usage
+if __name__ == "__main__":
+    sample_data = {
+        'id': [1, 2, 3, 4, 5],
+        'value': [10.5, 20.3, None, 15.7, 100.0],
+        'category': ['A', 'B', 'A', 'C', 'B']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    
+    cleaned_df = clean_dataset(df, ['value'], method='mean', outlier_threshold=2)
+    print("\nCleaned DataFrame:")
+    print(cleaned_df)
+    
+    is_valid, message = validate_dataframe(cleaned_df, ['id', 'value'])
+    print(f"\nValidation: {message}")
