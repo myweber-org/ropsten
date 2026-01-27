@@ -512,3 +512,118 @@ def example_usage():
 
 if __name__ == "__main__":
     result_df = example_usage()
+import pandas as pd
+import numpy as np
+
+def remove_outliers_iqr(df, columns=None):
+    """
+    Remove outliers from specified columns using the Interquartile Range method.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    columns (list): List of column names to process. If None, process all numeric columns.
+    
+    Returns:
+    pd.DataFrame: DataFrame with outliers removed
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns.tolist()
+    
+    df_clean = df.copy()
+    
+    for col in columns:
+        if col in df.columns and pd.api.types.is_numeric_dtype(df[col]):
+            Q1 = df[col].quantile(0.25)
+            Q3 = df[col].quantile(0.75)
+            IQR = Q3 - Q1
+            
+            lower_bound = Q1 - 1.5 * IQR
+            upper_bound = Q3 + 1.5 * IQR
+            
+            mask = (df[col] >= lower_bound) & (df[col] <= upper_bound)
+            df_clean = df_clean[mask]
+    
+    return df_clean.reset_index(drop=True)
+
+def normalize_data(df, columns=None, method='minmax'):
+    """
+    Normalize specified columns in the DataFrame.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    columns (list): List of column names to normalize
+    method (str): Normalization method - 'minmax' or 'zscore'
+    
+    Returns:
+    pd.DataFrame: DataFrame with normalized columns
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns.tolist()
+    
+    df_normalized = df.copy()
+    
+    for col in columns:
+        if col in df.columns and pd.api.types.is_numeric_dtype(df[col]):
+            if method == 'minmax':
+                min_val = df[col].min()
+                max_val = df[col].max()
+                if max_val != min_val:
+                    df_normalized[col] = (df[col] - min_val) / (max_val - min_val)
+            
+            elif method == 'zscore':
+                mean_val = df[col].mean()
+                std_val = df[col].std()
+                if std_val != 0:
+                    df_normalized[col] = (df[col] - mean_val) / std_val
+    
+    return df_normalized
+
+def handle_missing_values(df, strategy='mean', columns=None):
+    """
+    Handle missing values in the DataFrame.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    strategy (str): Strategy for handling missing values - 'mean', 'median', 'mode', or 'drop'
+    columns (list): List of column names to process
+    
+    Returns:
+    pd.DataFrame: DataFrame with handled missing values
+    """
+    df_processed = df.copy()
+    
+    if columns is None:
+        columns = df.columns.tolist()
+    
+    if strategy == 'drop':
+        return df_processed.dropna(subset=columns)
+    
+    for col in columns:
+        if col in df.columns and df[col].isnull().any():
+            if strategy == 'mean' and pd.api.types.is_numeric_dtype(df[col]):
+                df_processed[col] = df[col].fillna(df[col].mean())
+            elif strategy == 'median' and pd.api.types.is_numeric_dtype(df[col]):
+                df_processed[col] = df[col].fillna(df[col].median())
+            elif strategy == 'mode':
+                df_processed[col] = df[col].fillna(df[col].mode()[0] if not df[col].mode().empty else None)
+    
+    return df_processed
+
+if __name__ == "__main__":
+    sample_data = {
+        'A': [1, 2, 3, 100, 5, 6, 7, 8, 9, 10],
+        'B': [10, 20, 30, 40, 50, 60, 70, 80, 90, 1000],
+        'C': [1.1, 2.2, 3.3, 4.4, 5.5, 6.6, 7.7, 8.8, 9.9, 10.0]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    
+    cleaned_df = remove_outliers_iqr(df, columns=['A', 'B'])
+    print("\nDataFrame after outlier removal:")
+    print(cleaned_df)
+    
+    normalized_df = normalize_data(cleaned_df, method='minmax')
+    print("\nNormalized DataFrame:")
+    print(normalized_df)
