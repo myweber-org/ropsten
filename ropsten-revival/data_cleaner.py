@@ -1,127 +1,72 @@
 
 import pandas as pd
 import numpy as np
-from scipy import stats
 
-class DataCleaner:
-    def __init__(self, df):
-        self.df = df.copy()
-        self.original_shape = df.shape
-        
-    def remove_missing(self, threshold=0.3):
-        missing_percent = self.df.isnull().sum() / len(self.df)
-        columns_to_drop = missing_percent[missing_percent > threshold].index
-        self.df = self.df.drop(columns=columns_to_drop)
-        return self
+def clean_dataset(df, drop_duplicates=True, fill_missing=True):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    """
+    cleaned_df = df.copy()
     
-    def fill_numeric_missing(self, method='median'):
-        numeric_cols = self.df.select_dtypes(include=[np.number]).columns
-        
+    if drop_duplicates:
+        initial_rows = cleaned_df.shape[0]
+        cleaned_df = cleaned_df.drop_duplicates()
+        removed = initial_rows - cleaned_df.shape[0]
+        print(f"Removed {removed} duplicate rows")
+    
+    if fill_missing:
+        numeric_cols = cleaned_df.select_dtypes(include=[np.number]).columns
         for col in numeric_cols:
-            if self.df[col].isnull().any():
-                if method == 'median':
-                    fill_value = self.df[col].median()
-                elif method == 'mean':
-                    fill_value = self.df[col].mean()
-                elif method == 'mode':
-                    fill_value = self.df[col].mode()[0]
-                else:
-                    fill_value = 0
-                
-                self.df[col] = self.df[col].fillna(fill_value)
+            if cleaned_df[col].isnull().any():
+                cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].median())
+                print(f"Filled missing values in column '{col}' with median")
         
-        return self
+        categorical_cols = cleaned_df.select_dtypes(include=['object']).columns
+        for col in categorical_cols:
+            if cleaned_df[col].isnull().any():
+                cleaned_df[col] = cleaned_df[col].fillna('Unknown')
+                print(f"Filled missing values in column '{col}' with 'Unknown'")
     
-    def detect_outliers_zscore(self, threshold=3):
-        numeric_cols = self.df.select_dtypes(include=[np.number]).columns
-        outliers_mask = pd.Series([False] * len(self.df))
-        
-        for col in numeric_cols:
-            z_scores = np.abs(stats.zscore(self.df[col].dropna()))
-            col_outliers = (z_scores > threshold)
-            outliers_mask = outliers_mask | col_outliers.reindex(self.df.index, fill_value=False)
-        
-        return outliers_mask
-    
-    def remove_outliers(self, threshold=3):
-        outliers_mask = self.detect_outliers_zscore(threshold)
-        self.df = self.df[~outliers_mask]
-        return self
-    
-    def normalize_data(self, method='minmax'):
-        numeric_cols = self.df.select_dtypes(include=[np.number]).columns
-        
-        if method == 'minmax':
-            for col in numeric_cols:
-                min_val = self.df[col].min()
-                max_val = self.df[col].max()
-                if max_val > min_val:
-                    self.df[col] = (self.df[col] - min_val) / (max_val - min_val)
-        
-        elif method == 'standard':
-            for col in numeric_cols:
-                mean_val = self.df[col].mean()
-                std_val = self.df[col].std()
-                if std_val > 0:
-                    self.df[col] = (self.df[col] - mean_val) / std_val
-        
-        return self
-    
-    def get_cleaned_data(self):
-        return self.df
-    
-    def get_cleaning_report(self):
-        removed_rows = self.original_shape[0] - len(self.df)
-        removed_cols = self.original_shape[1] - self.df.shape[1]
-        
-        report = {
-            'original_shape': self.original_shape,
-            'cleaned_shape': self.df.shape,
-            'rows_removed': removed_rows,
-            'columns_removed': removed_cols,
-            'remaining_missing': self.df.isnull().sum().sum()
-        }
-        
-        return report
+    return cleaned_df
 
-def clean_dataset(df, outlier_threshold=3, normalize=True):
-    cleaner = DataCleaner(df)
-    
-    cleaner.remove_missing()
-    cleaner.fill_numeric_missing()
-    
-    if outlier_threshold > 0:
-        cleaner.remove_outliers(threshold=outlier_threshold)
-    
-    if normalize:
-        cleaner.normalize_data()
-    
-    return cleaner.get_cleaned_data(), cleaner.get_cleaning_report()def remove_duplicates(input_list):
+def validate_dataset(df, required_columns=None):
     """
-    Remove duplicate elements from a list while preserving the original order.
-    Returns a new list with unique elements.
+    Validate dataset structure and content.
     """
-    seen = set()
-    result = []
-    for item in input_list:
-        if item not in seen:
-            seen.add(item)
-            result.append(item)
-    return result
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            raise ValueError(f"Missing required columns: {missing_cols}")
+    
+    if df.empty:
+        raise ValueError("Dataset is empty")
+    
+    return True
 
-def clean_data(data):
+def save_cleaned_data(df, output_path):
     """
-    Main cleaning function that handles duplicate removal.
-    Accepts a list and returns the cleaned version.
+    Save cleaned DataFrame to CSV file.
     """
-    if not isinstance(data, list):
-        raise TypeError("Input must be a list")
-    
-    cleaned = remove_duplicates(data)
-    return cleaned
+    df.to_csv(output_path, index=False)
+    print(f"Cleaned data saved to {output_path}")
 
 if __name__ == "__main__":
-    sample_data = [1, 2, 2, 3, 4, 4, 5, 1, 6]
-    cleaned_data = clean_data(sample_data)
-    print(f"Original: {sample_data}")
-    print(f"Cleaned: {cleaned_data}")
+    # Example usage
+    sample_data = pd.DataFrame({
+        'id': [1, 2, 2, 3, 4],
+        'value': [10, 20, 20, None, 40],
+        'category': ['A', 'B', None, 'A', 'C']
+    })
+    
+    print("Original dataset:")
+    print(sample_data)
+    print("\nCleaning dataset...")
+    
+    cleaned_data = clean_dataset(sample_data)
+    print("\nCleaned dataset:")
+    print(cleaned_data)
+    
+    if validate_dataset(cleaned_data, required_columns=['id', 'value']):
+        print("Dataset validation passed")
+    
+    save_cleaned_data(cleaned_data, 'cleaned_data.csv')
