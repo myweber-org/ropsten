@@ -310,4 +310,37 @@ def main():
     print(f"\nCleaned up test directory: {test_dir}")
 
 if __name__ == '__main__':
-    main()
+    main()import os
+import time
+import logging
+from pathlib import Path
+
+def clean_old_files(directory_path, days_old=7):
+    """
+    Remove files in the specified directory that are older than the given days.
+    """
+    if not os.path.isdir(directory_path):
+        logging.error(f"Directory does not exist: {directory_path}")
+        return
+    
+    cutoff_time = time.time() - (days_old * 86400)
+    deleted_count = 0
+    error_count = 0
+    
+    for item in Path(directory_path).iterdir():
+        try:
+            if item.is_file():
+                if item.stat().st_mtime < cutoff_time:
+                    item.unlink()
+                    deleted_count += 1
+                    logging.info(f"Deleted: {item}")
+        except Exception as e:
+            error_count += 1
+            logging.error(f"Failed to delete {item}: {e}")
+    
+    logging.info(f"Cleanup completed. Deleted: {deleted_count}, Errors: {error_count}")
+
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
+    target_dir = "/tmp/test_cleanup"
+    clean_old_files(target_dir)
