@@ -371,4 +371,48 @@ if __name__ == "__main__":
     cleaned_df = clean_numeric_data(df)
     print("\nCleaned data shape:", cleaned_df.shape)
     print("\nCleaned statistics:")
-    print(calculate_statistics(cleaned_df))
+    print(calculate_statistics(cleaned_df))import pandas as pd
+import numpy as np
+
+def clean_data(input_file, output_file):
+    """
+    Load a CSV file, clean missing values, remove duplicates,
+    and save the cleaned data to a new CSV file.
+    """
+    try:
+        df = pd.read_csv(input_file)
+        
+        # Remove duplicate rows
+        df = df.drop_duplicates()
+        
+        # Fill missing numeric values with column median
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        for col in numeric_cols:
+            df[col] = df[col].fillna(df[col].median())
+        
+        # Fill missing categorical values with mode
+        categorical_cols = df.select_dtypes(include=['object']).columns
+        for col in categorical_cols:
+            df[col] = df[col].fillna(df[col].mode()[0] if not df[col].mode().empty else 'Unknown')
+        
+        # Remove rows where critical columns are still null
+        critical_columns = ['id', 'timestamp', 'value']
+        existing_critical = [col for col in critical_columns if col in df.columns]
+        if existing_critical:
+            df = df.dropna(subset=existing_critical)
+        
+        # Save cleaned data
+        df.to_csv(output_file, index=False)
+        print(f"Data cleaned successfully. Saved to {output_file}")
+        return True
+        
+    except FileNotFoundError:
+        print(f"Error: Input file {input_file} not found.")
+        return False
+    except Exception as e:
+        print(f"Error during data cleaning: {str(e)}")
+        return False
+
+if __name__ == "__main__":
+    # Example usage
+    clean_data('raw_data.csv', 'cleaned_data.csv')
