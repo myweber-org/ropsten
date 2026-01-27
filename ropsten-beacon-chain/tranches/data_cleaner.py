@@ -362,4 +362,72 @@ def validate_dataframe(df, required_columns=None):
     if df.empty:
         raise ValueError("DataFrame is empty")
     
-    return True
+    return Trueimport re
+import unicodedata
+
+def clean_text(text, lower=True, remove_numbers=False, remove_punctuation=False, normalize_unicode=True):
+    """
+    Clean and normalize text data.
+    
+    Args:
+        text (str): Input text to clean.
+        lower (bool): Convert text to lowercase.
+        remove_numbers (bool): Remove numerical digits.
+        remove_punctuation (bool): Remove punctuation characters.
+        normalize_unicode (bool): Normalize unicode characters.
+    
+    Returns:
+        str: Cleaned text.
+    """
+    if not isinstance(text, str):
+        return ""
+    
+    cleaned = text
+    
+    if normalize_unicode:
+        cleaned = unicodedata.normalize('NFKD', cleaned)
+        cleaned = cleaned.encode('ascii', 'ignore').decode('ascii')
+    
+    if lower:
+        cleaned = cleaned.lower()
+    
+    if remove_numbers:
+        cleaned = re.sub(r'\d+', '', cleaned)
+    
+    if remove_punctuation:
+        cleaned = re.sub(r'[^\w\s]', '', cleaned)
+    
+    cleaned = re.sub(r'\s+', ' ', cleaned).strip()
+    
+    return cleaned
+
+def tokenize_text(text, split_pattern=r'\W+'):
+    """
+    Tokenize text into words.
+    
+    Args:
+        text (str): Input text to tokenize.
+        split_pattern (str): Regex pattern for splitting.
+    
+    Returns:
+        list: List of tokens.
+    """
+    cleaned = clean_text(text, remove_punctuation=True)
+    tokens = re.split(split_pattern, cleaned)
+    return [token for token in tokens if token]
+
+def remove_stopwords(tokens, stopwords=None):
+    """
+    Remove stopwords from token list.
+    
+    Args:
+        tokens (list): List of word tokens.
+        stopwords (set): Set of stopwords to remove.
+    
+    Returns:
+        list: Filtered tokens without stopwords.
+    """
+    if stopwords is None:
+        stopwords = {'a', 'an', 'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by'}
+    
+    return [token for token in tokens if token not in stopwords]
