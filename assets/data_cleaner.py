@@ -123,3 +123,79 @@ def save_cleaned_data(df, filename, format='csv'):
         df.to_json(filename, orient='records')
     else:
         raise ValueError(f"Unsupported format: {format}")
+import pandas as pd
+import numpy as np
+from pathlib import Path
+
+def load_dataset(file_path):
+    """Load dataset from CSV file."""
+    try:
+        df = pd.read_csv(file_path)
+        print(f"Dataset loaded successfully. Shape: {df.shape}")
+        return df
+    except FileNotFoundError:
+        print(f"Error: File not found at {file_path}")
+        return None
+
+def remove_duplicates(df, subset=None):
+    """Remove duplicate rows from the dataframe."""
+    initial_count = len(df)
+    df_clean = df.drop_duplicates(subset=subset, keep='first')
+    removed_count = initial_count - len(df_clean)
+    print(f"Removed {removed_count} duplicate rows.")
+    return df_clean
+
+def standardize_column(df, column_name, case='lower'):
+    """Standardize text in a specific column."""
+    if column_name not in df.columns:
+        print(f"Column '{column_name}' not found in dataframe.")
+        return df
+    
+    if case == 'lower':
+        df[column_name] = df[column_name].astype(str).str.lower()
+    elif case == 'upper':
+        df[column_name] = df[column_name].astype(str).str.upper()
+    elif case == 'title':
+        df[column_name] = df[column_name].astype(str).str.title()
+    
+    print(f"Standardized column '{column_name}' to {case} case.")
+    return df
+
+def fill_missing_values(df, column_name, fill_value=np.nan):
+    """Fill missing values in a column with specified value."""
+    if column_name not in df.columns:
+        print(f"Column '{column_name}' not found in dataframe.")
+        return df
+    
+    missing_count = df[column_name].isnull().sum()
+    df[column_name] = df[column_name].fillna(fill_value)
+    print(f"Filled {missing_count} missing values in column '{column_name}'.")
+    return df
+
+def clean_dataset(input_path, output_path=None):
+    """Main function to clean the dataset."""
+    df = load_dataset(input_path)
+    if df is None:
+        return
+    
+    print("Starting data cleaning process...")
+    
+    df = remove_duplicates(df)
+    df = standardize_column(df, 'name', case='title')
+    df = standardize_column(df, 'email', case='lower')
+    df = fill_missing_values(df, 'age', fill_value=0)
+    df = fill_missing_values(df, 'salary', fill_value=df['salary'].median())
+    
+    if output_path is None:
+        input_file = Path(input_path)
+        output_path = input_file.parent / f"{input_file.stem}_cleaned{input_file.suffix}"
+    
+    df.to_csv(output_path, index=False)
+    print(f"Cleaned dataset saved to: {output_path}")
+    print(f"Final dataset shape: {df.shape}")
+    
+    return df
+
+if __name__ == "__main__":
+    input_file = "raw_data.csv"
+    clean_dataset(input_file)
