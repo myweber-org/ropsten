@@ -1,3 +1,4 @@
+
 import requests
 import json
 import sys
@@ -35,7 +36,7 @@ def display_weather(data):
     wind_speed = data['wind']['speed']
 
     print(f"Weather in {city}, {country}:")
-    print(f"  Temperature: {temp}°C (Feels like: {feels_like}°C)")
+    print(f"  Temperature: {temp}°C (feels like {feels_like}°C)")
     print(f"  Conditions: {weather_desc}")
     print(f"  Humidity: {humidity}%")
     print(f"  Wind Speed: {wind_speed} m/s")
@@ -43,7 +44,7 @@ def display_weather(data):
 def main():
     if len(sys.argv) < 3:
         print("Usage: python fetch_weather.py <API_KEY> <CITY_NAME>")
-        print("Example: python fetch_weather.py your_api_key_here London")
+        print("Example: python fetch_weather.py abc123 London")
         sys.exit(1)
 
     api_key = sys.argv[1]
