@@ -1,126 +1,99 @@
-import numpy as np
+
 import pandas as pd
-from scipy import stats
+import numpy as np
+from pathlib import Path
 
-class DataCleaner:
-    def __init__(self, df):
-        self.df = df.copy()
-        self.original_shape = df.shape
-        
-    def remove_outliers_iqr(self, columns=None, multiplier=1.5):
-        if columns is None:
-            columns = self.df.select_dtypes(include=[np.number]).columns
-            
-        df_clean = self.df.copy()
-        for col in columns:
-            if col in self.df.columns and self.df[col].dtype in [np.float64, np.int64]:
-                Q1 = self.df[col].quantile(0.25)
-                Q3 = self.df[col].quantile(0.75)
-                IQR = Q3 - Q1
-                lower_bound = Q1 - multiplier * IQR
-                upper_bound = Q3 + multiplier * IQR
-                
-                mask = (self.df[col] >= lower_bound) & (self.df[col] <= upper_bound)
-                df_clean = df_clean[mask]
-        
-        self.df = df_clean.reset_index(drop=True)
-        return self
+def clean_csv_data(input_path, output_path=None, missing_strategy='mean'):
+    """
+    Load and clean CSV data by handling missing values.
     
-    def remove_outliers_zscore(self, columns=None, threshold=3):
-        if columns is None:
-            columns = self.df.select_dtypes(include=[np.number]).columns
-            
-        df_clean = self.df.copy()
-        for col in columns:
-            if col in self.df.columns and self.df[col].dtype in [np.float64, np.int64]:
-                z_scores = np.abs(stats.zscore(self.df[col].fillna(self.df[col].mean())))
-                mask = z_scores < threshold
-                df_clean = df_clean[mask]
-        
-        self.df = df_clean.reset_index(drop=True)
-        return self
+    Parameters:
+    input_path (str): Path to input CSV file
+    output_path (str, optional): Path for cleaned output CSV
+    missing_strategy (str): Strategy for handling missing values
+                           ('mean', 'median', 'drop', 'zero')
     
-    def normalize_minmax(self, columns=None):
-        if columns is None:
-            columns = self.df.select_dtypes(include=[np.number]).columns
-            
-        df_normalized = self.df.copy()
-        for col in columns:
-            if col in self.df.columns and self.df[col].dtype in [np.float64, np.int64]:
-                min_val = self.df[col].min()
-                max_val = self.df[col].max()
-                if max_val != min_val:
-                    df_normalized[col] = (self.df[col] - min_val) / (max_val - min_val)
-        
-        self.df = df_normalized
-        return self
+    Returns:
+    pandas.DataFrame: Cleaned DataFrame
+    """
     
-    def normalize_zscore(self, columns=None):
-        if columns is None:
-            columns = self.df.select_dtypes(include=[np.number]).columns
-            
-        df_normalized = self.df.copy()
-        for col in columns:
-            if col in self.df.columns and self.df[col].dtype in [np.float64, np.int64]:
-                mean_val = self.df[col].mean()
-                std_val = self.df[col].std()
-                if std_val > 0:
-                    df_normalized[col] = (self.df[col] - mean_val) / std_val
-        
-        self.df = df_normalized
-        return self
+    if not Path(input_path).exists():
+        raise FileNotFoundError(f"Input file not found: {input_path}")
     
-    def fill_missing(self, strategy='mean', columns=None):
-        if columns is None:
-            columns = self.df.select_dtypes(include=[np.number]).columns
-            
-        df_filled = self.df.copy()
-        for col in columns:
-            if col in self.df.columns and self.df[col].isnull().any():
-                if strategy == 'mean':
-                    fill_value = self.df[col].mean()
-                elif strategy == 'median':
-                    fill_value = self.df[col].median()
-                elif strategy == 'mode':
-                    fill_value = self.df[col].mode()[0]
-                else:
-                    fill_value = 0
-                
-                df_filled[col] = self.df[col].fillna(fill_value)
-        
-        self.df = df_filled
-        return self
+    df = pd.read_csv(input_path)
     
-    def get_cleaned_data(self):
-        return self.df
+    original_rows = len(df)
+    original_cols = len(df.columns)
     
-    def get_removed_count(self):
-        return self.original_shape[0] - self.df.shape[0]
+    print(f"Original data: {original_rows} rows, {original_cols} columns")
+    print(f"Missing values per column:")
+    print(df.isnull().sum())
     
-    def summary(self):
-        print(f"Original shape: {self.original_shape}")
-        print(f"Cleaned shape: {self.df.shape}")
-        print(f"Rows removed: {self.get_removed_count()}")
-        print(f"Columns: {list(self.df.columns)}")
-        
-        if len(self.df.select_dtypes(include=[np.number]).columns) > 0:
-            print("\nNumerical columns summary:")
-            print(self.df.describe())
+    if missing_strategy == 'drop':
+        df_cleaned = df.dropna()
+    elif missing_strategy == 'mean':
+        df_cleaned = df.fillna(df.mean(numeric_only=True))
+    elif missing_strategy == 'median':
+        df_cleaned = df.fillna(df.median(numeric_only=True))
+    elif missing_strategy == 'zero':
+        df_cleaned = df.fillna(0)
+    else:
+        raise ValueError(f"Unknown strategy: {missing_strategy}")
+    
+    cleaned_rows = len(df_cleaned)
+    rows_removed = original_rows - cleaned_rows
+    
+    print(f"Cleaned data: {cleaned_rows} rows")
+    print(f"Rows removed: {rows_removed}")
+    
+    if output_path:
+        df_cleaned.to_csv(output_path, index=False)
+        print(f"Cleaned data saved to: {output_path}")
+    
+    return df_cleaned
 
-def clean_dataset(df, outlier_method='iqr', normalize_method=None, fill_missing=True):
-    cleaner = DataCleaner(df)
+def detect_outliers_iqr(df, column, threshold=1.5):
+    """
+    Detect outliers using Interquartile Range method.
     
-    if fill_missing:
-        cleaner.fill_missing()
+    Parameters:
+    df (pandas.DataFrame): Input DataFrame
+    column (str): Column name to check for outliers
+    threshold (float): IQR multiplier threshold
     
-    if outlier_method == 'iqr':
-        cleaner.remove_outliers_iqr()
-    elif outlier_method == 'zscore':
-        cleaner.remove_outliers_zscore()
+    Returns:
+    pandas.Series: Boolean mask of outliers
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
     
-    if normalize_method == 'minmax':
-        cleaner.normalize_minmax()
-    elif normalize_method == 'zscore':
-        cleaner.normalize_zscore()
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
     
-    return cleaner.get_cleaned_data()
+    lower_bound = Q1 - threshold * IQR
+    upper_bound = Q3 + threshold * IQR
+    
+    outliers = (df[column] < lower_bound) | (df[column] > upper_bound)
+    
+    outlier_count = outliers.sum()
+    print(f"Outliers detected in '{column}': {outlier_count}")
+    
+    return outliers
+
+if __name__ == "__main__":
+    sample_data = {
+        'A': [1, 2, np.nan, 4, 5, 100],
+        'B': [10, np.nan, 30, 40, 50, 60],
+        'C': [100, 200, 300, np.nan, 500, 600]
+    }
+    
+    test_df = pd.DataFrame(sample_data)
+    test_df.to_csv('test_data.csv', index=False)
+    
+    cleaned_df = clean_csv_data('test_data.csv', 
+                               'cleaned_data.csv',
+                               missing_strategy='mean')
+    
+    outliers = detect_outliers_iqr(cleaned_df, 'A')
+    print(f"Outlier indices: {cleaned_df[outliers].index.tolist()}")
