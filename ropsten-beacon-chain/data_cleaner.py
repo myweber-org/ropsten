@@ -133,3 +133,153 @@ def validate_dataframe(dataframe, required_columns):
         raise ValueError("DataFrame is empty")
     
     return True
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(dataframe, column, threshold=1.5):
+    """
+    Remove outliers from a DataFrame column using IQR method.
+    
+    Args:
+        dataframe: pandas DataFrame
+        column: column name to process
+        threshold: IQR multiplier (default 1.5)
+    
+    Returns:
+        DataFrame with outliers removed
+    """
+    if column not in dataframe.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    q1 = dataframe[column].quantile(0.25)
+    q3 = dataframe[column].quantile(0.75)
+    iqr = q3 - q1
+    
+    lower_bound = q1 - threshold * iqr
+    upper_bound = q3 + threshold * iqr
+    
+    filtered_df = dataframe[(dataframe[column] >= lower_bound) & 
+                           (dataframe[column] <= upper_bound)]
+    
+    return filtered_df.copy()
+
+def normalize_minmax(dataframe, columns=None):
+    """
+    Normalize specified columns using min-max scaling.
+    
+    Args:
+        dataframe: pandas DataFrame
+        columns: list of column names to normalize (default: all numeric columns)
+    
+    Returns:
+        DataFrame with normalized columns
+    """
+    if columns is None:
+        columns = dataframe.select_dtypes(include=[np.number]).columns.tolist()
+    
+    result_df = dataframe.copy()
+    
+    for col in columns:
+        if col in result_df.columns and np.issubdtype(result_df[col].dtype, np.number):
+            col_min = result_df[col].min()
+            col_max = result_df[col].max()
+            
+            if col_max != col_min:
+                result_df[col] = (result_df[col] - col_min) / (col_max - col_min)
+            else:
+                result_df[col] = 0
+    
+    return result_df
+
+def detect_skewed_columns(dataframe, skew_threshold=0.5):
+    """
+    Detect columns with significant skewness.
+    
+    Args:
+        dataframe: pandas DataFrame
+        skew_threshold: absolute skewness threshold (default 0.5)
+    
+    Returns:
+        Dictionary with skewness values for columns exceeding threshold
+    """
+    skewed_cols = {}
+    
+    numeric_cols = dataframe.select_dtypes(include=[np.number]).columns
+    
+    for col in numeric_cols:
+        skewness = stats.skew(dataframe[col].dropna())
+        if abs(skewness) > skew_threshold:
+            skewed_cols[col] = skewness
+    
+    return skewed_cols
+
+def clean_dataset(dataframe, outlier_columns=None, normalize_columns=None):
+    """
+    Comprehensive data cleaning pipeline.
+    
+    Args:
+        dataframe: pandas DataFrame to clean
+        outlier_columns: list of columns for outlier removal (default: all numeric)
+        normalize_columns: list of columns to normalize (default: all numeric)
+    
+    Returns:
+        Cleaned DataFrame
+    """
+    cleaned_df = dataframe.copy()
+    
+    if outlier_columns is None:
+        outlier_columns = cleaned_df.select_dtypes(include=[np.number]).columns.tolist()
+    
+    for col in outlier_columns:
+        if col in cleaned_df.columns:
+            cleaned_df = remove_outliers_iqr(cleaned_df, col)
+    
+    cleaned_df = normalize_minmax(cleaned_df, normalize_columns)
+    
+    return cleaned_df.reset_index(drop=True)
+
+def get_cleaning_summary(original_df, cleaned_df):
+    """
+    Generate summary statistics comparing original and cleaned datasets.
+    
+    Args:
+        original_df: original DataFrame
+        cleaned_df: cleaned DataFrame
+    
+    Returns:
+        Dictionary with cleaning summary
+    """
+    summary = {
+        'original_rows': len(original_df),
+        'cleaned_rows': len(cleaned_df),
+        'rows_removed': len(original_df) - len(cleaned_df),
+        'removal_percentage': ((len(original_df) - len(cleaned_df)) / len(original_df)) * 100,
+        'original_columns': list(original_df.columns),
+        'cleaned_columns': list(cleaned_df.columns)
+    }
+    
+    return summary
+
+if __name__ == "__main__":
+    sample_data = {
+        'feature_a': np.random.normal(100, 15, 1000),
+        'feature_b': np.random.exponential(50, 1000),
+        'feature_c': np.random.uniform(0, 1, 1000),
+        'category': np.random.choice(['A', 'B', 'C'], 1000)
+    }
+    
+    df = pd.DataFrame(sample_data)
+    df.loc[np.random.choice(df.index, 50), 'feature_a'] = np.random.uniform(500, 1000, 50)
+    
+    print("Original dataset shape:", df.shape)
+    
+    cleaned = clean_dataset(df)
+    
+    print("Cleaned dataset shape:", cleaned.shape)
+    
+    summary = get_cleaning_summary(df, cleaned)
+    print(f"Rows removed: {summary['rows_removed']} ({summary['removal_percentage']:.2f}%)")
+    
+    skewed = detect_skewed_columns(cleaned)
+    print(f"Skewed columns detected: {len(skewed)}")
