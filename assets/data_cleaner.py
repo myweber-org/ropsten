@@ -131,3 +131,94 @@ def clean_dataset(data, outlier_method='iqr', outlier_threshold=1.5,
     
     print("Data cleaning completed successfully")
     return data_clean
+import pandas as pd
+import numpy as np
+from datetime import datetime
+
+def clean_csv_data(input_path, output_path):
+    """
+    Clean CSV data by handling missing values, converting data types,
+    and removing duplicate rows.
+    """
+    try:
+        df = pd.read_csv(input_path)
+        
+        # Remove duplicate rows
+        initial_count = len(df)
+        df.drop_duplicates(inplace=True)
+        duplicates_removed = initial_count - len(df)
+        
+        # Handle missing values
+        missing_before = df.isnull().sum().sum()
+        
+        # Fill numeric columns with median
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        for col in numeric_cols:
+            df[col].fillna(df[col].median(), inplace=True)
+        
+        # Fill categorical columns with mode
+        categorical_cols = df.select_dtypes(include=['object']).columns
+        for col in categorical_cols:
+            df[col].fillna(df[col].mode()[0] if not df[col].mode().empty else 'Unknown', inplace=True)
+        
+        missing_after = df.isnull().sum().sum()
+        
+        # Convert date columns if present
+        date_columns = [col for col in df.columns if 'date' in col.lower() or 'time' in col.lower()]
+        for col in date_columns:
+            try:
+                df[col] = pd.to_datetime(df[col], errors='coerce')
+            except:
+                pass
+        
+        # Save cleaned data
+        df.to_csv(output_path, index=False)
+        
+        # Print cleaning summary
+        print(f"Data cleaning completed:")
+        print(f"  - Rows processed: {len(df)}")
+        print(f"  - Duplicates removed: {duplicates_removed}")
+        print(f"  - Missing values handled: {missing_before} -> {missing_after}")
+        print(f"  - Date columns converted: {len(date_columns)}")
+        print(f"  - Cleaned data saved to: {output_path}")
+        
+        return df
+        
+    except FileNotFoundError:
+        print(f"Error: Input file not found at {input_path}")
+        return None
+    except Exception as e:
+        print(f"Error during data cleaning: {str(e)}")
+        return None
+
+def validate_dataframe(df):
+    """
+    Validate dataframe structure and data quality.
+    """
+    if df is None or df.empty:
+        return False
+    
+    validation_results = {
+        'total_rows': len(df),
+        'total_columns': len(df.columns),
+        'has_duplicates': df.duplicated().any(),
+        'missing_values': df.isnull().sum().sum(),
+        'numeric_columns': len(df.select_dtypes(include=[np.number]).columns),
+        'categorical_columns': len(df.select_dtypes(include=['object']).columns),
+        'date_columns': len([col for col in df.columns if 'date' in col.lower() or 'time' in col.lower()])
+    }
+    
+    return validation_results
+
+if __name__ == "__main__":
+    # Example usage
+    input_file = "raw_data.csv"
+    output_file = "cleaned_data.csv"
+    
+    cleaned_df = clean_csv_data(input_file, output_file)
+    
+    if cleaned_df is not None:
+        validation = validate_dataframe(cleaned_df)
+        print("\nData Validation Results:")
+        for key, value in validation.items():
+            print(f"  {key}: {value}")
