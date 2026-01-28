@@ -1,130 +1,56 @@
-
 import pandas as pd
-import numpy as np
+import sys
 
-def remove_outliers_iqr(df, column):
+def remove_duplicates(input_file, output_file=None, subset=None, keep='first'):
     """
-    Remove outliers from a DataFrame column using the Interquartile Range method.
+    Remove duplicate rows from a CSV file.
     
     Args:
-        df (pd.DataFrame): Input DataFrame
-        column (str): Column name to process
-    
+        input_file (str): Path to input CSV file
+        output_file (str, optional): Path to output CSV file. If None, overwrites input file
+        subset (list, optional): Columns to consider for identifying duplicates
+        keep (str): Which duplicates to keep - 'first', 'last', or False to drop all
+        
     Returns:
-        pd.DataFrame: DataFrame with outliers removed
+        int: Number of duplicate rows removed
     """
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
-    
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
-    
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
-    
-    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
-    
-    return filtered_df
-
-def clean_dataset(df, numeric_columns=None):
-    """
-    Clean dataset by removing outliers from all numeric columns.
-    
-    Args:
-        df (pd.DataFrame): Input DataFrame
-        numeric_columns (list, optional): List of numeric columns to clean
-    
-    Returns:
-        pd.DataFrame: Cleaned DataFrame
-    """
-    if numeric_columns is None:
-        numeric_columns = df.select_dtypes(include=[np.number]).columns.tolist()
-    
-    cleaned_df = df.copy()
-    
-    for column in numeric_columns:
-        if column in df.columns:
-            original_len = len(cleaned_df)
-            cleaned_df = remove_outliers_iqr(cleaned_df, column)
-            removed_count = original_len - len(cleaned_df)
-            print(f"Removed {removed_count} outliers from column '{column}'")
-    
-    return cleaned_df
+    try:
+        df = pd.read_csv(input_file)
+        initial_rows = len(df)
+        
+        df_cleaned = df.drop_duplicates(subset=subset, keep=keep)
+        final_rows = len(df_cleaned)
+        
+        duplicates_removed = initial_rows - final_rows
+        
+        if output_file is None:
+            output_file = input_file
+            
+        df_cleaned.to_csv(output_file, index=False)
+        
+        print(f"Removed {duplicates_removed} duplicate rows")
+        print(f"Original rows: {initial_rows}, Cleaned rows: {final_rows}")
+        print(f"Saved to: {output_file}")
+        
+        return duplicates_removed
+        
+    except FileNotFoundError:
+        print(f"Error: File '{input_file}' not found")
+        return -1
+    except pd.errors.EmptyDataError:
+        print(f"Error: File '{input_file}' is empty")
+        return -1
+    except Exception as e:
+        print(f"Error processing file: {e}")
+        return -1
 
 if __name__ == "__main__":
-    sample_data = {
-        'id': range(100),
-        'value': np.concatenate([
-            np.random.normal(50, 10, 90),
-            np.random.normal(200, 30, 10)
-        ])
-    }
+    if len(sys.argv) < 2:
+        print("Usage: python data_cleaner.py <input_file> [output_file]")
+        print("Example: python data_cleaner.py data.csv cleaned_data.csv")
+        sys.exit(1)
     
-    df = pd.DataFrame(sample_data)
-    print(f"Original dataset shape: {df.shape}")
+    input_file = sys.argv[1]
+    output_file = sys.argv[2] if len(sys.argv) > 2 else None
     
-    cleaned_df = clean_dataset(df, ['value'])
-    print(f"Cleaned dataset shape: {cleaned_df.shape}")
-import numpy as np
-import pandas as pd
-
-def remove_outliers_iqr(df, column):
-    """
-    Remove outliers from a DataFrame column using the Interquartile Range method.
-    
-    Parameters:
-    df (pd.DataFrame): The input DataFrame.
-    column (str): The column name to clean.
-    
-    Returns:
-    pd.DataFrame: DataFrame with outliers removed.
-    """
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
-    
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
-    
-    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
-    
-    return filtered_df
-
-def calculate_summary_statistics(df, column):
-    """
-    Calculate summary statistics for a column.
-    
-    Parameters:
-    df (pd.DataFrame): The input DataFrame.
-    column (str): The column name to analyze.
-    
-    Returns:
-    dict: Dictionary containing summary statistics.
-    """
-    stats = {
-        'mean': df[column].mean(),
-        'median': df[column].median(),
-        'std': df[column].std(),
-        'min': df[column].min(),
-        'max': df[column].max(),
-        'count': df[column].count()
-    }
-    
-    return stats
-
-if __name__ == "__main__":
-    sample_data = {'values': [10, 12, 12, 13, 12, 11, 14, 13, 15, 102, 12, 14, 13, 12, 11, 10, 9, 8, 12, 11]}
-    df = pd.DataFrame(sample_data)
-    
-    print("Original DataFrame:")
-    print(df)
-    print("\nOriginal Statistics:")
-    print(calculate_summary_statistics(df, 'values'))
-    
-    cleaned_df = remove_outliers_iqr(df, 'values')
-    
-    print("\nCleaned DataFrame:")
-    print(cleaned_df)
-    print("\nCleaned Statistics:")
-    print(calculate_summary_statistics(cleaned_df, 'values'))
+    remove_duplicates(input_file, output_file)
