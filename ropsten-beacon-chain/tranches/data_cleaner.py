@@ -143,4 +143,38 @@ if __name__ == "__main__":
         validate_dataframe(cleaned)
         print("Data validation passed")
     except ValueError as e:
-        print(f"Data validation error: {e}")
+        print(f"Data validation error: {e}")import pandas as pd
+import sys
+
+def clean_data(input_file, output_file):
+    try:
+        df = pd.read_csv(input_file)
+        print(f"Original shape: {df.shape}")
+        
+        df_cleaned = df.drop_duplicates()
+        print(f"After removing duplicates: {df_cleaned.shape}")
+        
+        df_cleaned = df_cleaned.dropna()
+        print(f"After removing missing values: {df_cleaned.shape}")
+        
+        df_cleaned.to_csv(output_file, index=False)
+        print(f"Cleaned data saved to {output_file}")
+        
+    except FileNotFoundError:
+        print(f"Error: File '{input_file}' not found.")
+        sys.exit(1)
+    except pd.errors.EmptyDataError:
+        print("Error: The CSV file is empty.")
+        sys.exit(1)
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    if len(sys.argv) != 3:
+        print("Usage: python data_cleaner.py <input_file> <output_file>")
+        sys.exit(1)
+    
+    input_file = sys.argv[1]
+    output_file = sys.argv[2]
+    clean_data(input_file, output_file)
