@@ -60,4 +60,20 @@ def clean_dataset(df, missing_threshold=0.3, outlier_threshold=3):
                  .remove_outliers_zscore(outlier_threshold)
                  .normalize_numeric('standard')
                  .get_cleaned_data())
-    return cleaned_df
+    return cleaned_dfdef remove_duplicates(data_list):
+    seen = set()
+    unique_list = []
+    for item in data_list:
+        if item not in seen:
+            seen.add(item)
+            unique_list.append(item)
+    return unique_list
+
+def clean_data_with_order(data_list):
+    return list(dict.fromkeys(data_list))
+
+if __name__ == "__main__":
+    sample_data = [1, 2, 2, 3, 4, 4, 5, 1, 6]
+    print("Original:", sample_data)
+    print("Cleaned (order preserved):", clean_data_with_order(sample_data))
+    print("Cleaned (basic):", remove_duplicates(sample_data))
