@@ -178,4 +178,55 @@ def validate_dataframe(dataframe, required_columns=None, min_rows=1):
         if missing_cols:
             return False, f"Missing required columns: {missing_cols}"
     
-    return True, "DataFrame is valid"
+    return True, "DataFrame is valid"import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(data, column):
+    Q1 = data[column].quantile(0.25)
+    Q3 = data[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    return data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+
+def normalize_minmax(data, column):
+    min_val = data[column].min()
+    max_val = data[column].max()
+    if max_val == min_val:
+        return data[column]
+    return (data[column] - min_val) / (max_val - min_val)
+
+def standardize_zscore(data, column):
+    mean_val = data[column].mean()
+    std_val = data[column].std()
+    if std_val == 0:
+        return data[column]
+    return (data[column] - mean_val) / std_val
+
+def clean_dataset(df, numeric_columns, outlier_method='iqr', normalize_method='minmax'):
+    cleaned_df = df.copy()
+    
+    for col in numeric_columns:
+        if outlier_method == 'iqr':
+            cleaned_df = remove_outliers_iqr(cleaned_df, col)
+        elif outlier_method == 'zscore':
+            z_scores = np.abs(stats.zscore(cleaned_df[col]))
+            cleaned_df = cleaned_df[z_scores < 3]
+    
+    for col in numeric_columns:
+        if normalize_method == 'minmax':
+            cleaned_df[col] = normalize_minmax(cleaned_df, col)
+        elif normalize_method == 'zscore':
+            cleaned_df[col] = standardize_zscore(cleaned_df, col)
+    
+    return cleaned_df.reset_index(drop=True)
+
+def validate_cleaning(original_df, cleaned_df):
+    report = {
+        'original_rows': len(original_df),
+        'cleaned_rows': len(cleaned_df),
+        'rows_removed': len(original_df) - len(cleaned_df),
+        'removal_percentage': ((len(original_df) - len(cleaned_df)) / len(original_df)) * 100
+    }
+    return report
