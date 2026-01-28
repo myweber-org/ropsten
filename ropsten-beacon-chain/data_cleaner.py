@@ -297,3 +297,37 @@ class DataCleaner:
             'missing_values': self.df.isnull().sum().sum()
         }
         return summary
+import re
+import unicodedata
+
+def clean_text(text, lower=True, remove_punct=True, normalize_unicode=True):
+    """
+    Clean and normalize a given text string.
+
+    Args:
+        text (str): The input text to clean.
+        lower (bool): Convert text to lowercase if True.
+        remove_punct (bool): Remove punctuation if True.
+        normalize_unicode (bool): Normalize unicode characters to NFKD form.
+
+    Returns:
+        str: The cleaned text.
+    """
+    if not isinstance(text, str):
+        raise TypeError("Input must be a string.")
+
+    cleaned = text.strip()
+
+    if normalize_unicode:
+        cleaned = unicodedata.normalize('NFKD', cleaned)
+        cleaned = cleaned.encode('ASCII', 'ignore').decode('ASCII')
+
+    if lower:
+        cleaned = cleaned.lower()
+
+    if remove_punct:
+        cleaned = re.sub(r'[^\w\s]', '', cleaned)
+
+    cleaned = re.sub(r'\s+', ' ', cleaned)
+
+    return cleaned
