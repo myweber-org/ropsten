@@ -1,43 +1,34 @@
 
 import pandas as pd
-import re
+import numpy as np
+from scipy import stats
 
-def clean_dataset(df, column_names):
-    """
-    Clean a pandas DataFrame by removing duplicates and normalizing specified string columns.
-    """
-    # Remove duplicate rows
-    df_cleaned = df.drop_duplicates().reset_index(drop=True)
-    
-    # Define a helper function for string normalization
-    def normalize_string(text):
-        if pd.isna(text):
-            return text
-        # Convert to string, strip whitespace, and convert to lowercase
-        text = str(text).strip().lower()
-        # Remove extra spaces
-        text = re.sub(r'\s+', ' ', text)
-        return text
-    
-    # Apply normalization to specified columns
-    for col in column_names:
-        if col in df_cleaned.columns:
-            df_cleaned[col] = df_cleaned[col].apply(normalize_string)
-    
-    return df_cleaned
+def remove_outliers_iqr(df, columns):
+    df_clean = df.copy()
+    for col in columns:
+        Q1 = df_clean[col].quantile(0.25)
+        Q3 = df_clean[col].quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - 1.5 * IQR
+        upper_bound = Q3 + 1.5 * IQR
+        df_clean = df_clean[(df_clean[col] >= lower_bound) & (df_clean[col] <= upper_bound)]
+    return df_clean
 
-def save_cleaned_data(df, output_path):
-    """
-    Save the cleaned DataFrame to a CSV file.
-    """
-    df.to_csv(output_path, index=False)
-    print(f"Cleaned data saved to {output_path}")
+def normalize_minmax(df, columns):
+    df_norm = df.copy()
+    for col in columns:
+        min_val = df_norm[col].min()
+        max_val = df_norm[col].max()
+        df_norm[col] = (df_norm[col] - min_val) / (max_val - min_val)
+    return df_norm
 
-# Example usage (commented out for library use)
-# if __name__ == "__main__":
-#     # Load your dataset
-#     data = pd.read_csv('raw_data.csv')
-#     # Specify columns to normalize (e.g., 'name', 'email')
-#     columns_to_clean = ['name', 'email', 'address']
-#     cleaned_data = clean_dataset(data, columns_to_clean)
-#     save_cleaned_data(cleaned_data, 'cleaned_data.csv')
+def clean_dataset(filepath, numeric_columns):
+    df = pd.read_csv(filepath)
+    df_clean = remove_outliers_iqr(df, numeric_columns)
+    df_normalized = normalize_minmax(df_clean, numeric_columns)
+    return df_normalized
+
+if __name__ == "__main__":
+    cleaned_data = clean_dataset('raw_data.csv', ['age', 'income', 'score'])
+    cleaned_data.to_csv('cleaned_data.csv', index=False)
+    print(f"Data cleaned. Original shape: {pd.read_csv('raw_data.csv').shape}, Cleaned shape: {cleaned_data.shape}")
