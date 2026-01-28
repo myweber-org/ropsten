@@ -1,56 +1,31 @@
+
+import pandas as pd
 import numpy as np
 
-def remove_outliers_iqr(data, column):
-    """
-    Remove outliers from a specified column using the IQR method.
-    
-    Parameters:
-    data (list or array-like): The dataset.
-    column (int or str): Column index or name if data is structured.
-    
-    Returns:
-    cleaned_data: Data with outliers removed.
-    """
-    if isinstance(data, list):
-        data = np.array(data)
-    
-    q1 = np.percentile(data, 25)
-    q3 = np.percentile(data, 75)
-    iqr = q3 - q1
-    
-    lower_bound = q1 - 1.5 * iqr
-    upper_bound = q3 + 1.5 * iqr
-    
-    mask = (data >= lower_bound) & (data <= upper_bound)
-    cleaned_data = data[mask]
-    
-    return cleaned_data
+def remove_outliers(df, column, threshold=3):
+    mean = df[column].mean()
+    std = df[column].std()
+    z_scores = np.abs((df[column] - mean) / std)
+    return df[z_scores < threshold]
 
-def calculate_statistics(data):
-    """
-    Calculate basic statistics for the cleaned data.
+def normalize_column(df, column):
+    min_val = df[column].min()
+    max_val = df[column].max()
+    df[column + '_normalized'] = (df[column] - min_val) / (max_val - min_val)
+    return df
+
+def clean_dataset(file_path, output_path):
+    df = pd.read_csv(file_path)
     
-    Parameters:
-    data (array-like): The cleaned dataset.
+    numeric_columns = df.select_dtypes(include=[np.number]).columns
     
-    Returns:
-    dict: Dictionary containing mean, median, and standard deviation.
-    """
-    mean_val = np.mean(data)
-    median_val = np.median(data)
-    std_val = np.std(data)
+    for col in numeric_columns:
+        df = remove_outliers(df, col)
+        df = normalize_column(df, col)
     
-    return {
-        'mean': mean_val,
-        'median': median_val,
-        'standard_deviation': std_val
-    }
+    df.to_csv(output_path, index=False)
+    return df
 
 if __name__ == "__main__":
-    sample_data = [10, 12, 12, 13, 12, 11, 14, 13, 15, 102, 12, 14, 13, 12, 10, 9, 15, 12, 13, 100]
-    cleaned = remove_outliers_iqr(sample_data, 0)
-    stats = calculate_statistics(cleaned)
-    
-    print("Original data:", sample_data)
-    print("Cleaned data:", cleaned)
-    print("Statistics:", stats)
+    cleaned_df = clean_dataset('raw_data.csv', 'cleaned_data.csv')
+    print(f"Data cleaned. Shape: {cleaned_df.shape}")
