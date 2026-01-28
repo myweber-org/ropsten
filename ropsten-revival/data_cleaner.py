@@ -310,3 +310,53 @@ def validate_email_column(df, email_column):
     
     email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
     return df[email_column].apply(lambda x: bool(re.match(email_pattern, str(x))) if pd.notna(x) else False)
+import pandas as pd
+import re
+
+def clean_text_column(df, column_name):
+    """
+    Standardize text by converting to lowercase, removing extra whitespace,
+    and stripping special characters except alphanumeric and spaces.
+    """
+    if column_name not in df.columns:
+        raise ValueError(f"Column '{column_name}' not found in DataFrame")
+    
+    df[column_name] = df[column_name].astype(str).str.lower()
+    df[column_name] = df[column_name].apply(lambda x: re.sub(r'[^a-z0-9\s]', '', x))
+    df[column_name] = df[column_name].str.strip()
+    df[column_name] = df[column_name].str.replace(r'\s+', ' ', regex=True)
+    
+    return df
+
+def remove_duplicates(df, subset=None, keep='first'):
+    """
+    Remove duplicate rows from DataFrame.
+    """
+    return df.drop_duplicates(subset=subset, keep=keep)
+
+def clean_dataset(df, text_columns=None, deduplicate=True):
+    """
+    Main function to clean dataset by processing text columns and removing duplicates.
+    """
+    if text_columns:
+        for col in text_columns:
+            df = clean_text_column(df, col)
+    
+    if deduplicate:
+        df = remove_duplicates(df)
+    
+    return df
+
+if __name__ == "__main__":
+    sample_data = {
+        'name': ['John Doe', 'JANE SMITH', 'John Doe  ', 'Alice & Bob'],
+        'email': ['john@example.com', 'jane@example.com', 'john@example.com', 'alice@example.com'],
+        'notes': ['Important client', 'Regular customer', 'Important client', 'New contact']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\nCleaned DataFrame:")
+    cleaned_df = clean_dataset(df, text_columns=['name', 'notes'])
+    print(cleaned_df)
