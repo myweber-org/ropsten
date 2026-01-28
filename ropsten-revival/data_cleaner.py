@@ -266,3 +266,47 @@ def standardize_phone_number(phone):
         return digits[-10:]
     
     return digits
+import pandas as pd
+import re
+
+def clean_dataframe(df, columns_to_clean=None):
+    """
+    Clean a pandas DataFrame by removing duplicate rows and normalizing string columns.
+    """
+    df_clean = df.copy()
+    
+    # Remove duplicate rows
+    initial_rows = df_clean.shape[0]
+    df_clean = df_clean.drop_duplicates().reset_index(drop=True)
+    removed_duplicates = initial_rows - df_clean.shape[0]
+    
+    # If specific columns are provided, clean only those; otherwise clean all object columns
+    if columns_to_clean is None:
+        columns_to_clean = df_clean.select_dtypes(include=['object']).columns
+    
+    for col in columns_to_clean:
+        if col in df_clean.columns and df_clean[col].dtype == 'object':
+            df_clean[col] = df_clean[col].apply(_normalize_string)
+    
+    return df_clean, removed_duplicates
+
+def _normalize_string(text):
+    """
+    Normalize a string: lowercase, strip whitespace, and remove extra spaces.
+    """
+    if pd.isna(text):
+        return text
+    text = str(text)
+    text = text.lower().strip()
+    text = re.sub(r'\s+', ' ', text)
+    return text
+
+def validate_email_column(df, email_column):
+    """
+    Validate email addresses in a specified column and return a boolean series.
+    """
+    if email_column not in df.columns:
+        raise ValueError(f"Column '{email_column}' not found in DataFrame")
+    
+    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return df[email_column].apply(lambda x: bool(re.match(email_pattern, str(x))) if pd.notna(x) else False)
