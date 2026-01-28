@@ -1,75 +1,35 @@
-import pandas as pd
-import numpy as np
 
-def clean_csv_data(input_path, output_path):
+import numpy as np
+import pandas as pd
+
+def remove_outliers_iqr(df, column):
     """
-    Load a CSV file, perform data cleaning operations,
-    and save the cleaned data to a new file.
+    Remove outliers from a specified column in a DataFrame using the Interquartile Range (IQR) method.
+    Returns a new DataFrame with outliers removed.
     """
-    try:
-        df = pd.read_csv(input_path)
-        print(f"Original data shape: {df.shape}")
-        
-        # Remove duplicate rows
-        df = df.drop_duplicates()
-        print(f"After removing duplicates: {df.shape}")
-        
-        # Handle missing values for numeric columns
-        numeric_cols = df.select_dtypes(include=[np.number]).columns
-        for col in numeric_cols:
-            if df[col].isnull().sum() > 0:
-                df[col] = df[col].fillna(df[col].median())
-        
-        # Handle missing values for categorical columns
-        categorical_cols = df.select_dtypes(include=['object']).columns
-        for col in categorical_cols:
-            if df[col].isnull().sum() > 0:
-                df[col] = df[col].fillna('Unknown')
-        
-        # Convert date columns if present
-        date_columns = [col for col in df.columns if 'date' in col.lower() or 'time' in col.lower()]
-        for col in date_columns:
-            try:
-                df[col] = pd.to_datetime(df[col], errors='coerce')
-            except:
-                pass
-        
-        # Remove columns with too many missing values (threshold: 50%)
-        missing_threshold = 0.5
-        cols_to_drop = []
-        for col in df.columns:
-            missing_ratio = df[col].isnull().sum() / len(df)
-            if missing_ratio > missing_threshold:
-                cols_to_drop.append(col)
-        
-        if cols_to_drop:
-            df = df.drop(columns=cols_to_drop)
-            print(f"Dropped columns with >{missing_threshold*100}% missing values: {cols_to_drop}")
-        
-        # Save cleaned data
-        df.to_csv(output_path, index=False)
-        print(f"Cleaned data saved to: {output_path}")
-        print(f"Final data shape: {df.shape}")
-        
-        return df
-        
-    except FileNotFoundError:
-        print(f"Error: Input file not found at {input_path}")
-        return None
-    except Exception as e:
-        print(f"Error during data cleaning: {str(e)}")
-        return None
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    return filtered_df
+
+def clean_dataset(df, numeric_columns):
+    """
+    Apply outlier removal to multiple numeric columns in a DataFrame.
+    """
+    cleaned_df = df.copy()
+    for col in numeric_columns:
+        if col in cleaned_df.columns:
+            cleaned_df = remove_outliers_iqr(cleaned_df, col)
+    return cleaned_df
 
 if __name__ == "__main__":
-    # Example usage
-    input_file = "raw_data.csv"
-    output_file = "cleaned_data.csv"
-    
-    cleaned_df = clean_csv_data(input_file, output_file)
-    
-    if cleaned_df is not None:
-        print("Data cleaning completed successfully.")
-        print("\nData summary:")
-        print(cleaned_df.info())
-        print("\nMissing values after cleaning:")
-        print(cleaned_df.isnull().sum())
+    sample_data = {'values': [10, 12, 12, 13, 12, 11, 10, 100, 12, 14, 15, 10, 9, 8, 200]}
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    cleaned_df = clean_dataset(df, ['values'])
+    print("\nCleaned DataFrame:")
+    print(cleaned_df)
