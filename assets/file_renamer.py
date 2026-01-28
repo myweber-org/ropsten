@@ -2,137 +2,57 @@
 import os
 import re
 import sys
-from pathlib import Path
 
 def rename_files(directory, pattern, replacement):
     """
-    Rename files in the specified directory by replacing parts of the filename
-    matching the regex pattern with the replacement string.
+    Rename files in the specified directory based on a regex pattern.
+    
+    Args:
+        directory (str): Path to the directory containing files to rename.
+        pattern (str): Regex pattern to match in filenames.
+        replacement (str): Replacement string for matched pattern.
     """
     try:
-        dir_path = Path(directory)
-        if not dir_path.exists() or not dir_path.is_dir():
-            print(f"Error: '{directory}' is not a valid directory.")
-            return False
+        if not os.path.isdir(directory):
+            print(f"Error: Directory '{directory}' does not exist.")
+            return
 
-        files_renamed = 0
-        for file_path in dir_path.iterdir():
-            if file_path.is_file():
-                old_name = file_path.name
-                new_name = re.sub(pattern, replacement, old_name)
-                if new_name != old_name:
-                    new_path = file_path.with_name(new_name)
-                    try:
-                        file_path.rename(new_path)
-                        print(f"Renamed: '{old_name}' -> '{new_name}'")
-                        files_renamed += 1
-                    except OSError as e:
-                        print(f"Error renaming '{old_name}': {e}")
+        files = os.listdir(directory)
+        renamed_count = 0
 
-        print(f"Total files renamed: {files_renamed}")
-        return True
+        for filename in files:
+            file_path = os.path.join(directory, filename)
+            
+            if os.path.isfile(file_path):
+                new_filename = re.sub(pattern, replacement, filename)
+                
+                if new_filename != filename:
+                    new_file_path = os.path.join(directory, new_filename)
+                    
+                    if os.path.exists(new_file_path):
+                        print(f"Warning: '{new_filename}' already exists. Skipping '{filename}'.")
+                        continue
+                    
+                    os.rename(file_path, new_file_path)
+                    print(f"Renamed: '{filename}' -> '{new_filename}'")
+                    renamed_count += 1
+
+        print(f"\nRenaming complete. {renamed_count} file(s) renamed.")
 
     except Exception as e:
-        print(f"An unexpected error occurred: {e}")
-        return False
+        print(f"An error occurred: {e}")
 
-if __name__ == "__main__":
+def main():
     if len(sys.argv) != 4:
         print("Usage: python file_renamer.py <directory> <pattern> <replacement>")
+        print("Example: python file_renamer.py ./files '\\d+' 'NUM'")
         sys.exit(1)
 
-    target_dir = sys.argv[1]
-    regex_pattern = sys.argv[2]
-    repl_string = sys.argv[3]
+    directory = sys.argv[1]
+    pattern = sys.argv[2]
+    replacement = sys.argv[3]
 
-    success = rename_files(target_dir, regex_pattern, repl_string)
-    sys.exit(0 if success else 1)
-import os
-import sys
-from pathlib import Path
-from datetime import datetime
-
-def rename_files_sequentially(directory_path, prefix="file"):
-    try:
-        path = Path(directory_path)
-        if not path.exists() or not path.is_dir():
-            print(f"Error: {directory_path} is not a valid directory.")
-            return False
-
-        files = []
-        for item in path.iterdir():
-            if item.is_file():
-                mtime = item.stat().st_mtime
-                files.append((mtime, item))
-
-        files.sort(key=lambda x: x[0])
-
-        for index, (mtime, file_path) in enumerate(files, start=1):
-            extension = file_path.suffix
-            new_name = f"{prefix}_{index:03d}{extension}"
-            new_path = file_path.parent / new_name
-
-            if new_path.exists():
-                print(f"Warning: {new_name} already exists. Skipping rename.")
-                continue
-
-            file_path.rename(new_path)
-            print(f"Renamed: {file_path.name} -> {new_name}")
-
-        print("Renaming completed successfully.")
-        return True
-
-    except PermissionError:
-        print("Error: Permission denied. Check file access rights.")
-        return False
-    except Exception as e:
-        print(f"Unexpected error: {e}")
-        return False
+    rename_files(directory, pattern, replacement)
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python file_renamer.py <directory_path> [prefix]")
-        sys.exit(1)
-
-    dir_path = sys.argv[1]
-    pref = sys.argv[2] if len(sys.argv) > 2 else "file"
-
-    rename_files_sequentially(dir_path, pref)
-import os
-import sys
-
-def rename_files_with_sequence(directory, prefix="file", extension=".txt"):
-    """
-    Rename all files in the given directory with sequential numbering.
-    """
-    if not os.path.isdir(directory):
-        print(f"Error: {directory} is not a valid directory.")
-        return False
-    
-    files = [f for f in os.listdir(directory) if os.path.isfile(os.path.join(directory, f))]
-    files.sort()
-    
-    for index, filename in enumerate(files, start=1):
-        old_path = os.path.join(directory, filename)
-        new_filename = f"{prefix}_{index:03d}{extension}"
-        new_path = os.path.join(directory, new_filename)
-        
-        try:
-            os.rename(old_path, new_path)
-            print(f"Renamed: {filename} -> {new_filename}")
-        except OSError as e:
-            print(f"Failed to rename {filename}: {e}")
-    
-    print(f"Renamed {len(files)} files.")
-    return True
-
-if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python file_renamer.py <directory> [prefix] [extension]")
-        sys.exit(1)
-    
-    dir_path = sys.argv[1]
-    prefix = sys.argv[2] if len(sys.argv) > 2 else "file"
-    extension = sys.argv[3] if len(sys.argv) > 3 else ".txt"
-    
-    rename_files_with_sequence(dir_path, prefix, extension)
+    main()
