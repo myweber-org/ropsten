@@ -199,4 +199,126 @@ if __name__ == "__main__":
     print(df)
     print("\nCleaned DataFrame:")
     cleaned = clean_dataframe(df, normalize_cols=['score'])
-    print(cleaned)
+    print(cleaned)import pandas as pd
+import numpy as np
+
+def clean_csv_data(file_path, output_path=None):
+    """
+    Clean CSV data by handling missing values and converting data types.
+    
+    Args:
+        file_path (str): Path to input CSV file
+        output_path (str, optional): Path for cleaned output CSV. 
+                                    If None, returns DataFrame without saving.
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame
+    """
+    try:
+        df = pd.read_csv(file_path)
+        
+        # Handle missing values
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        categorical_cols = df.select_dtypes(include=['object']).columns
+        
+        # Fill numeric missing values with median
+        for col in numeric_cols:
+            if df[col].isnull().any():
+                df[col].fillna(df[col].median(), inplace=True)
+        
+        # Fill categorical missing values with mode
+        for col in categorical_cols:
+            if df[col].isnull().any():
+                df[col].fillna(df[col].mode()[0], inplace=True)
+        
+        # Convert date columns if present
+        date_columns = [col for col in df.columns if 'date' in col.lower() or 'time' in col.lower()]
+        for col in date_columns:
+            try:
+                df[col] = pd.to_datetime(df[col], errors='coerce')
+            except:
+                pass
+        
+        # Remove duplicate rows
+        df.drop_duplicates(inplace=True)
+        
+        # Reset index after cleaning
+        df.reset_index(drop=True, inplace=True)
+        
+        if output_path:
+            df.to_csv(output_path, index=False)
+            print(f"Cleaned data saved to: {output_path}")
+        
+        return df
+        
+    except FileNotFoundError:
+        print(f"Error: File not found at {file_path}")
+        return None
+    except pd.errors.EmptyDataError:
+        print("Error: The CSV file is empty")
+        return None
+    except Exception as e:
+        print(f"Error during data cleaning: {str(e)}")
+        return None
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate
+        required_columns (list, optional): List of required column names
+    
+    Returns:
+        dict: Validation results
+    """
+    validation_results = {
+        'is_valid': True,
+        'errors': [],
+        'warnings': []
+    }
+    
+    if df is None or df.empty:
+        validation_results['is_valid'] = False
+        validation_results['errors'].append('DataFrame is None or empty')
+        return validation_results
+    
+    # Check required columns
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            validation_results['is_valid'] = False
+            validation_results['errors'].append(f'Missing required columns: {missing_columns}')
+    
+    # Check for all-null columns
+    null_columns = df.columns[df.isnull().all()].tolist()
+    if null_columns:
+        validation_results['warnings'].append(f'Columns with all null values: {null_columns}')
+    
+    # Check data types
+    for col in df.columns:
+        if df[col].dtype == 'object' and df[col].str.contains(r'\s{2,}', regex=True).any():
+            validation_results['warnings'].append(f'Column "{col}" contains multiple consecutive spaces')
+    
+    return validation_results
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'id': [1, 2, 3, 4, 5],
+        'name': ['Alice', 'Bob', None, 'David', 'Eve'],
+        'age': [25, 30, None, 35, 40],
+        'score': [85.5, 92.0, 78.5, None, 88.0],
+        'join_date': ['2023-01-15', '2023-02-20', '2023-03-10', None, '2023-05-05']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    df.to_csv('sample_data.csv', index=False)
+    
+    cleaned_df = clean_csv_data('sample_data.csv', 'cleaned_sample_data.csv')
+    
+    if cleaned_df is not None:
+        validation = validate_dataframe(cleaned_df, required_columns=['id', 'name', 'age'])
+        print("Validation Results:", validation)
+        print("\nCleaned DataFrame:")
+        print(cleaned_df)
