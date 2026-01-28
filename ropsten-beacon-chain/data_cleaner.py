@@ -133,4 +133,76 @@ if __name__ == "__main__":
     
     print("\nCleaned DataFrame:")
     print(f"Shape: {cleaned_df.shape}")
-    print(f"Value stats: {calculate_statistics(cleaned_df, 'value')}")
+    print(f"Value stats: {calculate_statistics(cleaned_df, 'value')}")import pandas as pd
+
+def clean_dataframe(df, column_mapping=None, drop_duplicates=True):
+    """
+    Clean a pandas DataFrame by standardizing column names and removing duplicates.
+    
+    Args:
+        df: pandas DataFrame to clean
+        column_mapping: Optional dictionary mapping original column names to standardized names
+        drop_duplicates: Boolean indicating whether to remove duplicate rows
+    
+    Returns:
+        Cleaned pandas DataFrame
+    """
+    # Create a copy to avoid modifying the original DataFrame
+    cleaned_df = df.copy()
+    
+    # Standardize column names if mapping is provided
+    if column_mapping:
+        cleaned_df = cleaned_df.rename(columns=column_mapping)
+    
+    # Remove duplicate rows if requested
+    if drop_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates()
+    
+    # Reset index after cleaning
+    cleaned_df = cleaned_df.reset_index(drop=True)
+    
+    return cleaned_df
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate that a DataFrame meets basic requirements.
+    
+    Args:
+        df: pandas DataFrame to validate
+        required_columns: List of column names that must be present
+    
+    Returns:
+        Boolean indicating whether validation passed
+    """
+    if df.empty:
+        return False
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            print(f"Missing required columns: {missing_columns}")
+            return False
+    
+    return True
+
+# Example usage (commented out for production)
+# if __name__ == "__main__":
+#     # Create sample data
+#     data = {
+#         'Name': ['Alice', 'Bob', 'Alice', 'Charlie'],
+#         'Age': [25, 30, 25, 35],
+#         'City': ['NYC', 'LA', 'NYC', 'Chicago']
+#     }
+#     
+#     df = pd.DataFrame(data)
+#     print("Original DataFrame:")
+#     print(df)
+#     
+#     # Clean the data
+#     cleaned = clean_dataframe(df)
+#     print("\nCleaned DataFrame:")
+#     print(cleaned)
+#     
+#     # Validate the cleaned data
+#     is_valid = validate_dataframe(cleaned, required_columns=['Name', 'Age'])
+#     print(f"\nData validation passed: {is_valid}")
