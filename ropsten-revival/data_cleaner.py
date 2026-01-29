@@ -251,3 +251,46 @@ if __name__ == "__main__":
     normalized = normalize_column(cleaned, 'score', method='minmax')
     print("DataFrame with Normalized Score:")
     print(normalized[['name', 'score', 'score_normalized']])
+def remove_duplicates(input_list):
+    """
+    Remove duplicate elements from a list while preserving order.
+    
+    Args:
+        input_list: A list containing elements (must be hashable)
+    
+    Returns:
+        A new list with duplicates removed
+    """
+    seen = set()
+    result = []
+    
+    for item in input_list:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    
+    return result
+
+def clean_data_with_threshold(data, threshold=1):
+    """
+    Clean data by removing elements that appear less than threshold times.
+    
+    Args:
+        data: List of elements
+        threshold: Minimum occurrence count to keep element
+    
+    Returns:
+        Filtered list with rare elements removed
+    """
+    from collections import Counter
+    
+    counter = Counter(data)
+    return [item for item in data if counter[item] >= threshold]
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = [1, 2, 2, 3, 4, 4, 4, 5, 1, 6]
+    
+    print("Original data:", sample_data)
+    print("Without duplicates:", remove_duplicates(sample_data))
+    print("Cleaned (threshold=2):", clean_data_with_threshold(sample_data, 2))
