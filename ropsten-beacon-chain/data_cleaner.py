@@ -1,82 +1,97 @@
-import csv
-import re
-from typing import List, Dict, Any, Optional
+import numpy as np
+import pandas as pd
+from scipy import stats
 
-def clean_string(value: str) -> str:
-    """Remove extra whitespace and convert to lowercase."""
-    if not isinstance(value, str):
-        return str(value)
-    return re.sub(r'\s+', ' ', value.strip()).lower()
+def remove_outliers_iqr(df, columns, factor=1.5):
+    """
+    Remove outliers using IQR method
+    """
+    df_clean = df.copy()
+    for col in columns:
+        if col in df.columns:
+            Q1 = df[col].quantile(0.25)
+            Q3 = df[col].quantile(0.75)
+            IQR = Q3 - Q1
+            lower_bound = Q1 - factor * IQR
+            upper_bound = Q3 + factor * IQR
+            df_clean = df_clean[(df_clean[col] >= lower_bound) & (df_clean[col] <= upper_bound)]
+    return df_clean
 
-def clean_numeric(value: str) -> Optional[float]:
-    """Convert string to float, handling common formatting issues."""
-    if not value:
-        return None
-    cleaned = value.replace(',', '').replace('$', '').strip()
-    try:
-        return float(cleaned)
-    except ValueError:
-        return None
+def remove_outliers_zscore(df, columns, threshold=3):
+    """
+    Remove outliers using Z-score method
+    """
+    df_clean = df.copy()
+    for col in columns:
+        if col in df.columns:
+            z_scores = np.abs(stats.zscore(df[col].dropna()))
+            df_clean = df_clean[z_scores < threshold]
+    return df_clean
 
-def read_and_clean_csv(filepath: str) -> List[Dict[str, Any]]:
-    """Read CSV file and apply cleaning functions to each row."""
-    cleaned_data = []
-    
-    with open(filepath, 'r', newline='', encoding='utf-8') as csvfile:
-        reader = csv.DictReader(csvfile)
-        
-        for row in reader:
-            cleaned_row = {}
-            for key, value in row.items():
-                if any(num_term in key.lower() for num_term in ['price', 'amount', 'quantity', 'total']):
-                    cleaned_row[key] = clean_numeric(value)
-                else:
-                    cleaned_row[key] = clean_string(value)
-            cleaned_data.append(cleaned_row)
-    
-    return cleaned_data
+def normalize_minmax(df, columns):
+    """
+    Normalize data using min-max scaling
+    """
+    df_normalized = df.copy()
+    for col in columns:
+        if col in df.columns:
+            min_val = df[col].min()
+            max_val = df[col].max()
+            if max_val != min_val:
+                df_normalized[col] = (df[col] - min_val) / (max_val - min_val)
+    return df_normalized
 
-def write_cleaned_csv(data: List[Dict[str, Any]], output_path: str) -> None:
-    """Write cleaned data to a new CSV file."""
-    if not data:
-        return
-    
-    fieldnames = data[0].keys()
-    
-    with open(output_path, 'w', newline='', encoding='utf-8') as csvfile:
-        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(data)
+def normalize_zscore(df, columns):
+    """
+    Normalize data using Z-score standardization
+    """
+    df_normalized = df.copy()
+    for col in columns:
+        if col in df.columns:
+            mean_val = df[col].mean()
+            std_val = df[col].std()
+            if std_val != 0:
+                df_normalized[col] = (df[col] - mean_val) / std_val
+    return df_normalized
 
-def validate_email(email: str) -> bool:
-    """Basic email validation using regex."""
-    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-    return bool(re.match(pattern, email.strip()))
+def handle_missing_values(df, strategy='mean', columns=None):
+    """
+    Handle missing values with specified strategy
+    """
+    df_filled = df.copy()
+    if columns is None:
+        columns = df.columns
+    
+    for col in columns:
+        if col in df.columns:
+            if strategy == 'mean':
+                df_filled[col] = df[col].fillna(df[col].mean())
+            elif strategy == 'median':
+                df_filled[col] = df[col].fillna(df[col].median())
+            elif strategy == 'mode':
+                df_filled[col] = df[col].fillna(df[col].mode()[0])
+            elif strategy == 'drop':
+                df_filled = df_filled.dropna(subset=[col])
+    
+    return df_filled
 
-def remove_duplicates(data: List[Dict[str, Any]], key_field: str) -> List[Dict[str, Any]]:
-    """Remove duplicate rows based on a specified key field."""
-    seen = set()
-    unique_data = []
+def clean_data_pipeline(df, numeric_columns, outlier_method='iqr', normalize_method='minmax', missing_strategy='mean'):
+    """
+    Complete data cleaning pipeline
+    """
+    # Handle missing values
+    df_clean = handle_missing_values(df, strategy=missing_strategy, columns=numeric_columns)
     
-    for row in data:
-        key_value = row.get(key_field)
-        if key_value not in seen:
-            seen.add(key_value)
-            unique_data.append(row)
+    # Remove outliers
+    if outlier_method == 'iqr':
+        df_clean = remove_outliers_iqr(df_clean, numeric_columns)
+    elif outlier_method == 'zscore':
+        df_clean = remove_outliers_zscore(df_clean, numeric_columns)
     
-    return unique_data
-
-if __name__ == "__main__":
-    # Example usage
-    input_file = "raw_data.csv"
-    output_file = "cleaned_data.csv"
+    # Normalize data
+    if normalize_method == 'minmax':
+        df_clean = normalize_minmax(df_clean, numeric_columns)
+    elif normalize_method == 'zscore':
+        df_clean = normalize_zscore(df_clean, numeric_columns)
     
-    try:
-        raw_data = read_and_clean_csv(input_file)
-        unique_data = remove_duplicates(raw_data, "id")
-        write_cleaned_csv(unique_data, output_file)
-        print(f"cleaned {len(unique_data)} records")
-    except FileNotFoundError:
-        print(f"error: file '{input_file}' not found")
-    except Exception as e:
-        print(f"error processing file: {e}")
+    return df_clean
