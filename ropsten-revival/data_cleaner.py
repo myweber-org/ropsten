@@ -110,3 +110,144 @@ def clean_dataset(input_file, output_file):
 
 if __name__ == "__main__":
     clean_dataset("raw_data.csv", "cleaned_data.csv")
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df, id_column=None):
+    """
+    Clean a pandas DataFrame by removing duplicates and standardizing column names.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean
+        id_column (str, optional): Column to use for duplicate identification
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame
+    """
+    # Create a copy to avoid modifying the original
+    cleaned_df = df.copy()
+    
+    # Standardize column names
+    cleaned_df.columns = cleaned_df.columns.str.strip().str.lower().str.replace(' ', '_')
+    
+    # Remove duplicate rows
+    if id_column and id_column in cleaned_df.columns:
+        cleaned_df = cleaned_df.drop_duplicates(subset=[id_column], keep='first')
+    else:
+        cleaned_df = cleaned_df.drop_duplicates(keep='first')
+    
+    # Reset index after cleaning
+    cleaned_df = cleaned_df.reset_index(drop=True)
+    
+    return cleaned_df
+
+def validate_data(df, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate
+        required_columns (list, optional): List of required column names
+    
+    Returns:
+        dict: Validation results with status and issues
+    """
+    validation_result = {
+        'is_valid': True,
+        'issues': [],
+        'summary': {}
+    }
+    
+    # Check if DataFrame is empty
+    if df.empty:
+        validation_result['is_valid'] = False
+        validation_result['issues'].append('DataFrame is empty')
+    
+    # Check required columns
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            validation_result['is_valid'] = False
+            validation_result['issues'].append(f'Missing required columns: {missing_columns}')
+    
+    # Calculate basic statistics
+    validation_result['summary'] = {
+        'row_count': len(df),
+        'column_count': len(df.columns),
+        'null_count': df.isnull().sum().sum(),
+        'duplicate_count': df.duplicated().sum()
+    }
+    
+    return validation_result
+
+def normalize_column(df, column_name, method='minmax'):
+    """
+    Normalize a column using specified method.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        column_name (str): Column to normalize
+        method (str): Normalization method ('minmax' or 'zscore')
+    
+    Returns:
+        pd.DataFrame: DataFrame with normalized column
+    """
+    if column_name not in df.columns:
+        raise ValueError(f"Column '{column_name}' not found in DataFrame")
+    
+    normalized_df = df.copy()
+    
+    if method == 'minmax':
+        col_min = normalized_df[column_name].min()
+        col_max = normalized_df[column_name].max()
+        if col_max != col_min:
+            normalized_df[f'{column_name}_normalized'] = (normalized_df[column_name] - col_min) / (col_max - col_min)
+        else:
+            normalized_df[f'{column_name}_normalized'] = 0
+    
+    elif method == 'zscore':
+        col_mean = normalized_df[column_name].mean()
+        col_std = normalized_df[column_name].std()
+        if col_std != 0:
+            normalized_df[f'{column_name}_normalized'] = (normalized_df[column_name] - col_mean) / col_std
+        else:
+            normalized_df[f'{column_name}_normalized'] = 0
+    
+    else:
+        raise ValueError(f"Unknown normalization method: {method}")
+    
+    return normalized_df
+
+# Example usage
+if __name__ == "__main__":
+    # Create sample data
+    sample_data = {
+        'ID': [1, 2, 2, 3, 4, 5],
+        'Name': ['Alice', 'Bob', 'Bob', 'Charlie', 'David', 'Eve'],
+        'Age': [25, 30, 30, 35, 40, 45],
+        'Score': [85.5, 92.0, 92.0, 78.5, 88.0, 95.5]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\n" + "="*50 + "\n")
+    
+    # Clean the data
+    cleaned = clean_dataset(df, id_column='ID')
+    print("Cleaned DataFrame:")
+    print(cleaned)
+    print("\n" + "="*50 + "\n")
+    
+    # Validate the data
+    validation = validate_data(cleaned, required_columns=['id', 'name', 'age'])
+    print("Validation Results:")
+    print(f"Valid: {validation['is_valid']}")
+    print(f"Issues: {validation['issues']}")
+    print(f"Summary: {validation['summary']}")
+    print("\n" + "="*50 + "\n")
+    
+    # Normalize a column
+    normalized = normalize_column(cleaned, 'score', method='minmax')
+    print("DataFrame with Normalized Score:")
+    print(normalized[['name', 'score', 'score_normalized']])
