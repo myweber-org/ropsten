@@ -1,65 +1,36 @@
-
 import pandas as pd
+import numpy as np
+from scipy import stats
 
-def remove_duplicates(df, subset=None, keep='first'):
-    """
-    Remove duplicate rows from a DataFrame.
+def load_and_clean_data(filepath):
+    """Load CSV data, remove outliers, and normalize numeric columns."""
+    df = pd.read_csv(filepath)
     
-    Args:
-        df: pandas DataFrame
-        subset: column label or sequence of labels to consider for duplicates
-        keep: determines which duplicates to keep ('first', 'last', False)
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
     
-    Returns:
-        DataFrame with duplicates removed
-    """
-    if df.empty:
-        return df
+    for col in numeric_cols:
+        z_scores = np.abs(stats.zscore(df[col].dropna()))
+        df = df[(z_scores < 3) | df[col].isna()]
     
-    cleaned_df = df.drop_duplicates(subset=subset, keep=keep)
+    for col in numeric_cols:
+        col_min = df[col].min()
+        col_max = df[col].max()
+        if col_max > col_min:
+            df[col] = (df[col] - col_min) / (col_max - col_min)
     
-    removed_count = len(df) - len(cleaned_df)
-    if removed_count > 0:
-        print(f"Removed {removed_count} duplicate rows")
-    
-    return cleaned_df
+    return df
 
-def clean_numeric_columns(df, columns):
-    """
-    Clean numeric columns by removing non-numeric values.
-    
-    Args:
-        df: pandas DataFrame
-        columns: list of column names to clean
-    
-    Returns:
-        DataFrame with cleaned numeric columns
-    """
-    cleaned_df = df.copy()
-    
-    for col in columns:
-        if col in cleaned_df.columns:
-            cleaned_df[col] = pd.to_numeric(cleaned_df[col], errors='coerce')
-    
-    return cleaned_df
+def save_cleaned_data(df, output_path):
+    """Save cleaned DataFrame to CSV."""
+    df.to_csv(output_path, index=False)
 
-def validate_dataframe(df, required_columns=None):
-    """
-    Validate DataFrame structure and content.
+if __name__ == "__main__":
+    input_file = "raw_data.csv"
+    output_file = "cleaned_data.csv"
     
-    Args:
-        df: pandas DataFrame to validate
-        required_columns: list of required column names
+    cleaned_df = load_and_clean_data(input_file)
+    save_cleaned_data(cleaned_df, output_file)
     
-    Returns:
-        tuple of (is_valid, error_message)
-    """
-    if df.empty:
-        return False, "DataFrame is empty"
-    
-    if required_columns:
-        missing_columns = [col for col in required_columns if col not in df.columns]
-        if missing_columns:
-            return False, f"Missing required columns: {missing_columns}"
-    
-    return True, "DataFrame is valid"
+    print(f"Data cleaning complete. Original shape: {pd.read_csv(input_file).shape}")
+    print(f"Cleaned shape: {cleaned_df.shape}")
+    print(f"Saved to: {output_file}")
