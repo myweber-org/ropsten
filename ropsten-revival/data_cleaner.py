@@ -96,4 +96,44 @@ if __name__ == "__main__":
     
     cleaned_df = clean_numeric_data(df, columns=['A', 'B'])
     print("\nCleaned DataFrame:")
-    print(cleaned_df)
+    print(cleaned_df)import pandas as pd
+import numpy as np
+
+def clean_dataset(df, text_columns=None):
+    """
+    Clean a pandas DataFrame by removing rows with null values
+    and standardizing text columns to lowercase.
+    """
+    # Create a copy to avoid modifying the original DataFrame
+    df_clean = df.copy()
+    
+    # Remove rows with any null values
+    df_clean = df_clean.dropna()
+    
+    # Standardize text columns if specified
+    if text_columns:
+        for col in text_columns:
+            if col in df_clean.columns:
+                df_clean[col] = df_clean[col].astype(str).str.lower().str.strip()
+    
+    # Reset index after cleaning
+    df_clean = df_clean.reset_index(drop=True)
+    
+    return df_clean
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate that a DataFrame meets basic requirements.
+    """
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError("Input must be a pandas DataFrame")
+    
+    if df.empty:
+        raise ValueError("DataFrame is empty")
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            raise ValueError(f"Missing required columns: {missing_columns}")
+    
+    return True
