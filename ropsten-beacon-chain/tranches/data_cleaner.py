@@ -116,4 +116,143 @@ if __name__ == "__main__":
     
     normalized = normalize_columns(cleaned, method='minmax')
     print("\nNormalized DataFrame:")
-    print(normalized)
+    print(normalized)import pandas as pd
+import numpy as np
+from typing import Optional, List
+
+def remove_duplicates(df: pd.DataFrame, subset: Optional[List[str]] = None) -> pd.DataFrame:
+    """
+    Remove duplicate rows from DataFrame.
+    
+    Args:
+        df: Input DataFrame
+        subset: Columns to consider for identifying duplicates
+    
+    Returns:
+        DataFrame with duplicates removed
+    """
+    return df.drop_duplicates(subset=subset, keep='first')
+
+def fill_missing_values(df: pd.DataFrame, strategy: str = 'mean', columns: Optional[List[str]] = None) -> pd.DataFrame:
+    """
+    Fill missing values in DataFrame.
+    
+    Args:
+        df: Input DataFrame
+        strategy: 'mean', 'median', 'mode', or 'constant'
+        columns: Specific columns to fill
+    
+    Returns:
+        DataFrame with filled missing values
+    """
+    df_filled = df.copy()
+    
+    if columns is None:
+        columns = df.columns
+    
+    for col in columns:
+        if df[col].dtype in ['int64', 'float64']:
+            if strategy == 'mean':
+                df_filled[col] = df[col].fillna(df[col].mean())
+            elif strategy == 'median':
+                df_filled[col] = df[col].fillna(df[col].median())
+            elif strategy == 'mode':
+                df_filled[col] = df[col].fillna(df[col].mode()[0])
+            elif strategy == 'constant':
+                df_filled[col] = df[col].fillna(0)
+    
+    return df_filled
+
+def normalize_columns(df: pd.DataFrame, columns: Optional[List[str]] = None) -> pd.DataFrame:
+    """
+    Normalize specified columns to range [0, 1].
+    
+    Args:
+        df: Input DataFrame
+        columns: Columns to normalize
+    
+    Returns:
+        DataFrame with normalized columns
+    """
+    df_normalized = df.copy()
+    
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    for col in columns:
+        if col in df.columns and df[col].dtype in ['int64', 'float64']:
+            col_min = df[col].min()
+            col_max = df[col].max()
+            
+            if col_max != col_min:
+                df_normalized[col] = (df[col] - col_min) / (col_max - col_min)
+    
+    return df_normalized
+
+def detect_outliers_iqr(df: pd.DataFrame, columns: Optional[List[str]] = None, threshold: float = 1.5) -> pd.DataFrame:
+    """
+    Detect outliers using IQR method.
+    
+    Args:
+        df: Input DataFrame
+        columns: Columns to check for outliers
+        threshold: IQR multiplier threshold
+    
+    Returns:
+        Boolean DataFrame indicating outliers
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    outlier_mask = pd.DataFrame(False, index=df.index, columns=columns)
+    
+    for col in columns:
+        if col in df.columns and df[col].dtype in ['int64', 'float64']:
+            Q1 = df[col].quantile(0.25)
+            Q3 = df[col].quantile(0.75)
+            IQR = Q3 - Q1
+            
+            lower_bound = Q1 - threshold * IQR
+            upper_bound = Q3 + threshold * IQR
+            
+            outlier_mask[col] = (df[col] < lower_bound) | (df[col] > upper_bound)
+    
+    return outlier_mask
+
+def clean_dataset(df: pd.DataFrame, 
+                  remove_dups: bool = True,
+                  fill_na: bool = True,
+                  normalize: bool = False,
+                  outlier_threshold: Optional[float] = None) -> pd.DataFrame:
+    """
+    Comprehensive data cleaning pipeline.
+    
+    Args:
+        df: Input DataFrame
+        remove_dups: Whether to remove duplicates
+        fill_na: Whether to fill missing values
+        normalize: Whether to normalize numeric columns
+        outlier_threshold: IQR threshold for outlier detection
+    
+    Returns:
+        Cleaned DataFrame
+    """
+    cleaned_df = df.copy()
+    
+    if remove_dups:
+        cleaned_df = remove_duplicates(cleaned_df)
+    
+    if fill_na:
+        cleaned_df = fill_missing_values(cleaned_df, strategy='mean')
+    
+    if normalize:
+        cleaned_df = normalize_columns(cleaned_df)
+    
+    if outlier_threshold is not None:
+        outliers = detect_outliers_iqr(cleaned_df, threshold=outlier_threshold)
+        for col in outliers.columns:
+            if outliers[col].any():
+                col_median = cleaned_df[col].median()
+                cleaned_df.loc[outliers[col], col] = col_median
+    
+    return cleaned_df
