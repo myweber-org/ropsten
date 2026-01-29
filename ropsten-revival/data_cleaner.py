@@ -1,120 +1,70 @@
-def remove_duplicates(input_list):
-    seen = set()
-    result = []
-    for item in input_list:
-        if item not in seen:
-            seen.add(item)
-            result.append(item)
-    return result
 
-def clean_data(data):
-    if not isinstance(data, list):
-        raise TypeError("Input must be a list")
-    return remove_duplicates(data)
-def remove_duplicates(data_list):
-    """
-    Remove duplicate entries from a list while preserving order.
-    Returns a new list with unique elements.
-    """
-    seen = set()
-    unique_list = []
-    for item in data_list:
-        if item not in seen:
-            seen.add(item)
-            unique_list.append(item)
-    return unique_list
-
-def clean_numeric_data(values, default=0):
-    """
-    Clean numeric data by converting strings to floats,
-    handling None values, and replacing invalid entries with default.
-    """
-    cleaned = []
-    for val in values:
-        if val is None:
-            cleaned.append(default)
-        elif isinstance(val, str):
-            try:
-                cleaned.append(float(val))
-            except ValueError:
-                cleaned.append(default)
-        else:
-            cleaned.append(float(val))
-    return cleaned
-
-if __name__ == "__main__":
-    sample_data = [1, 2, 2, 3, 4, 4, 5]
-    print("Original:", sample_data)
-    print("Cleaned:", remove_duplicates(sample_data))
-    
-    numeric_data = ["1.5", "invalid", None, 3.2, "4.7"]
-    print("Numeric original:", numeric_data)
-    print("Numeric cleaned:", clean_numeric_data(numeric_data))
-import numpy as np
 import pandas as pd
 
-def remove_outliers_iqr(df, column):
+def clean_dataframe(df):
     """
-    Remove outliers from a DataFrame column using the Interquartile Range method.
+    Clean a pandas DataFrame by removing null values and duplicates.
     
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    column (str): Column name to clean
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean.
     
     Returns:
-    pd.DataFrame: DataFrame with outliers removed
+        pd.DataFrame: Cleaned DataFrame.
     """
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
-    
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
-    
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
-    
-    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
-    
-    return filtered_df.reset_index(drop=True)
-
-def clean_dataset(df, columns=None):
-    """
-    Clean multiple columns in a DataFrame by removing outliers.
-    
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    columns (list): List of column names to clean. If None, clean all numeric columns.
-    
-    Returns:
-    pd.DataFrame: Cleaned DataFrame
-    """
-    if columns is None:
-        numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
-        columns = numeric_cols
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError("Input must be a pandas DataFrame")
     
     cleaned_df = df.copy()
     
-    for column in columns:
-        if column in cleaned_df.columns:
-            try:
-                cleaned_df = remove_outliers_iqr(cleaned_df, column)
-            except ValueError as e:
-                print(f"Skipping column {column}: {e}")
+    cleaned_df = cleaned_df.dropna()
+    
+    cleaned_df = cleaned_df.drop_duplicates()
+    
+    cleaned_df = cleaned_df.reset_index(drop=True)
     
     return cleaned_df
 
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and required columns.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate.
+        required_columns (list): List of required column names.
+    
+    Returns:
+        bool: True if validation passes, False otherwise.
+    """
+    if not isinstance(df, pd.DataFrame):
+        return False
+    
+    if df.empty:
+        return False
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            print(f"Missing required columns: {missing_columns}")
+            return False
+    
+    return True
+
 if __name__ == "__main__":
     sample_data = {
-        'A': np.random.normal(100, 15, 1000),
-        'B': np.random.exponential(50, 1000),
-        'C': np.random.uniform(0, 200, 1000)
+        'name': ['Alice', 'Bob', 'Charlie', None, 'Alice'],
+        'age': [25, 30, None, 40, 25],
+        'score': [85.5, 92.0, 78.5, 88.0, 85.5]
     }
     
     df = pd.DataFrame(sample_data)
-    print(f"Original shape: {df.shape}")
+    print("Original DataFrame:")
+    print(df)
+    print("\nDataFrame shape:", df.shape)
     
-    cleaned_df = clean_dataset(df, ['A', 'B'])
-    print(f"Cleaned shape: {cleaned_df.shape}")
+    cleaned = clean_dataframe(df)
+    print("\nCleaned DataFrame:")
+    print(cleaned)
+    print("\nCleaned shape:", cleaned.shape)
     
-    print("Outlier removal completed successfully")
+    is_valid = validate_dataframe(cleaned, ['name', 'age', 'score'])
+    print(f"\nDataFrame validation: {is_valid}")
