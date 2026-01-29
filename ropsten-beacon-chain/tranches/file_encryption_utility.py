@@ -80,4 +80,93 @@ class SecureFileEncryptor:
             return False
 
 def generate_secure_password(length: int = 32) -> str:
-    return base64.urlsafe_b64encode(os.urandom(length)).decode()[:length]
+    return base64.urlsafe_b64encode(os.urandom(length)).decode()[:length]import os
+import hashlib
+from base64 import b64encode, b64decode
+from Crypto.Cipher import AES
+from Crypto.Util.Padding import pad, unpad
+from Crypto.Random import get_random_bytes
+
+class FileEncryptor:
+    def __init__(self, password):
+        self.key = hashlib.sha256(password.encode()).digest()
+    
+    def encrypt_file(self, input_path, output_path=None):
+        if not os.path.exists(input_path):
+            raise FileNotFoundError(f"Input file not found: {input_path}")
+        
+        if output_path is None:
+            output_path = input_path + '.enc'
+        
+        iv = get_random_bytes(AES.block_size)
+        cipher = AES.new(self.key, AES.MODE_CBC, iv)
+        
+        with open(input_path, 'rb') as f:
+            plaintext = f.read()
+        
+        ciphertext = cipher.encrypt(pad(plaintext, AES.block_size))
+        
+        with open(output_path, 'wb') as f:
+            f.write(iv + ciphertext)
+        
+        return output_path
+    
+    def decrypt_file(self, input_path, output_path=None):
+        if not os.path.exists(input_path):
+            raise FileNotFoundError(f"Input file not found: {input_path}")
+        
+        if output_path is None:
+            if input_path.endswith('.enc'):
+                output_path = input_path[:-4]
+            else:
+                output_path = input_path + '.dec'
+        
+        with open(input_path, 'rb') as f:
+            data = f.read()
+        
+        iv = data[:AES.block_size]
+        ciphertext = data[AES.block_size:]
+        
+        cipher = AES.new(self.key, AES.MODE_CBC, iv)
+        plaintext = unpad(cipher.decrypt(ciphertext), AES.block_size)
+        
+        with open(output_path, 'wb') as f:
+            f.write(plaintext)
+        
+        return output_path
+    
+    @staticmethod
+    def generate_random_key():
+        return b64encode(get_random_bytes(32)).decode()
+
+def example_usage():
+    encryptor = FileEncryptor("secure_password_123")
+    
+    test_content = b"This is a secret message that needs encryption."
+    test_file = "test_secret.txt"
+    
+    with open(test_file, 'wb') as f:
+        f.write(test_content)
+    
+    try:
+        encrypted_file = encryptor.encrypt_file(test_file)
+        print(f"Encrypted file created: {encrypted_file}")
+        
+        decrypted_file = encryptor.decrypt_file(encrypted_file)
+        print(f"Decrypted file created: {decrypted_file}")
+        
+        with open(decrypted_file, 'rb') as f:
+            restored_content = f.read()
+        
+        if test_content == restored_content:
+            print("Encryption/decryption successful!")
+        else:
+            print("Encryption/decryption failed!")
+    
+    finally:
+        for file in [test_file, test_file + '.enc', test_file + '.dec']:
+            if os.path.exists(file):
+                os.remove(file)
+
+if __name__ == "__main__":
+    example_usage()
