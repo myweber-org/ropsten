@@ -325,4 +325,70 @@ def validate_dataframe(data):
     if data.empty:
         raise ValueError("DataFrame is empty")
     
-    return True
+    return Trueimport pandas as pd
+import re
+
+def clean_text_column(series):
+    """Standardize text: lowercase, strip whitespace, remove extra spaces."""
+    if series.dtype == 'object':
+        return series.str.lower().str.strip().replace(r'\s+', ' ', regex=True)
+    return series
+
+def remove_duplicates(df, subset=None):
+    """Remove duplicate rows, optionally based on specific columns."""
+    return df.drop_duplicates(subset=subset, keep='first')
+
+def standardize_dates(df, date_columns):
+    """Convert specified columns to datetime format."""
+    for col in date_columns:
+        if col in df.columns:
+            df[col] = pd.to_datetime(df[col], errors='coerce')
+    return df
+
+def clean_numeric(df, numeric_columns):
+    """Remove non-numeric characters and convert to float."""
+    for col in numeric_columns:
+        if col in df.columns:
+            df[col] = df[col].replace(r'[^\d.-]', '', regex=True)
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+    return df
+
+def clean_dataframe(df, text_columns=None, date_columns=None, numeric_columns=None, dedupe_subset=None):
+    """Apply all cleaning functions to a DataFrame."""
+    df_clean = df.copy()
+    
+    if text_columns:
+        for col in text_columns:
+            if col in df_clean.columns:
+                df_clean[col] = clean_text_column(df_clean[col])
+    
+    if date_columns:
+        df_clean = standardize_dates(df_clean, date_columns)
+    
+    if numeric_columns:
+        df_clean = clean_numeric(df_clean, numeric_columns)
+    
+    df_clean = remove_duplicates(df_clean, subset=dedupe_subset)
+    
+    return df_clean.reset_index(drop=True)
+
+if __name__ == "__main__":
+    sample_data = {
+        'name': ['  John DOE  ', 'Jane SMITH', '  John DOE  ', 'Alice'],
+        'date': ['2023-01-01', '2023-02-15', 'invalid', '2023-03-20'],
+        'value': ['$100.50', '200', 'ABC', '300.75']
+    }
+    df = pd.DataFrame(sample_data)
+    
+    cleaned = clean_dataframe(
+        df,
+        text_columns=['name'],
+        date_columns=['date'],
+        numeric_columns=['value'],
+        dedupe_subset=['name']
+    )
+    
+    print("Original DataFrame:")
+    print(df)
+    print("\nCleaned DataFrame:")
+    print(cleaned)
