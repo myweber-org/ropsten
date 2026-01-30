@@ -1,55 +1,76 @@
+
 import pandas as pd
-import sys
+import numpy as np
 
-def remove_duplicates(input_file, output_file=None, subset=None, keep='first'):
-    """
-    Remove duplicate rows from a CSV file.
-    
-    Args:
-        input_file (str): Path to input CSV file
-        output_file (str, optional): Path to output CSV file. If None, overwrites input file
-        subset (list, optional): Columns to consider for identifying duplicates
-        keep (str): Which duplicate to keep - 'first', 'last', or False to drop all duplicates
-    
-    Returns:
-        int: Number of duplicates removed
-    """
-    try:
-        df = pd.read_csv(input_file)
-        initial_rows = len(df)
-        
-        df_clean = df.drop_duplicates(subset=subset, keep=keep)
-        final_rows = len(df_clean)
-        
-        duplicates_removed = initial_rows - final_rows
-        
-        if output_file is None:
-            output_file = input_file
-        
-        df_clean.to_csv(output_file, index=False)
-        
-        print(f"Removed {duplicates_removed} duplicate rows")
-        print(f"Original rows: {initial_rows}, Cleaned rows: {final_rows}")
-        print(f"Saved to: {output_file}")
-        
-        return duplicates_removed
-        
-    except FileNotFoundError:
-        print(f"Error: File '{input_file}' not found")
-        return -1
-    except pd.errors.EmptyDataError:
-        print(f"Error: File '{input_file}' is empty")
-        return -1
-    except Exception as e:
-        print(f"Error processing file: {str(e)}")
-        return -1
+class DataCleaner:
+    def __init__(self, df):
+        self.df = df.copy()
+        self.numeric_columns = self.df.select_dtypes(include=[np.number]).columns
+        self.categorical_columns = self.df.select_dtypes(exclude=[np.number]).columns
 
-if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python data_cleaner.py <input_file> [output_file]")
-        sys.exit(1)
-    
-    input_file = sys.argv[1]
-    output_file = sys.argv[2] if len(sys.argv) > 2 else None
-    
-    remove_duplicates(input_file, output_file)
+    def handle_missing_values(self, strategy='mean', fill_value=None):
+        if strategy == 'mean':
+            self.df[self.numeric_columns] = self.df[self.numeric_columns].fillna(self.df[self.numeric_columns].mean())
+        elif strategy == 'median':
+            self.df[self.numeric_columns] = self.df[self.numeric_columns].fillna(self.df[self.numeric_columns].median())
+        elif strategy == 'mode':
+            self.df[self.numeric_columns] = self.df[self.numeric_columns].fillna(self.df[self.numeric_columns].mode().iloc[0])
+        elif strategy == 'constant':
+            if fill_value is not None:
+                self.df[self.numeric_columns] = self.df[self.numeric_columns].fillna(fill_value)
+            else:
+                raise ValueError("fill_value must be provided for constant strategy")
+        else:
+            raise ValueError("Invalid strategy. Choose from 'mean', 'median', 'mode', or 'constant'")
+
+        self.df[self.categorical_columns] = self.df[self.categorical_columns].fillna('Unknown')
+        return self
+
+    def remove_outliers_iqr(self, columns=None, multiplier=1.5):
+        if columns is None:
+            columns = self.numeric_columns
+
+        for col in columns:
+            if col in self.numeric_columns:
+                Q1 = self.df[col].quantile(0.25)
+                Q3 = self.df[col].quantile(0.75)
+                IQR = Q3 - Q1
+                lower_bound = Q1 - multiplier * IQR
+                upper_bound = Q3 + multiplier * IQR
+                self.df = self.df[(self.df[col] >= lower_bound) & (self.df[col] <= upper_bound)]
+        return self
+
+    def standardize_data(self, columns=None):
+        if columns is None:
+            columns = self.numeric_columns
+
+        for col in columns:
+            if col in self.numeric_columns:
+                mean = self.df[col].mean()
+                std = self.df[col].std()
+                if std != 0:
+                    self.df[col] = (self.df[col] - mean) / std
+        return self
+
+    def normalize_data(self, columns=None):
+        if columns is None:
+            columns = self.numeric_columns
+
+        for col in columns:
+            if col in self.numeric_columns:
+                min_val = self.df[col].min()
+                max_val = self.df[col].max()
+                if max_val != min_val:
+                    self.df[col] = (self.df[col] - min_val) / (max_val - min_val)
+        return self
+
+    def get_cleaned_data(self):
+        return self.df
+
+    def summary(self):
+        print("Data Summary:")
+        print(f"Shape: {self.df.shape}")
+        print(f"Missing Values:")
+        print(self.df.isnull().sum())
+        print(f"\nData Types:")
+        print(self.df.dtypes)
