@@ -1,83 +1,47 @@
 
 import pandas as pd
-import numpy as np
 
-def clean_dataset(df, missing_strategy='mean', outlier_threshold=3):
+def clean_dataframe(df, column_name, condition_func):
     """
-    Clean a dataset by handling missing values and removing outliers.
-    
-    Parameters:
-    df (pd.DataFrame): Input dataframe
-    missing_strategy (str): Strategy for handling missing values ('mean', 'median', 'drop')
-    outlier_threshold (float): Z-score threshold for outlier detection
-    
+    Filters a pandas DataFrame based on a condition applied to a specific column.
+    Removes rows where the condition function returns False.
+
+    Args:
+        df (pd.DataFrame): The input DataFrame to clean.
+        column_name (str): The name of the column to apply the condition to.
+        condition_func (function): A function that takes a single value from the
+                                   specified column and returns a boolean.
+
     Returns:
-    pd.DataFrame: Cleaned dataframe
+        pd.DataFrame: A new DataFrame with rows filtered based on the condition.
     """
-    cleaned_df = df.copy()
-    
-    # Handle missing values
-    if missing_strategy == 'mean':
-        cleaned_df = cleaned_df.fillna(cleaned_df.mean())
-    elif missing_strategy == 'median':
-        cleaned_df = cleaned_df.fillna(cleaned_df.median())
-    elif missing_strategy == 'drop':
-        cleaned_df = cleaned_df.dropna()
-    
-    # Remove outliers using Z-score method
-    numeric_cols = cleaned_df.select_dtypes(include=[np.number]).columns
-    z_scores = np.abs((cleaned_df[numeric_cols] - cleaned_df[numeric_cols].mean()) / cleaned_df[numeric_cols].std())
-    outlier_mask = (z_scores < outlier_threshold).all(axis=1)
-    cleaned_df = cleaned_df[outlier_mask]
-    
-    # Reset index after cleaning
-    cleaned_df = cleaned_df.reset_index(drop=True)
-    
-    return cleaned_df
+    if column_name not in df.columns:
+        raise ValueError(f"Column '{column_name}' not found in DataFrame.")
 
-def validate_data(df, required_columns=None, min_rows=10):
+    filtered_df = df[df[column_name].apply(condition_func)].copy()
+    filtered_df.reset_index(drop=True, inplace=True)
+    return filtered_df
+
+def remove_outliers_iqr(df, column_name):
     """
-    Validate dataset structure and content.
-    
-    Parameters:
-    df (pd.DataFrame): Dataframe to validate
-    required_columns (list): List of required column names
-    min_rows (int): Minimum number of rows required
-    
+    Removes outliers from a specified column in a DataFrame using the IQR method.
+
+    Args:
+        df (pd.DataFrame): The input DataFrame.
+        column_name (str): The name of the numeric column to process.
+
     Returns:
-    tuple: (is_valid, error_message)
+        pd.DataFrame: A new DataFrame with outliers removed from the specified column.
     """
-    if len(df) < min_rows:
-        return False, f"Dataset has less than {min_rows} rows"
-    
-    if required_columns:
-        missing_cols = [col for col in required_columns if col not in df.columns]
-        if missing_cols:
-            return False, f"Missing required columns: {missing_cols}"
-    
-    # Check for infinite values
-    numeric_cols = df.select_dtypes(include=[np.number]).columns
-    if not numeric_cols.empty:
-        if np.any(np.isinf(df[numeric_cols].values)):
-            return False, "Dataset contains infinite values"
-    
-    return True, "Dataset is valid"
+    if column_name not in df.columns:
+        raise ValueError(f"Column '{column_name}' not found in DataFrame.")
 
-# Example usage
-if __name__ == "__main__":
-    # Create sample data
-    sample_data = {
-        'A': [1, 2, np.nan, 4, 100],
-        'B': [5, 6, 7, np.nan, 8],
-        'C': [9, 10, 11, 12, 13]
-    }
-    
-    df = pd.DataFrame(sample_data)
-    print("Original dataset:")
-    print(df)
-    print("\nCleaned dataset:")
-    cleaned = clean_dataset(df, missing_strategy='mean', outlier_threshold=2)
-    print(cleaned)
-    
-    is_valid, message = validate_data(cleaned, required_columns=['A', 'B', 'C'])
-    print(f"\nValidation: {is_valid} - {message}")
+    Q1 = df[column_name].quantile(0.25)
+    Q3 = df[column_name].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+
+    filtered_df = df[(df[column_name] >= lower_bound) & (df[column_name] <= upper_bound)].copy()
+    filtered_df.reset_index(drop=True, inplace=True)
+    return filtered_df
