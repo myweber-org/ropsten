@@ -209,4 +209,103 @@ def main():
         sys.exit(1)
 
 if __name__ == "__main__":
+    main()import os
+from cryptography.fernet import Fernet
+
+class FileEncryptor:
+    def __init__(self, key_file='secret.key'):
+        self.key_file = key_file
+        self.key = self.load_or_generate_key()
+
+    def load_or_generate_key(self):
+        if os.path.exists(self.key_file):
+            with open(self.key_file, 'rb') as f:
+                return f.read()
+        else:
+            key = Fernet.generate_key()
+            with open(self.key_file, 'wb') as f:
+                f.write(key)
+            return key
+
+    def encrypt_file(self, input_file, output_file=None):
+        if not os.path.exists(input_file):
+            raise FileNotFoundError(f"Input file {input_file} not found")
+
+        if output_file is None:
+            output_file = input_file + '.encrypted'
+
+        fernet = Fernet(self.key)
+
+        with open(input_file, 'rb') as f:
+            original_data = f.read()
+
+        encrypted_data = fernet.encrypt(original_data)
+
+        with open(output_file, 'wb') as f:
+            f.write(encrypted_data)
+
+        return output_file
+
+    def decrypt_file(self, input_file, output_file=None):
+        if not os.path.exists(input_file):
+            raise FileNotFoundError(f"Input file {input_file} not found")
+
+        if output_file is None:
+            if input_file.endswith('.encrypted'):
+                output_file = input_file[:-10]
+            else:
+                output_file = input_file + '.decrypted'
+
+        fernet = Fernet(self.key)
+
+        with open(input_file, 'rb') as f:
+            encrypted_data = f.read()
+
+        try:
+            decrypted_data = fernet.decrypt(encrypted_data)
+        except Exception as e:
+            raise ValueError(f"Decryption failed: {str(e)}")
+
+        with open(output_file, 'wb') as f:
+            f.write(decrypted_data)
+
+        return output_file
+
+    def encrypt_string(self, text):
+        fernet = Fernet(self.key)
+        return fernet.encrypt(text.encode()).decode()
+
+    def decrypt_string(self, encrypted_text):
+        fernet = Fernet(self.key)
+        return fernet.decrypt(encrypted_text.encode()).decode()
+
+def main():
+    encryptor = FileEncryptor()
+
+    test_string = "This is a secret message"
+    print(f"Original string: {test_string}")
+
+    encrypted = encryptor.encrypt_string(test_string)
+    print(f"Encrypted string: {encrypted}")
+
+    decrypted = encryptor.decrypt_string(encrypted)
+    print(f"Decrypted string: {decrypted}")
+
+    test_filename = 'test_data.txt'
+    with open(test_filename, 'w') as f:
+        f.write("Sensitive file content\nMultiple lines\nEnd of data")
+
+    encrypted_file = encryptor.encrypt_file(test_filename)
+    print(f"Encrypted file created: {encrypted_file}")
+
+    decrypted_file = encryptor.decrypt_file(encrypted_file)
+    print(f"Decrypted file created: {decrypted_file}")
+
+    os.remove(test_filename)
+    os.remove(encrypted_file)
+    os.remove(decrypted_file)
+    if os.path.exists('secret.key'):
+        os.remove('secret.key')
+
+if __name__ == "__main__":
     main()
