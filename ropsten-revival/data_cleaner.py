@@ -40,4 +40,16 @@ def calculate_summary_stats(data, column):
         'max': data[column].max(),
         'count': data[column].count()
     }
-    return stats
+    return statsdef remove_duplicates(input_list):
+    seen = set()
+    result = []
+    for item in input_list:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
+
+def clean_data(data):
+    if not isinstance(data, list):
+        raise TypeError("Input must be a list")
+    return remove_duplicates(data)
