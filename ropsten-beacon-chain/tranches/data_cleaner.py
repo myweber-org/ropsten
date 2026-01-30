@@ -73,4 +73,71 @@ class DataCleaner:
         print(f"Missing Values:")
         print(self.df.isnull().sum())
         print(f"\nData Types:")
-        print(self.df.dtypes)
+        print(self.df.dtypes)import pandas as pd
+import numpy as np
+
+def remove_outliers_iqr(df, column):
+    """
+    Remove outliers from a DataFrame column using the IQR method.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        column (str): Column name to clean
+    
+    Returns:
+        pd.DataFrame: DataFrame with outliers removed
+    """
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    
+    return filtered_df
+
+def clean_dataset(df, numeric_columns):
+    """
+    Clean a dataset by removing outliers from multiple numeric columns.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        numeric_columns (list): List of numeric column names to clean
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame
+    """
+    cleaned_df = df.copy()
+    
+    for column in numeric_columns:
+        if column in cleaned_df.columns:
+            cleaned_df = remove_outliers_iqr(cleaned_df, column)
+    
+    return cleaned_df.reset_index(drop=True)
+
+def calculate_statistics(df, column):
+    """
+    Calculate basic statistics for a column.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        column (str): Column name
+    
+    Returns:
+        dict: Dictionary containing statistics
+    """
+    if column not in df.columns:
+        return {}
+    
+    stats = {
+        'mean': df[column].mean(),
+        'median': df[column].median(),
+        'std': df[column].std(),
+        'min': df[column].min(),
+        'max': df[column].max(),
+        'count': df[column].count()
+    }
+    
+    return stats
