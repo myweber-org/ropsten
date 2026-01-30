@@ -346,3 +346,51 @@ def clean_dataframe(df, config):
                 df_clean = filter_outliers(df_clean, col, method, threshold)
     
     return df_clean
+import numpy as np
+import pandas as pd
+
+def remove_outliers_iqr(data, column, threshold=1.5):
+    """
+    Remove outliers using IQR method.
+    """
+    q1 = data[column].quantile(0.25)
+    q3 = data[column].quantile(0.75)
+    iqr = q3 - q1
+    lower_bound = q1 - threshold * iqr
+    upper_bound = q3 + threshold * iqr
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    return filtered_data
+
+def normalize_minmax(data, column):
+    """
+    Normalize data using min-max scaling.
+    """
+    min_val = data[column].min()
+    max_val = data[column].max()
+    if max_val == min_val:
+        return data[column].apply(lambda x: 0.5)
+    normalized = (data[column] - min_val) / (max_val - min_val)
+    return normalized
+
+def clean_dataset(df, numeric_columns):
+    """
+    Clean dataset by removing outliers and normalizing numeric columns.
+    """
+    cleaned_df = df.copy()
+    for col in numeric_columns:
+        if col in cleaned_df.columns:
+            cleaned_df = remove_outliers_iqr(cleaned_df, col)
+            cleaned_df[col] = normalize_minmax(cleaned_df, col)
+    return cleaned_df
+
+if __name__ == "__main__":
+    sample_data = pd.DataFrame({
+        'feature1': np.random.normal(100, 15, 200),
+        'feature2': np.random.exponential(50, 200),
+        'category': np.random.choice(['A', 'B', 'C'], 200)
+    })
+    numeric_cols = ['feature1', 'feature2']
+    result = clean_dataset(sample_data, numeric_cols)
+    print(f"Original shape: {sample_data.shape}")
+    print(f"Cleaned shape: {result.shape}")
+    print("Cleaning completed.")
