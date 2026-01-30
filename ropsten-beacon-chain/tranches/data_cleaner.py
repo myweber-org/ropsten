@@ -1,110 +1,78 @@
 
-def deduplicate_list(input_list):
-    seen = set()
-    result = []
-    for item in input_list:
-        if item not in seen:
-            seen.add(item)
-            result.append(item)
-    return result
 import pandas as pd
+import numpy as np
 
-def remove_duplicates(dataframe, subset=None, keep='first'):
-    """
-    Remove duplicate rows from a pandas DataFrame.
-    
-    Args:
-        dataframe: Input pandas DataFrame
-        subset: Column label or sequence of labels to consider for duplicates
-        keep: Determines which duplicates to keep ('first', 'last', False)
-    
-    Returns:
-        DataFrame with duplicates removed
-    """
-    if not isinstance(dataframe, pd.DataFrame):
-        raise TypeError("Input must be a pandas DataFrame")
-    
-    cleaned_df = dataframe.drop_duplicates(subset=subset, keep=keep)
-    
-    removed_count = len(dataframe) - len(cleaned_df)
-    print(f"Removed {removed_count} duplicate rows")
-    
-    return cleaned_df
+class DataCleaner:
+    def __init__(self, df):
+        self.df = df.copy()
+        self.numeric_columns = self.df.select_dtypes(include=[np.number]).columns
+        self.categorical_columns = self.df.select_dtypes(exclude=[np.number]).columns
 
-def clean_numeric_columns(dataframe, columns=None):
-    """
-    Clean numeric columns by converting to appropriate types and handling errors.
-    
-    Args:
-        dataframe: Input pandas DataFrame
-        columns: List of column names to clean (default: all numeric columns)
-    
-    Returns:
-        DataFrame with cleaned numeric columns
-    """
-    if columns is None:
-        columns = dataframe.select_dtypes(include=['object']).columns
-    
-    for col in columns:
-        if col in dataframe.columns:
-            try:
-                dataframe[col] = pd.to_numeric(dataframe[col], errors='coerce')
-            except Exception as e:
-                print(f"Error cleaning column {col}: {e}")
-    
-    return dataframe
+    def handle_missing_values(self, strategy='mean', fill_value=None):
+        if strategy == 'mean':
+            self.df[self.numeric_columns] = self.df[self.numeric_columns].fillna(self.df[self.numeric_columns].mean())
+        elif strategy == 'median':
+            self.df[self.numeric_columns] = self.df[self.numeric_columns].fillna(self.df[self.numeric_columns].median())
+        elif strategy == 'mode':
+            self.df[self.numeric_columns] = self.df[self.numeric_columns].fillna(self.df[self.numeric_columns].mode().iloc[0])
+        elif strategy == 'constant' and fill_value is not None:
+            self.df[self.numeric_columns] = self.df[self.numeric_columns].fillna(fill_value)
+        else:
+            raise ValueError("Invalid strategy or missing fill_value for constant strategy")
+        
+        self.df[self.categorical_columns] = self.df[self.categorical_columns].fillna('Unknown')
+        return self
 
-def validate_dataframe(dataframe, required_columns=None):
-    """
-    Validate DataFrame structure and content.
-    
-    Args:
-        dataframe: Input pandas DataFrame
-        required_columns: List of required column names
-    
-    Returns:
-        Tuple of (is_valid, validation_message)
-    """
-    if not isinstance(dataframe, pd.DataFrame):
-        return False, "Input is not a pandas DataFrame"
-    
-    if dataframe.empty:
-        return False, "DataFrame is empty"
-    
-    if required_columns:
-        missing_columns = [col for col in required_columns if col not in dataframe.columns]
-        if missing_columns:
-            return False, f"Missing required columns: {missing_columns}"
-    
-    return True, "DataFrame validation passed"
-def remove_duplicates(input_list):
-    """
-    Remove duplicate elements from a list while preserving order.
-    Returns a new list with unique elements.
-    """
-    seen = set()
-    result = []
-    for item in input_list:
-        if item not in seen:
-            seen.add(item)
-            result.append(item)
-    return result
+    def remove_outliers_iqr(self, columns=None, multiplier=1.5):
+        if columns is None:
+            columns = self.numeric_columns
+        
+        for col in columns:
+            if col in self.numeric_columns:
+                Q1 = self.df[col].quantile(0.25)
+                Q3 = self.df[col].quantile(0.75)
+                IQR = Q3 - Q1
+                lower_bound = Q1 - multiplier * IQR
+                upper_bound = Q3 + multiplier * IQR
+                
+                self.df = self.df[(self.df[col] >= lower_bound) & (self.df[col] <= upper_bound)]
+        
+        return self
 
-def clean_data_with_threshold(data, threshold=None):
-    """
-    Clean data by removing duplicates and optionally filtering by threshold.
-    If threshold is provided, only items meeting the threshold are kept.
-    """
-    unique_data = remove_duplicates(data)
-    
-    if threshold is not None:
-        filtered_data = [item for item in unique_data if item >= threshold]
-        return filtered_data
-    
-    return unique_data
+    def standardize_data(self, columns=None):
+        if columns is None:
+            columns = self.numeric_columns
+        
+        for col in columns:
+            if col in self.numeric_columns:
+                mean = self.df[col].mean()
+                std = self.df[col].std()
+                if std > 0:
+                    self.df[col] = (self.df[col] - mean) / std
+        
+        return self
 
-if __name__ == "__main__":
-    sample_data = [1, 3, 2, 1, 5, 3, 7, 2, 8]
-    print("Original data:", sample_data)
-    print("Cleaned data:", remove_duplicates(sample_data))
-    print("Cleaned with threshold 4:", clean_data_with_threshold(sample_data, 4))
+    def normalize_data(self, columns=None):
+        if columns is None:
+            columns = self.numeric_columns
+        
+        for col in columns:
+            if col in self.numeric_columns:
+                min_val = self.df[col].min()
+                max_val = self.df[col].max()
+                if max_val > min_val:
+                    self.df[col] = (self.df[col] - min_val) / (max_val - min_val)
+        
+        return self
+
+    def get_cleaned_data(self):
+        return self.df
+
+    def summary(self):
+        print("DataFrame shape:", self.df.shape)
+        print("\nMissing values after cleaning:")
+        print(self.df.isnull().sum())
+        print("\nData types:")
+        print(self.df.dtypes)
+        print("\nFirst 5 rows:")
+        print(self.df.head())
