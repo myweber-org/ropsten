@@ -591,3 +591,77 @@ if __name__ == "__main__":
     
     is_valid = validate_dataframe(cleaned, required_columns=['A', 'B'], min_rows=1)
     print(f"\nDataFrame validation: {'PASS' if is_valid else 'FAIL'}")
+import pandas as pd
+import numpy as np
+
+def clean_csv_data(filepath, fill_strategy='mean', drop_threshold=0.5):
+    """
+    Load and clean CSV data by handling missing values.
+    
+    Parameters:
+    filepath (str): Path to the CSV file
+    fill_strategy (str): Strategy for filling missing values ('mean', 'median', 'mode', 'zero')
+    drop_threshold (float): Drop columns with missing ratio above this threshold
+    
+    Returns:
+    pandas.DataFrame: Cleaned dataframe
+    """
+    try:
+        df = pd.read_csv(filepath)
+    except FileNotFoundError:
+        print(f"Error: File {filepath} not found")
+        return None
+    
+    original_shape = df.shape
+    print(f"Original data shape: {original_shape}")
+    
+    missing_percentage = (df.isnull().sum() / len(df)) * 100
+    columns_to_drop = missing_percentage[missing_percentage > drop_threshold * 100].index
+    df = df.drop(columns=columns_to_drop)
+    
+    if len(columns_to_drop) > 0:
+        print(f"Dropped columns with >{drop_threshold*100}% missing values: {list(columns_to_drop)}")
+    
+    for column in df.columns:
+        if df[column].isnull().any():
+            if fill_strategy == 'mean' and pd.api.types.is_numeric_dtype(df[column]):
+                fill_value = df[column].mean()
+            elif fill_strategy == 'median' and pd.api.types.is_numeric_dtype(df[column]):
+                fill_value = df[column].median()
+            elif fill_strategy == 'mode':
+                fill_value = df[column].mode()[0] if not df[column].mode().empty else np.nan
+            elif fill_strategy == 'zero':
+                fill_value = 0
+            else:
+                fill_value = df[column].mode()[0] if not df[column].mode().empty else np.nan
+            
+            df[column] = df[column].fillna(fill_value)
+            print(f"Filled missing values in '{column}' using {fill_strategy} strategy")
+    
+    print(f"Cleaned data shape: {df.shape}")
+    print(f"Removed {original_shape[0] - df.shape[0]} rows, {original_shape[1] - df.shape[1]} columns")
+    
+    return df
+
+def save_cleaned_data(df, output_path):
+    """
+    Save cleaned dataframe to CSV file.
+    
+    Parameters:
+    df (pandas.DataFrame): Cleaned dataframe
+    output_path (str): Path to save the cleaned CSV file
+    """
+    if df is not None:
+        df.to_csv(output_path, index=False)
+        print(f"Cleaned data saved to: {output_path}")
+        return True
+    return False
+
+if __name__ == "__main__":
+    input_file = "raw_data.csv"
+    output_file = "cleaned_data.csv"
+    
+    cleaned_df = clean_csv_data(input_file, fill_strategy='median', drop_threshold=0.3)
+    
+    if cleaned_df is not None:
+        save_cleaned_data(cleaned_df, output_file)
