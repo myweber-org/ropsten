@@ -1,36 +1,25 @@
 
 import os
 import shutil
-from pathlib import Path
 
 def organize_files(directory):
-    """
-    Organize files in the given directory by moving them into subdirectories
-    based on their file extensions.
-    """
     if not os.path.exists(directory):
-        print(f"Directory '{directory}' does not exist.")
+        print(f"Directory {directory} does not exist.")
         return
     
-    for item in os.listdir(directory):
-        item_path = os.path.join(directory, item)
+    for filename in os.listdir(directory):
+        file_path = os.path.join(directory, filename)
         
-        if os.path.isfile(item_path):
-            file_extension = Path(item).suffix.lower()
+        if os.path.isfile(file_path):
+            file_extension = filename.split('.')[-1] if '.' in filename else 'no_extension'
+            target_dir = os.path.join(directory, file_extension)
             
-            if file_extension:
-                target_dir = os.path.join(directory, file_extension[1:])
-            else:
-                target_dir = os.path.join(directory, "no_extension")
+            if not os.path.exists(target_dir):
+                os.makedirs(target_dir)
             
-            os.makedirs(target_dir, exist_ok=True)
-            
-            try:
-                shutil.move(item_path, os.path.join(target_dir, item))
-                print(f"Moved '{item}' to '{target_dir}'")
-            except Exception as e:
-                print(f"Error moving '{item}': {e}")
+            shutil.move(file_path, os.path.join(target_dir, filename))
+            print(f"Moved {filename} to {file_extension}/")
 
 if __name__ == "__main__":
-    target_directory = input("Enter directory path to organize: ").strip()
+    target_directory = input("Enter directory path to organize: ")
     organize_files(target_directory)
