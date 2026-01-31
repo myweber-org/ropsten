@@ -884,4 +884,16 @@ def clean_dataset(df, outlier_threshold=1.5, normalize=True, fill_missing=True):
     if normalize:
         cleaner.normalize_minmax()
     
-    return cleaner.get_cleaned_data(), cleaner.get_summary()
+    return cleaner.get_cleaned_data(), cleaner.get_summary()def remove_duplicates(input_list):
+    seen = set()
+    result = []
+    for item in input_list:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
+
+def clean_data(data):
+    if not isinstance(data, list):
+        raise TypeError("Input must be a list")
+    return remove_duplicates(data)
