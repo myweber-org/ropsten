@@ -1,77 +1,72 @@
 
 import pandas as pd
+import numpy as np
 
-def clean_dataset(df, drop_duplicates=True, fill_missing=True, fill_value=0):
+def remove_outliers_iqr(df, column):
     """
-    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    Remove outliers from a DataFrame column using the Interquartile Range method.
     
-    Args:
-        df (pd.DataFrame): Input DataFrame to clean.
-        drop_duplicates (bool): Whether to drop duplicate rows.
-        fill_missing (bool): Whether to fill missing values.
-        fill_value: Value to use for filling missing data.
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    column (str): Column name to clean
     
     Returns:
-        pd.DataFrame: Cleaned DataFrame.
+    pd.DataFrame: DataFrame with outliers removed
     """
-    cleaned_df = df.copy()
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
     
-    if drop_duplicates:
-        cleaned_df = cleaned_df.drop_duplicates()
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
     
-    if fill_missing:
-        cleaned_df = cleaned_df.fillna(fill_value)
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
     
-    return cleaned_df
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    
+    return filtered_df.reset_index(drop=True)
 
-def validate_data(df, required_columns=None):
+def calculate_summary_statistics(df, column):
     """
-    Validate that DataFrame meets basic requirements.
+    Calculate summary statistics for a column after outlier removal.
     
-    Args:
-        df (pd.DataFrame): DataFrame to validate.
-        required_columns (list): List of columns that must be present.
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    column (str): Column name to analyze
     
     Returns:
-        bool: True if validation passes, False otherwise.
+    dict: Dictionary containing summary statistics
     """
-    if df.empty:
-        return False
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
     
-    if required_columns:
-        missing_columns = [col for col in required_columns if col not in df.columns]
-        if missing_columns:
-            return False
+    stats = {
+        'mean': df[column].mean(),
+        'median': df[column].median(),
+        'std': df[column].std(),
+        'min': df[column].min(),
+        'max': df[column].max(),
+        'count': len(df[column])
+    }
     
-    return True
+    return stats
 
-def process_data_file(file_path, output_path=None):
-    """
-    Load, clean, and optionally save a dataset from a CSV file.
+if __name__ == "__main__":
+    sample_data = {'values': [10, 12, 12, 13, 12, 11, 14, 13, 15, 102, 12, 14, 13, 12, 11, 14, 13, 12, 11, 10]}
+    df = pd.DataFrame(sample_data)
     
-    Args:
-        file_path (str): Path to input CSV file.
-        output_path (str, optional): Path to save cleaned data.
+    print("Original data:")
+    print(df)
+    print(f"\nOriginal shape: {df.shape}")
     
-    Returns:
-        pd.DataFrame: Cleaned DataFrame.
-    """
-    try:
-        df = pd.read_csv(file_path)
-        
-        if not validate_data(df):
-            raise ValueError("Data validation failed")
-        
-        cleaned_df = clean_dataset(df)
-        
-        if output_path:
-            cleaned_df.to_csv(output_path, index=False)
-        
-        return cleaned_df
-        
-    except FileNotFoundError:
-        print(f"Error: File not found at {file_path}")
-        return None
-    except Exception as e:
-        print(f"Error processing file: {e}")
-        return None
+    cleaned_df = remove_outliers_iqr(df, 'values')
+    
+    print("\nCleaned data:")
+    print(cleaned_df)
+    print(f"\nCleaned shape: {cleaned_df.shape}")
+    
+    stats = calculate_summary_statistics(cleaned_df, 'values')
+    print("\nSummary statistics:")
+    for key, value in stats.items():
+        print(f"{key}: {value:.2f}")
