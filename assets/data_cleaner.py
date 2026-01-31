@@ -408,4 +408,15 @@ if __name__ == "__main__":
     print(f"Original dataset shape: {sample_df.shape}")
     cleaned_df = clean_dataset(sample_df)
     print(f"Cleaned dataset shape: {cleaned_df.shape}")
-    print(f"Removed {len(sample_df) - len(cleaned_df)} total outliers")
+    print(f"Removed {len(sample_df) - len(cleaned_df)} total outliers")def remove_duplicates(input_list):
+    """
+    Removes duplicate elements from a list while preserving the original order.
+    Returns a new list with unique elements.
+    """
+    seen = set()
+    result = []
+    for item in input_list:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
