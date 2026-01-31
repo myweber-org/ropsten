@@ -254,3 +254,87 @@ def clean_dataset(data, config):
                 cleaned = standardize_zscore(cleaned, col)
     
     return cleaned.reset_index(drop=True)
+import pandas as pd
+import numpy as np
+
+def remove_outliers_iqr(df, column):
+    """
+    Remove outliers from a DataFrame column using the Interquartile Range (IQR) method.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    column (str): Column name to process
+    
+    Returns:
+    pd.DataFrame: DataFrame with outliers removed
+    """
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    return filtered_df
+
+def clean_numeric_data(df, numeric_columns):
+    """
+    Clean multiple numeric columns by removing outliers and filling missing values.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    numeric_columns (list): List of column names to clean
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame
+    """
+    cleaned_df = df.copy()
+    
+    for col in numeric_columns:
+        if col in cleaned_df.columns:
+            cleaned_df = remove_outliers_iqr(cleaned_df, col)
+            cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].median())
+    
+    return cleaned_df
+
+def validate_dataframe(df, required_columns):
+    """
+    Validate that DataFrame contains required columns and has no empty data.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate
+    required_columns (list): List of required column names
+    
+    Returns:
+    bool: True if validation passes, False otherwise
+    """
+    missing_columns = [col for col in required_columns if col not in df.columns]
+    
+    if missing_columns:
+        print(f"Missing columns: {missing_columns}")
+        return False
+    
+    if df.empty:
+        print("DataFrame is empty")
+        return False
+    
+    return True
+
+if __name__ == "__main__":
+    sample_data = {
+        'temperature': [22, 25, 28, 31, 34, 100, 23, 26, 29, 32],
+        'humidity': [45, 50, 55, 60, 65, 200, 47, 52, 57, 62],
+        'pressure': [1013, 1015, 1012, 1014, 1016, 5000, 1013, 1015, 1012, 1014]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print(f"Original shape: {df.shape}")
+    
+    if validate_dataframe(df, ['temperature', 'humidity', 'pressure']):
+        cleaned_df = clean_numeric_data(df, ['temperature', 'humidity', 'pressure'])
+        print("\nCleaned DataFrame:")
+        print(cleaned_df)
+        print(f"Cleaned shape: {cleaned_df.shape}")
