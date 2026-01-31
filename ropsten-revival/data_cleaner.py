@@ -184,4 +184,62 @@ if __name__ == "__main__":
     stats = calculate_basic_stats(cleaned_df, 'values')
     print("\nBasic Statistics:")
     for key, value in stats.items():
-        print(f"{key}: {value:.2f}")
+        print(f"{key}: {value:.2f}")import pandas as pd
+import numpy as np
+from scipy import stats
+
+class DataCleaner:
+    def __init__(self, df):
+        self.df = df.copy()
+        self.numeric_columns = df.select_dtypes(include=[np.number]).columns.tolist()
+        self.categorical_columns = df.select_dtypes(exclude=[np.number]).columns.tolist()
+    
+    def handle_missing_values(self, strategy='mean', fill_value=None):
+        if strategy == 'mean' and self.numeric_columns:
+            self.df[self.numeric_columns] = self.df[self.numeric_columns].fillna(
+                self.df[self.numeric_columns].mean()
+            )
+        elif strategy == 'median' and self.numeric_columns:
+            self.df[self.numeric_columns] = self.df[self.numeric_columns].fillna(
+                self.df[self.numeric_columns].median()
+            )
+        elif strategy == 'mode' and self.categorical_columns:
+            for col in self.categorical_columns:
+                self.df[col] = self.df[col].fillna(self.df[col].mode()[0])
+        elif fill_value is not None:
+            self.df = self.df.fillna(fill_value)
+        return self
+    
+    def remove_outliers(self, method='zscore', threshold=3):
+        if method == 'zscore' and self.numeric_columns:
+            z_scores = np.abs(stats.zscore(self.df[self.numeric_columns]))
+            mask = (z_scores < threshold).all(axis=1)
+            self.df = self.df[mask]
+        elif method == 'iqr' and self.numeric_columns:
+            for col in self.numeric_columns:
+                Q1 = self.df[col].quantile(0.25)
+                Q3 = self.df[col].quantile(0.75)
+                IQR = Q3 - Q1
+                lower_bound = Q1 - 1.5 * IQR
+                upper_bound = Q3 + 1.5 * IQR
+                self.df = self.df[(self.df[col] >= lower_bound) & (self.df[col] <= upper_bound)]
+        return self
+    
+    def get_cleaned_data(self):
+        return self.df
+    
+    def save_cleaned_data(self, filepath):
+        self.df.to_csv(filepath, index=False)
+
+def clean_dataset(input_path, output_path, missing_strategy='mean', outlier_method='zscore'):
+    try:
+        df = pd.read_csv(input_path)
+        cleaner = DataCleaner(df)
+        cleaner.handle_missing_values(strategy=missing_strategy)
+        cleaner.remove_outliers(method=outlier_method)
+        cleaner.save_cleaned_data(output_path)
+        print(f"Data cleaning completed. Cleaned data saved to {output_path}")
+        return True
+    except Exception as e:
+        print(f"Error during data cleaning: {str(e)}")
+        return False
