@@ -215,4 +215,88 @@ if __name__ == "__main__":
     print(cleaned_df)
     
     import os
-    os.remove(test_path)
+    os.remove(test_path)import pandas as pd
+import numpy as np
+
+def clean_csv_data(file_path, fill_strategy='mean'):
+    """
+    Load and clean CSV data by handling missing values.
+    
+    Args:
+        file_path (str): Path to the CSV file.
+        fill_strategy (str): Strategy for filling missing values.
+            Options: 'mean', 'median', 'mode', 'zero'.
+    
+    Returns:
+        pandas.DataFrame: Cleaned DataFrame.
+    """
+    try:
+        df = pd.read_csv(file_path)
+    except FileNotFoundError:
+        raise FileNotFoundError(f"File not found: {file_path}")
+    
+    print(f"Original shape: {df.shape}")
+    print(f"Missing values per column:\n{df.isnull().sum()}")
+    
+    if fill_strategy == 'mean':
+        df = df.fillna(df.select_dtypes(include=[np.number]).mean())
+    elif fill_strategy == 'median':
+        df = df.fillna(df.select_dtypes(include=[np.number]).median())
+    elif fill_strategy == 'mode':
+        df = df.fillna(df.mode().iloc[0])
+    elif fill_strategy == 'zero':
+        df = df.fillna(0)
+    else:
+        raise ValueError(f"Unknown fill strategy: {fill_strategy}")
+    
+    print(f"Cleaned shape: {df.shape}")
+    print(f"Missing values after cleaning:\n{df.isnull().sum()}")
+    
+    return df
+
+def remove_outliers_iqr(df, column):
+    """
+    Remove outliers from a specific column using IQR method.
+    
+    Args:
+        df (pandas.DataFrame): Input DataFrame.
+        column (str): Column name to process.
+    
+    Returns:
+        pandas.DataFrame: DataFrame with outliers removed.
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    
+    print(f"Original rows: {len(df)}")
+    print(f"Rows after outlier removal: {len(filtered_df)}")
+    print(f"Outliers removed: {len(df) - len(filtered_df)}")
+    
+    return filtered_df
+
+if __name__ == "__main__":
+    sample_data = {
+        'A': [1, 2, np.nan, 4, 5, 100],
+        'B': [10, np.nan, 30, 40, 50, 60],
+        'C': ['x', 'y', 'z', np.nan, 'y', 'x']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    df.to_csv('sample_data.csv', index=False)
+    
+    cleaned_df = clean_csv_data('sample_data.csv', fill_strategy='mean')
+    print("\nCleaned DataFrame:")
+    print(cleaned_df)
+    
+    filtered_df = remove_outliers_iqr(cleaned_df, 'A')
+    print("\nDataFrame after outlier removal:")
+    print(filtered_df)
