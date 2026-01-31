@@ -350,3 +350,48 @@ def handle_missing_values(df, columns=None, strategy='mean'):
             df_processed = df_processed.dropna(subset=[col])
     
     return df_processed.reset_index(drop=True)
+import pandas as pd
+import re
+
+def clean_dataframe(df, column_mapping=None, drop_duplicates=True, text_columns=None):
+    """
+    Clean a pandas DataFrame by standardizing column names,
+    removing duplicates, and cleaning text data.
+    """
+    cleaned_df = df.copy()
+    
+    if column_mapping:
+        cleaned_df.rename(columns=column_mapping, inplace=True)
+    
+    if drop_duplicates:
+        cleaned_df.drop_duplicates(inplace=True)
+        cleaned_df.reset_index(drop=True, inplace=True)
+    
+    if text_columns:
+        for col in text_columns:
+            if col in cleaned_df.columns:
+                cleaned_df[col] = cleaned_df[col].apply(clean_text)
+    
+    return cleaned_df
+
+def clean_text(text):
+    """
+    Standardize text by converting to lowercase, removing extra whitespace,
+    and stripping special characters.
+    """
+    if pd.isna(text):
+        return text
+    
+    text = str(text)
+    text = text.lower().strip()
+    text = re.sub(r'\s+', ' ', text)
+    text = re.sub(r'[^\w\s-]', '', text)
+    
+    return text
+
+def validate_email(email):
+    """
+    Validate email format using regex pattern.
+    """
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return bool(re.match(pattern, str(email))) if pd.notna(email) else False
