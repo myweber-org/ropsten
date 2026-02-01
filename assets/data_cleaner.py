@@ -398,4 +398,120 @@ if __name__ == "__main__":
     print("\nCleaned summary statistics:")
     for col in cleaned_df.columns:
         stats = calculate_summary_statistics(cleaned_df, col)
-        print(f"\n{col}: {stats}")
+        print(f"\n{col}: {stats}")import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(df, columns):
+    """
+    Remove outliers from specified columns using IQR method.
+    Returns cleaned DataFrame and outlier indices.
+    """
+    df_clean = df.copy()
+    outlier_indices = []
+    
+    for col in columns:
+        if col in df_clean.columns:
+            Q1 = df_clean[col].quantile(0.25)
+            Q3 = df_clean[col].quantile(0.75)
+            IQR = Q3 - Q1
+            lower_bound = Q1 - 1.5 * IQR
+            upper_bound = Q3 + 1.5 * IQR
+            
+            outliers = df_clean[(df_clean[col] < lower_bound) | (df_clean[col] > upper_bound)]
+            outlier_indices.extend(outliers.index.tolist())
+            
+            df_clean = df_clean[(df_clean[col] >= lower_bound) & (df_clean[col] <= upper_bound)]
+    
+    return df_clean, list(set(outlier_indices))
+
+def normalize_data(df, columns, method='minmax'):
+    """
+    Normalize specified columns using min-max or z-score normalization.
+    """
+    df_normalized = df.copy()
+    
+    for col in columns:
+        if col in df_normalized.columns:
+            if method == 'minmax':
+                min_val = df_normalized[col].min()
+                max_val = df_normalized[col].max()
+                if max_val != min_val:
+                    df_normalized[col] = (df_normalized[col] - min_val) / (max_val - min_val)
+                else:
+                    df_normalized[col] = 0
+            elif method == 'zscore':
+                mean_val = df_normalized[col].mean()
+                std_val = df_normalized[col].std()
+                if std_val > 0:
+                    df_normalized[col] = (df_normalized[col] - mean_val) / std_val
+                else:
+                    df_normalized[col] = 0
+    
+    return df_normalized
+
+def handle_missing_values(df, columns, strategy='mean'):
+    """
+    Handle missing values in specified columns.
+    """
+    df_filled = df.copy()
+    
+    for col in columns:
+        if col in df_filled.columns:
+            if strategy == 'mean':
+                fill_value = df_filled[col].mean()
+            elif strategy == 'median':
+                fill_value = df_filled[col].median()
+            elif strategy == 'mode':
+                fill_value = df_filled[col].mode()[0]
+            else:
+                fill_value = 0
+            
+            df_filled[col] = df_filled[col].fillna(fill_value)
+    
+    return df_filled
+
+def validate_dataframe(df, required_columns):
+    """
+    Validate DataFrame structure and required columns.
+    """
+    missing_columns = [col for col in required_columns if col not in df.columns]
+    
+    if missing_columns:
+        raise ValueError(f"Missing required columns: {missing_columns}")
+    
+    if df.empty:
+        raise ValueError("DataFrame is empty")
+    
+    return True
+
+def clean_data_pipeline(df, config):
+    """
+    Complete data cleaning pipeline based on configuration.
+    """
+    if not validate_dataframe(df, config.get('required_columns', [])):
+        return None
+    
+    df_clean = df.copy()
+    
+    if 'missing_value_strategy' in config:
+        df_clean = handle_missing_values(
+            df_clean,
+            config.get('columns_to_clean', df_clean.columns.tolist()),
+            config['missing_value_strategy']
+        )
+    
+    if config.get('remove_outliers', False):
+        df_clean, _ = remove_outliers_iqr(
+            df_clean,
+            config.get('outlier_columns', df_clean.columns.tolist())
+        )
+    
+    if 'normalization_method' in config:
+        df_clean = normalize_data(
+            df_clean,
+            config.get('normalize_columns', df_clean.columns.tolist()),
+            config['normalization_method']
+        )
+    
+    return df_clean
