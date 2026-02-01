@@ -110,3 +110,11 @@ if __name__ == "__main__":
     cleaned = clean_dataset(df)
     print(cleaned)
     print(f"\nData validation result: {validate_dataframe(cleaned, ['id', 'value'])}")
+def remove_duplicates_preserve_order(seq):
+    seen = set()
+    result = []
+    for item in seq:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
