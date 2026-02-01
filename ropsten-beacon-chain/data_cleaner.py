@@ -590,3 +590,63 @@ if __name__ == "__main__":
     print(summary)
     print(f"\nOriginal data shape: {sample_data.shape}")
     print(f"Cleaned data shape: {cleaned_data.shape}")
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df, numeric_columns=None, fill_method='median', outlier_threshold=3):
+    """
+    Clean a pandas DataFrame by handling missing values and outliers.
+
+    Parameters:
+    df (pd.DataFrame): The input DataFrame.
+    numeric_columns (list): List of numeric column names to process. If None, uses all numeric columns.
+    fill_method (str): Method to fill missing values ('mean', 'median', 'mode').
+    outlier_threshold (float): Number of standard deviations to consider a point an outlier.
+
+    Returns:
+    pd.DataFrame: Cleaned DataFrame.
+    """
+    df_clean = df.copy()
+
+    if numeric_columns is None:
+        numeric_columns = df_clean.select_dtypes(include=[np.number]).columns.tolist()
+
+    # Handle missing values
+    for col in numeric_columns:
+        if df_clean[col].isnull().any():
+            if fill_method == 'mean':
+                fill_value = df_clean[col].mean()
+            elif fill_method == 'median':
+                fill_value = df_clean[col].median()
+            elif fill_method == 'mode':
+                fill_value = df_clean[col].mode()[0]
+            else:
+                raise ValueError("fill_method must be 'mean', 'median', or 'mode'")
+            df_clean[col].fillna(fill_value, inplace=True)
+
+    # Handle outliers using IQR method
+    for col in numeric_columns:
+        Q1 = df_clean[col].quantile(0.25)
+        Q3 = df_clean[col].quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - outlier_threshold * IQR
+        upper_bound = Q3 + outlier_threshold * IQR
+
+        # Cap outliers
+        df_clean[col] = np.where(df_clean[col] < lower_bound, lower_bound, df_clean[col])
+        df_clean[col] = np.where(df_clean[col] > upper_bound, upper_bound, df_clean[col])
+
+    return df_clean
+
+# Example usage (commented out for clarity)
+# if __name__ == "__main__":
+#     data = pd.DataFrame({
+#         'A': [1, 2, np.nan, 4, 100],
+#         'B': [5, 6, 7, np.nan, 9],
+#         'C': ['x', 'y', 'z', 'x', 'y']
+#     })
+#     cleaned = clean_dataset(data, fill_method='median', outlier_threshold=1.5)
+#     print("Original DataFrame:")
+#     print(data)
+#     print("\nCleaned DataFrame:")
+#     print(cleaned)
