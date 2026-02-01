@@ -186,3 +186,130 @@ if __name__ == "__main__":
     
     is_valid, message = validate_dataframe(cleaned, ['product_name', 'price'])
     print(f"\nValidation: {is_valid}, Message: {message}")
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+def detect_outliers_iqr(data, column, threshold=1.5):
+    """
+    Detect outliers using Interquartile Range method
+    """
+    Q1 = data[column].quantile(0.25)
+    Q3 = data[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - threshold * IQR
+    upper_bound = Q3 + threshold * IQR
+    
+    outliers = data[(data[column] < lower_bound) | (data[column] > upper_bound)]
+    return outliers, lower_bound, upper_bound
+
+def remove_outliers_zscore(data, column, threshold=3):
+    """
+    Remove outliers using Z-score method
+    """
+    z_scores = np.abs(stats.zscore(data[column].dropna()))
+    filtered_data = data[(z_scores < threshold) | (data[column].isna())]
+    return filtered_data
+
+def normalize_minmax(data, column):
+    """
+    Normalize data using Min-Max scaling
+    """
+    min_val = data[column].min()
+    max_val = data[column].max()
+    
+    if max_val == min_val:
+        return data[column].apply(lambda x: 0.5)
+    
+    normalized = (data[column] - min_val) / (max_val - min_val)
+    return normalized
+
+def standardize_data(data, column):
+    """
+    Standardize data using Z-score normalization
+    """
+    mean_val = data[column].mean()
+    std_val = data[column].std()
+    
+    if std_val == 0:
+        return data[column].apply(lambda x: 0)
+    
+    standardized = (data[column] - mean_val) / std_val
+    return standardized
+
+def clean_dataset(df, numeric_columns=None, outlier_method='iqr', normalize=False):
+    """
+    Main function to clean dataset with multiple options
+    """
+    if numeric_columns is None:
+        numeric_columns = df.select_dtypes(include=[np.number]).columns.tolist()
+    
+    cleaned_df = df.copy()
+    
+    for col in numeric_columns:
+        if col not in cleaned_df.columns:
+            continue
+            
+        # Handle missing values
+        if cleaned_df[col].isna().any():
+            cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].median())
+        
+        # Remove outliers
+        if outlier_method == 'zscore':
+            cleaned_df = remove_outliers_zscore(cleaned_df, col)
+        elif outlier_method == 'iqr':
+            outliers, _, _ = detect_outliers_iqr(cleaned_df, col)
+            cleaned_df = cleaned_df[~cleaned_df.index.isin(outliers.index)]
+        
+        # Normalize if requested
+        if normalize:
+            cleaned_df[f'{col}_normalized'] = normalize_minmax(cleaned_df, col)
+            cleaned_df[f'{col}_standardized'] = standardize_data(cleaned_df, col)
+    
+    return cleaned_df
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate dataframe structure and content
+    """
+    validation_results = {
+        'is_valid': True,
+        'missing_columns': [],
+        'empty_columns': [],
+        'all_nan_columns': []
+    }
+    
+    if required_columns:
+        missing = [col for col in required_columns if col not in df.columns]
+        if missing:
+            validation_results['missing_columns'] = missing
+            validation_results['is_valid'] = False
+    
+    for col in df.columns:
+        if df[col].empty:
+            validation_results['empty_columns'].append(col)
+            validation_results['is_valid'] = False
+        elif df[col].isna().all():
+            validation_results['all_nan_columns'].append(col)
+            validation_results['is_valid'] = False
+    
+    return validation_results
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = pd.DataFrame({
+        'A': [1, 2, 3, 4, 100, 6, 7, 8, 9, 10],
+        'B': [10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
+        'C': [5, 15, 25, 35, 45, 55, 65, 75, 85, 95]
+    })
+    
+    print("Original Data:")
+    print(sample_data)
+    
+    cleaned = clean_dataset(sample_data, numeric_columns=['A', 'B', 'C'], normalize=True)
+    print("\nCleaned Data:")
+    print(cleaned)
+    
+    validation = validate_dataframe(cleaned, required_columns=['A', 'B', 'C'])
+    print("\nValidation Results:")
+    print(validation)
