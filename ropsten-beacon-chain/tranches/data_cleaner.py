@@ -575,3 +575,142 @@ if __name__ == "__main__":
     print("\nCleaned data:")
     cleaned = clean_dataset(sample_data, drop_duplicates=True, fill_missing=True)
     print(cleaned)
+import pandas as pd
+import numpy as np
+
+def remove_duplicates(df, subset=None):
+    """
+    Remove duplicate rows from DataFrame.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        subset (list, optional): Columns to consider for duplicates
+    
+    Returns:
+        pd.DataFrame: DataFrame with duplicates removed
+    """
+    return df.drop_duplicates(subset=subset, keep='first')
+
+def handle_missing_values(df, strategy='mean', columns=None):
+    """
+    Handle missing values in DataFrame.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        strategy (str): 'mean', 'median', 'mode', or 'drop'
+        columns (list): Specific columns to process
+    
+    Returns:
+        pd.DataFrame: DataFrame with handled missing values
+    """
+    if columns is None:
+        columns = df.columns
+    
+    df_copy = df.copy()
+    
+    for col in columns:
+        if col in df.columns:
+            if strategy == 'mean':
+                df_copy[col] = df_copy[col].fillna(df_copy[col].mean())
+            elif strategy == 'median':
+                df_copy[col] = df_copy[col].fillna(df_copy[col].median())
+            elif strategy == 'mode':
+                df_copy[col] = df_copy[col].fillna(df_copy[col].mode()[0])
+            elif strategy == 'drop':
+                df_copy = df_copy.dropna(subset=[col])
+    
+    return df_copy
+
+def normalize_columns(df, columns=None, method='minmax'):
+    """
+    Normalize specified columns in DataFrame.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        columns (list): Columns to normalize
+        method (str): 'minmax' or 'zscore'
+    
+    Returns:
+        pd.DataFrame: DataFrame with normalized columns
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    df_copy = df.copy()
+    
+    for col in columns:
+        if col in df.columns and pd.api.types.is_numeric_dtype(df[col]):
+            if method == 'minmax':
+                min_val = df_copy[col].min()
+                max_val = df_copy[col].max()
+                if max_val > min_val:
+                    df_copy[col] = (df_copy[col] - min_val) / (max_val - min_val)
+            elif method == 'zscore':
+                mean_val = df_copy[col].mean()
+                std_val = df_copy[col].std()
+                if std_val > 0:
+                    df_copy[col] = (df_copy[col] - mean_val) / std_val
+    
+    return df_copy
+
+def detect_outliers(df, column, method='iqr', threshold=1.5):
+    """
+    Detect outliers in a specific column.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        column (str): Column to check for outliers
+        method (str): 'iqr' or 'zscore'
+        threshold (float): Threshold for outlier detection
+    
+    Returns:
+        pd.Series: Boolean series indicating outliers
+    """
+    if column not in df.columns:
+        return pd.Series([False] * len(df))
+    
+    if method == 'iqr':
+        Q1 = df[column].quantile(0.25)
+        Q3 = df[column].quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - threshold * IQR
+        upper_bound = Q3 + threshold * IQR
+        return (df[column] < lower_bound) | (df[column] > upper_bound)
+    
+    elif method == 'zscore':
+        mean_val = df[column].mean()
+        std_val = df[column].std()
+        if std_val > 0:
+            z_scores = np.abs((df[column] - mean_val) / std_val)
+            return z_scores > threshold
+    
+    return pd.Series([False] * len(df))
+
+def clean_dataset(df, missing_strategy='mean', normalize=True, remove_outliers=False):
+    """
+    Comprehensive dataset cleaning pipeline.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        missing_strategy (str): Strategy for handling missing values
+        normalize (bool): Whether to normalize numeric columns
+        remove_outliers (bool): Whether to remove outliers
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame
+    """
+    df_clean = df.copy()
+    
+    df_clean = remove_duplicates(df_clean)
+    df_clean = handle_missing_values(df_clean, strategy=missing_strategy)
+    
+    if normalize:
+        df_clean = normalize_columns(df_clean, method='minmax')
+    
+    if remove_outliers:
+        numeric_cols = df_clean.select_dtypes(include=[np.number]).columns
+        for col in numeric_cols:
+            outliers = detect_outliers(df_clean, col)
+            df_clean = df_clean[~outliers]
+    
+    return df_clean.reset_index(drop=True)
