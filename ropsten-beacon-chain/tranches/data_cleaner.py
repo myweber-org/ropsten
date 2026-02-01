@@ -736,3 +736,90 @@ if __name__ == "__main__":
     for col in cleaned_df.columns:
         stats = calculate_summary_statistics(cleaned_df, col)
         print(f"{col}: {stats}")
+import pandas as pd
+import numpy as np
+
+def remove_duplicates(df, subset=None):
+    """
+    Remove duplicate rows from DataFrame.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        subset (list, optional): Columns to consider for duplicates
+    
+    Returns:
+        pd.DataFrame: DataFrame with duplicates removed
+    """
+    return df.drop_duplicates(subset=subset, keep='first')
+
+def handle_missing_values(df, strategy='drop', fill_value=None):
+    """
+    Handle missing values in DataFrame.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        strategy (str): 'drop', 'fill', or 'interpolate'
+        fill_value: Value to use for filling (if strategy='fill')
+    
+    Returns:
+        pd.DataFrame: DataFrame with handled missing values
+    """
+    if strategy == 'drop':
+        return df.dropna()
+    elif strategy == 'fill':
+        return df.fillna(fill_value)
+    elif strategy == 'interpolate':
+        return df.interpolate()
+    else:
+        raise ValueError("Invalid strategy. Use 'drop', 'fill', or 'interpolate'")
+
+def normalize_column(df, column, method='minmax'):
+    """
+    Normalize values in a column.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        column (str): Column name to normalize
+        method (str): 'minmax' or 'zscore'
+    
+    Returns:
+        pd.DataFrame: DataFrame with normalized column
+    """
+    if method == 'minmax':
+        min_val = df[column].min()
+        max_val = df[column].max()
+        df[column] = (df[column] - min_val) / (max_val - min_val)
+    elif method == 'zscore':
+        mean_val = df[column].mean()
+        std_val = df[column].std()
+        df[column] = (df[column] - mean_val) / std_val
+    else:
+        raise ValueError("Invalid method. Use 'minmax' or 'zscore'")
+    
+    return df
+
+def clean_dataframe(df, operations=None):
+    """
+    Apply multiple cleaning operations to DataFrame.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        operations (list): List of cleaning operations
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame
+    """
+    if operations is None:
+        operations = []
+    
+    cleaned_df = df.copy()
+    
+    for operation in operations:
+        if operation['type'] == 'remove_duplicates':
+            cleaned_df = remove_duplicates(cleaned_df, **operation.get('params', {}))
+        elif operation['type'] == 'handle_missing':
+            cleaned_df = handle_missing_values(cleaned_df, **operation.get('params', {}))
+        elif operation['type'] == 'normalize':
+            cleaned_df = normalize_column(cleaned_df, **operation.get('params', {}))
+    
+    return cleaned_df
