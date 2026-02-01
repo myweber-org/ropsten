@@ -261,3 +261,102 @@ if __name__ == "__main__":
         print(f"\n{column}:")
         for stat_name, stat_value in column_stats.items():
             print(f"  {stat_name}: {stat_value}")
+import pandas as pd
+import numpy as np
+
+def remove_outliers_iqr(df, column):
+    """
+    Remove outliers from a specified column using the Interquartile Range method.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        column (str): Column name to process
+    
+    Returns:
+        pd.DataFrame: DataFrame with outliers removed
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    
+    return filtered_df
+
+def clean_numeric_data(df, columns=None):
+    """
+    Clean numeric data by removing outliers from multiple columns.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        columns (list): List of column names to clean. If None, uses all numeric columns.
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns.tolist()
+    
+    cleaned_df = df.copy()
+    
+    for col in columns:
+        if col in cleaned_df.columns:
+            try:
+                cleaned_df = remove_outliers_iqr(cleaned_df, col)
+            except Exception as e:
+                print(f"Warning: Could not clean column '{col}': {e}")
+    
+    return cleaned_df
+
+def calculate_statistics(df):
+    """
+    Calculate basic statistics for numeric columns.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+    
+    Returns:
+        dict: Dictionary containing statistics for each numeric column
+    """
+    stats = {}
+    
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    
+    for col in numeric_cols:
+        stats[col] = {
+            'mean': df[col].mean(),
+            'median': df[col].median(),
+            'std': df[col].std(),
+            'min': df[col].min(),
+            'max': df[col].max(),
+            'count': df[col].count()
+        }
+    
+    return stats
+
+if __name__ == "__main__":
+    sample_data = {
+        'A': np.random.normal(100, 15, 1000),
+        'B': np.random.exponential(50, 1000),
+        'C': np.random.uniform(0, 200, 1000)
+    }
+    
+    df = pd.DataFrame(sample_data)
+    df.loc[0, 'A'] = 1000
+    df.loc[1, 'B'] = 500
+    
+    print("Original data shape:", df.shape)
+    print("Original statistics:")
+    print(calculate_statistics(df))
+    
+    cleaned_df = clean_numeric_data(df)
+    
+    print("\nCleaned data shape:", cleaned_df.shape)
+    print("Cleaned statistics:")
+    print(calculate_statistics(cleaned_df))
