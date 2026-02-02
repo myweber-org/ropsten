@@ -253,4 +253,83 @@ if __name__ == "__main__":
     
     cleaned = clean_dataset(df, columns=['A', 'B'])
     print("\nCleaned DataFrame:")
-    print(cleaned)
+    print(cleaned)import pandas as pd
+
+def clean_dataset(df, drop_duplicates=True, fill_missing=None):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    
+    Args:
+        df: pandas DataFrame to clean.
+        drop_duplicates: Boolean indicating whether to remove duplicate rows.
+        fill_missing: Strategy for filling missing values. Can be None, 'mean', 'median', or a scalar value.
+    
+    Returns:
+        Cleaned pandas DataFrame.
+    """
+    cleaned_df = df.copy()
+    
+    if drop_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates()
+    
+    if fill_missing is not None:
+        if fill_missing == 'mean':
+            cleaned_df = cleaned_df.fillna(cleaned_df.mean(numeric_only=True))
+        elif fill_missing == 'median':
+            cleaned_df = cleaned_df.fillna(cleaned_df.median(numeric_only=True))
+        else:
+            cleaned_df = cleaned_df.fillna(fill_missing)
+    
+    return cleaned_df
+
+def validate_dataset(df, required_columns=None):
+    """
+    Validate a pandas DataFrame for required columns and data types.
+    
+    Args:
+        df: pandas DataFrame to validate.
+        required_columns: List of column names that must be present in the DataFrame.
+    
+    Returns:
+        Boolean indicating whether the DataFrame passes validation.
+    """
+    if required_columns is not None:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            print(f"Missing required columns: {missing_columns}")
+            return False
+    
+    if df.empty:
+        print("DataFrame is empty")
+        return False
+    
+    return True
+
+def normalize_numeric_columns(df, columns=None):
+    """
+    Normalize numeric columns in a DataFrame using min-max scaling.
+    
+    Args:
+        df: pandas DataFrame containing numeric columns to normalize.
+        columns: List of column names to normalize. If None, all numeric columns are normalized.
+    
+    Returns:
+        DataFrame with normalized numeric columns.
+    """
+    normalized_df = df.copy()
+    
+    if columns is None:
+        numeric_cols = normalized_df.select_dtypes(include=['float64', 'int64']).columns
+    else:
+        numeric_cols = [col for col in columns if col in normalized_df.columns]
+    
+    for col in numeric_cols:
+        col_min = normalized_df[col].min()
+        col_max = normalized_df[col].max()
+        
+        if col_max != col_min:
+            normalized_df[col] = (normalized_df[col] - col_min) / (col_max - col_min)
+        else:
+            normalized_df[col] = 0
+    
+    return normalized_df
