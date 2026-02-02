@@ -126,4 +126,52 @@ if __name__ == "__main__":
     print(cleaned)
     
     is_valid = validate_data(cleaned, required_columns=['id', 'value', 'category'], min_rows=3)
-    print(f"\nData validation result: {is_valid}")
+    print(f"\nData validation result: {is_valid}")import pandas as pd
+import numpy as np
+import re
+
+def clean_csv_data(input_file, output_file):
+    """
+    Clean and preprocess CSV data by handling missing values,
+    standardizing text, and removing duplicates.
+    """
+    try:
+        df = pd.read_csv(input_file)
+        
+        # Remove duplicate rows
+        df = df.drop_duplicates()
+        
+        # Standardize column names: lowercase and replace spaces with underscores
+        df.columns = [re.sub(r'\s+', '_', col.strip().lower()) for col in df.columns]
+        
+        # Handle missing numeric values with median
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        for col in numeric_cols:
+            if df[col].isnull().any():
+                df[col].fillna(df[col].median(), inplace=True)
+        
+        # Handle missing categorical values with mode
+        categorical_cols = df.select_dtypes(include=['object']).columns
+        for col in categorical_cols:
+            if df[col].isnull().any():
+                df[col].fillna(df[col].mode()[0] if not df[col].mode().empty else 'unknown', inplace=True)
+        
+        # Remove leading/trailing whitespace from string columns
+        for col in categorical_cols:
+            df[col] = df[col].astype(str).str.strip()
+        
+        # Save cleaned data
+        df.to_csv(output_file, index=False)
+        print(f"Data cleaning completed. Cleaned data saved to {output_file}")
+        return True
+        
+    except FileNotFoundError:
+        print(f"Error: Input file '{input_file}' not found.")
+        return False
+    except Exception as e:
+        print(f"Error during data cleaning: {str(e)}")
+        return False
+
+if __name__ == "__main__":
+    # Example usage
+    clean_csv_data('raw_data.csv', 'cleaned_data.csv')
