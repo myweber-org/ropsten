@@ -1,124 +1,86 @@
+import csv
+import re
+from typing import List, Optional
 
-import numpy as np
-import pandas as pd
-from scipy import stats
+def clean_string(value: str) -> str:
+    """Remove extra whitespace and normalize string."""
+    if not isinstance(value, str):
+        return str(value)
+    cleaned = re.sub(r'\s+', ' ', value.strip())
+    return cleaned
 
-def remove_outliers_iqr(dataframe, column, multiplier=1.5):
-    """
-    Remove outliers from specified column using IQR method.
-    
-    Parameters:
-    dataframe (pd.DataFrame): Input DataFrame
-    column (str): Column name to process
-    multiplier (float): IQR multiplier for outlier detection
-    
-    Returns:
-    pd.DataFrame: DataFrame with outliers removed
-    """
-    if column not in dataframe.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
-    
-    q1 = dataframe[column].quantile(0.25)
-    q3 = dataframe[column].quantile(0.75)
-    iqr = q3 - q1
-    lower_bound = q1 - multiplier * iqr
-    upper_bound = q3 + multiplier * iqr
-    
-    filtered_df = dataframe[(dataframe[column] >= lower_bound) & 
-                           (dataframe[column] <= upper_bound)]
-    return filtered_df
+def validate_email(email: str) -> bool:
+    """Validate email format."""
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return bool(re.match(pattern, email))
 
-def normalize_column(dataframe, column, method='minmax'):
-    """
-    Normalize specified column using selected method.
+def read_csv_file(filepath: str) -> List[dict]:
+    """Read CSV file and return list of dictionaries."""
+    data = []
+    try:
+        with open(filepath, 'r', newline='', encoding='utf-8') as file:
+            reader = csv.DictReader(file)
+            for row in reader:
+                data.append(row)
+    except FileNotFoundError:
+        print(f"Error: File '{filepath}' not found.")
+    except Exception as e:
+        print(f"Error reading CSV: {e}")
+    return data
+
+def clean_csv_data(data: List[dict], email_field: Optional[str] = None) -> List[dict]:
+    """Clean CSV data by processing string fields and optionally validating emails."""
+    cleaned_data = []
+    for row in data:
+        cleaned_row = {}
+        for key, value in row.items():
+            if isinstance(value, str):
+                cleaned_value = clean_string(value)
+                if email_field and key == email_field:
+                    if not validate_email(cleaned_value):
+                        print(f"Warning: Invalid email '{cleaned_value}' in field '{key}'")
+                cleaned_row[key] = cleaned_value
+            else:
+                cleaned_row[key] = value
+        cleaned_data.append(cleaned_row)
+    return cleaned_data
+
+def write_csv_file(filepath: str, data: List[dict], fieldnames: Optional[List[str]] = None) -> bool:
+    """Write data to CSV file."""
+    if not data:
+        print("Error: No data to write.")
+        return False
     
-    Parameters:
-    dataframe (pd.DataFrame): Input DataFrame
-    column (str): Column name to normalize
-    method (str): Normalization method ('minmax', 'zscore', 'robust')
+    if not fieldnames:
+        fieldnames = list(data[0].keys())
     
-    Returns:
-    pd.DataFrame: DataFrame with normalized column
-    """
-    if column not in dataframe.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
+    try:
+        with open(filepath, 'w', newline='', encoding='utf-8') as file:
+            writer = csv.DictWriter(file, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(data)
+        return True
+    except Exception as e:
+        print(f"Error writing CSV: {e}")
+        return False
+
+def process_csv(input_file: str, output_file: str, email_field: Optional[str] = None) -> None:
+    """Main function to process CSV file."""
+    print(f"Processing {input_file}...")
+    data = read_csv_file(input_file)
     
-    df_copy = dataframe.copy()
+    if not data:
+        print("No data loaded. Exiting.")
+        return
     
-    if method == 'minmax':
-        min_val = df_copy[column].min()
-        max_val = df_copy[column].max()
-        if max_val != min_val:
-            df_copy[f'{column}_normalized'] = (df_copy[column] - min_val) / (max_val - min_val)
-        else:
-            df_copy[f'{column}_normalized'] = 0.5
+    cleaned_data = clean_csv_data(data, email_field)
     
-    elif method == 'zscore':
-        mean_val = df_copy[column].mean()
-        std_val = df_copy[column].std()
-        if std_val > 0:
-            df_copy[f'{column}_normalized'] = (df_copy[column] - mean_val) / std_val
-        else:
-            df_copy[f'{column}_normalized'] = 0
-    
-    elif method == 'robust':
-        median_val = df_copy[column].median()
-        iqr_val = stats.iqr(df_copy[column])
-        if iqr_val > 0:
-            df_copy[f'{column}_normalized'] = (df_copy[column] - median_val) / iqr_val
-        else:
-            df_copy[f'{column}_normalized'] = 0
-    
+    if write_csv_file(output_file, cleaned_data):
+        print(f"Cleaned data written to {output_file}")
     else:
-        raise ValueError(f"Unknown normalization method: {method}")
-    
-    return df_copy
+        print("Failed to write output file.")
 
-def clean_dataset(dataframe, numeric_columns=None, outlier_multiplier=1.5, normalization_method='minmax'):
-    """
-    Comprehensive data cleaning pipeline.
-    
-    Parameters:
-    dataframe (pd.DataFrame): Input DataFrame
-    numeric_columns (list): List of numeric columns to process
-    outlier_multiplier (float): IQR multiplier for outlier removal
-    normalization_method (str): Normalization method to apply
-    
-    Returns:
-    pd.DataFrame: Cleaned DataFrame
-    """
-    if numeric_columns is None:
-        numeric_columns = dataframe.select_dtypes(include=[np.number]).columns.tolist()
-    
-    cleaned_df = dataframe.copy()
-    
-    for column in numeric_columns:
-        if column in cleaned_df.columns:
-            cleaned_df = remove_outliers_iqr(cleaned_df, column, outlier_multiplier)
-            cleaned_df = normalize_column(cleaned_df, column, normalization_method)
-    
-    return cleaned_df
-
-def validate_dataframe(dataframe, required_columns=None):
-    """
-    Validate DataFrame structure and content.
-    
-    Parameters:
-    dataframe (pd.DataFrame): DataFrame to validate
-    required_columns (list): List of required column names
-    
-    Returns:
-    tuple: (is_valid, error_message)
-    """
-    if not isinstance(dataframe, pd.DataFrame):
-        return False, "Input is not a pandas DataFrame"
-    
-    if dataframe.empty:
-        return False, "DataFrame is empty"
-    
-    if required_columns:
-        missing_columns = [col for col in required_columns if col not in dataframe.columns]
-        if missing_columns:
-            return False, f"Missing required columns: {missing_columns}"
-    
-    return True, "DataFrame is valid"
+if __name__ == "__main__":
+    input_csv = "input_data.csv"
+    output_csv = "cleaned_data.csv"
+    process_csv(input_csv, output_csv, email_field="email")
