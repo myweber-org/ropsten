@@ -70,3 +70,54 @@ def example_usage():
 if __name__ == "__main__":
     result = example_usage()
     print(result.head())
+import pandas as pd
+
+def clean_dataset(df, remove_duplicates=True):
+    """
+    Clean a pandas DataFrame by removing null values and optionally duplicates.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean.
+        remove_duplicates (bool): If True, remove duplicate rows.
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame.
+    """
+    cleaned_df = df.dropna()
+    
+    if remove_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates()
+    
+    return cleaned_df
+
+def validate_data(df, required_columns):
+    """
+    Validate that DataFrame contains all required columns.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate.
+        required_columns (list): List of required column names.
+    
+    Returns:
+        bool: True if all required columns are present.
+    """
+    return all(col in df.columns for col in required_columns)
+
+if __name__ == "__main__":
+    sample_data = {
+        'name': ['Alice', 'Bob', None, 'Alice'],
+        'age': [25, 30, 35, 25],
+        'score': [85.5, 90.0, None, 85.5]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    
+    cleaned = clean_dataset(df)
+    print("\nCleaned DataFrame:")
+    print(cleaned)
+    
+    required = ['name', 'age']
+    is_valid = validate_data(cleaned, required)
+    print(f"\nData validation result: {is_valid}")
