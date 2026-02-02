@@ -105,3 +105,82 @@ if __name__ == "__main__":
     city = sys.argv[2]
     weather_data = get_weather(api_key, city)
     display_weather(weather_data)
+import requests
+import json
+import os
+from datetime import datetime
+
+class WeatherFetcher:
+    def __init__(self, api_key=None):
+        self.api_key = api_key or os.getenv('OPENWEATHER_API_KEY')
+        self.base_url = "http://api.openweathermap.org/data/2.5/weather"
+        self.units = "metric"
+        
+    def get_weather_by_city(self, city_name):
+        if not self.api_key:
+            raise ValueError("API key not provided. Set OPENWEATHER_API_KEY environment variable.")
+        
+        params = {
+            'q': city_name,
+            'appid': self.api_key,
+            'units': self.units
+        }
+        
+        try:
+            response = requests.get(self.base_url, params=params)
+            response.raise_for_status()
+            return self._parse_weather_data(response.json())
+        except requests.exceptions.RequestException as e:
+            return f"Error fetching weather data: {e}"
+    
+    def _parse_weather_data(self, data):
+        weather_info = {
+            'city': data.get('name'),
+            'country': data.get('sys', {}).get('country'),
+            'temperature': data.get('main', {}).get('temp'),
+            'feels_like': data.get('main', {}).get('feels_like'),
+            'humidity': data.get('main', {}).get('humidity'),
+            'pressure': data.get('main', {}).get('pressure'),
+            'weather': data.get('weather', [{}])[0].get('description'),
+            'wind_speed': data.get('wind', {}).get('speed'),
+            'wind_direction': data.get('wind', {}).get('deg'),
+            'visibility': data.get('visibility'),
+            'sunrise': self._format_timestamp(data.get('sys', {}).get('sunrise')),
+            'sunset': self._format_timestamp(data.get('sys', {}).get('sunset')),
+            'timestamp': self._format_timestamp(data.get('dt'))
+        }
+        return weather_info
+    
+    def _format_timestamp(self, timestamp):
+        if timestamp:
+            return datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
+        return None
+    
+    def display_weather(self, weather_data):
+        if isinstance(weather_data, str):
+            print(weather_data)
+            return
+        
+        print(f"Weather in {weather_data['city']}, {weather_data['country']}:")
+        print(f"  Temperature: {weather_data['temperature']}°C (feels like {weather_data['feels_like']}°C)")
+        print(f"  Conditions: {weather_data['weather'].title()}")
+        print(f"  Humidity: {weather_data['humidity']}%")
+        print(f"  Pressure: {weather_data['pressure']} hPa")
+        print(f"  Wind: {weather_data['wind_speed']} m/s at {weather_data['wind_direction']}°")
+        print(f"  Visibility: {weather_data['visibility']} meters")
+        print(f"  Sunrise: {weather_data['sunrise']}")
+        print(f"  Sunset: {weather_data['sunset']}")
+        print(f"  Last updated: {weather_data['timestamp']}")
+
+def main():
+    fetcher = WeatherFetcher()
+    
+    cities = ["London", "New York", "Tokyo", "Paris"]
+    
+    for city in cities:
+        print(f"\n{'='*50}")
+        weather = fetcher.get_weather_by_city(city)
+        fetcher.display_weather(weather)
+
+if __name__ == "__main__":
+    main()
