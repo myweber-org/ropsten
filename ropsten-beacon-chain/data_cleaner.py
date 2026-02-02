@@ -1089,3 +1089,121 @@ def example_usage():
 
 if __name__ == "__main__":
     cleaned_data = example_usage()
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+class DataCleaner:
+    def __init__(self, df):
+        self.df = df.copy()
+        self.original_shape = df.shape
+        
+    def remove_outliers_iqr(self, columns=None, factor=1.5):
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
+            
+        clean_df = self.df.copy()
+        for col in columns:
+            if col in clean_df.columns:
+                Q1 = clean_df[col].quantile(0.25)
+                Q3 = clean_df[col].quantile(0.75)
+                IQR = Q3 - Q1
+                lower_bound = Q1 - factor * IQR
+                upper_bound = Q3 + factor * IQR
+                clean_df = clean_df[(clean_df[col] >= lower_bound) & (clean_df[col] <= upper_bound)]
+        
+        removed_count = self.original_shape[0] - clean_df.shape[0]
+        self.df = clean_df
+        return removed_count
+    
+    def normalize_minmax(self, columns=None):
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
+            
+        normalized_df = self.df.copy()
+        for col in columns:
+            if col in normalized_df.columns:
+                col_min = normalized_df[col].min()
+                col_max = normalized_df[col].max()
+                if col_max != col_min:
+                    normalized_df[col] = (normalized_df[col] - col_min) / (col_max - col_min)
+        
+        self.df = normalized_df
+        return self.df
+    
+    def standardize_zscore(self, columns=None):
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
+            
+        standardized_df = self.df.copy()
+        for col in columns:
+            if col in standardized_df.columns:
+                col_mean = standardized_df[col].mean()
+                col_std = standardized_df[col].std()
+                if col_std > 0:
+                    standardized_df[col] = (standardized_df[col] - col_mean) / col_std
+        
+        self.df = standardized_df
+        return self.df
+    
+    def fill_missing_median(self, columns=None):
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
+            
+        filled_df = self.df.copy()
+        for col in columns:
+            if col in filled_df.columns and filled_df[col].isnull().any():
+                median_val = filled_df[col].median()
+                filled_df[col] = filled_df[col].fillna(median_val)
+        
+        self.df = filled_df
+        return self.df
+    
+    def get_cleaned_data(self):
+        return self.df.copy()
+    
+    def get_summary(self):
+        summary = {
+            'original_rows': self.original_shape[0],
+            'current_rows': self.df.shape[0],
+            'columns': self.df.shape[1],
+            'missing_values': self.df.isnull().sum().sum(),
+            'numeric_columns': list(self.df.select_dtypes(include=[np.number]).columns)
+        }
+        return summary
+
+def create_sample_data():
+    np.random.seed(42)
+    data = {
+        'feature_a': np.random.normal(100, 15, 1000),
+        'feature_b': np.random.exponential(50, 1000),
+        'feature_c': np.random.uniform(0, 1, 1000),
+        'category': np.random.choice(['A', 'B', 'C'], 1000)
+    }
+    
+    df = pd.DataFrame(data)
+    df.loc[np.random.choice(df.index, 50), 'feature_a'] = np.nan
+    df.loc[np.random.choice(df.index, 20), 'feature_b'] = 1000
+    
+    return df
+
+if __name__ == "__main__":
+    sample_df = create_sample_data()
+    cleaner = DataCleaner(sample_df)
+    
+    print("Initial summary:")
+    print(cleaner.get_summary())
+    
+    removed = cleaner.remove_outliers_iqr(['feature_a', 'feature_b'])
+    print(f"\nRemoved {removed} outliers")
+    
+    cleaner.fill_missing_median()
+    cleaner.standardize_zscore(['feature_a', 'feature_b'])
+    cleaner.normalize_minmax(['feature_c'])
+    
+    print("\nFinal summary:")
+    print(cleaner.get_summary())
+    
+    cleaned_data = cleaner.get_cleaned_data()
+    print(f"\nCleaned data shape: {cleaned_data.shape}")
+    print(f"First 5 rows:\n{cleaned_data.head()}")
