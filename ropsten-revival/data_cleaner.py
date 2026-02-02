@@ -432,3 +432,126 @@ def clean_dataset(df, remove_outliers=True, normalize=True, fill_missing=True):
         cleaner.normalize_minmax()
     
     return cleaner.get_cleaned_data(), cleaner.get_summary()
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df, drop_duplicates=True, fill_missing=True, strategy='mean'):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    drop_duplicates (bool): Whether to remove duplicate rows
+    fill_missing (bool): Whether to fill missing values
+    strategy (str): Strategy for filling missing values ('mean', 'median', 'mode', 'zero')
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame
+    """
+    cleaned_df = df.copy()
+    
+    if drop_duplicates:
+        initial_rows = len(cleaned_df)
+        cleaned_df = cleaned_df.drop_duplicates()
+        removed = initial_rows - len(cleaned_df)
+        print(f"Removed {removed} duplicate rows")
+    
+    if fill_missing and cleaned_df.isnull().sum().any():
+        for column in cleaned_df.select_dtypes(include=[np.number]).columns:
+            if cleaned_df[column].isnull().any():
+                if strategy == 'mean':
+                    fill_value = cleaned_df[column].mean()
+                elif strategy == 'median':
+                    fill_value = cleaned_df[column].median()
+                elif strategy == 'mode':
+                    fill_value = cleaned_df[column].mode()[0]
+                elif strategy == 'zero':
+                    fill_value = 0
+                else:
+                    fill_value = cleaned_df[column].mean()
+                
+                cleaned_df[column] = cleaned_df[column].fillna(fill_value)
+                print(f"Filled missing values in '{column}' with {strategy} value: {fill_value:.2f}")
+    
+    categorical_cols = cleaned_df.select_dtypes(include=['object']).columns
+    for column in categorical_cols:
+        if cleaned_df[column].isnull().any():
+            cleaned_df[column] = cleaned_df[column].fillna('Unknown')
+            print(f"Filled missing categorical values in '{column}' with 'Unknown'")
+    
+    print(f"Data cleaning complete. Original shape: {df.shape}, Cleaned shape: {cleaned_df.shape}")
+    return cleaned_df
+
+def validate_data(df, required_columns=None, min_rows=1):
+    """
+    Validate the DataFrame structure and content.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate
+    required_columns (list): List of required column names
+    min_rows (int): Minimum number of rows required
+    
+    Returns:
+    bool: True if validation passes, False otherwise
+    """
+    if df.empty:
+        print("Validation failed: DataFrame is empty")
+        return False
+    
+    if len(df) < min_rows:
+        print(f"Validation failed: DataFrame has only {len(df)} rows, minimum required is {min_rows}")
+        return False
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            print(f"Validation failed: Missing required columns: {missing_columns}")
+            return False
+    
+    print("Data validation passed")
+    return True
+
+def export_cleaned_data(df, output_path, format='csv'):
+    """
+    Export cleaned DataFrame to file.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame to export
+    output_path (str): Path for output file
+    format (str): Output format ('csv', 'excel', 'json')
+    """
+    try:
+        if format == 'csv':
+            df.to_csv(output_path, index=False)
+        elif format == 'excel':
+            df.to_excel(output_path, index=False)
+        elif format == 'json':
+            df.to_json(output_path, orient='records')
+        else:
+            df.to_csv(output_path, index=False)
+        
+        print(f"Data exported successfully to {output_path}")
+    except Exception as e:
+        print(f"Error exporting data: {str(e)}")
+
+if __name__ == "__main__":
+    sample_data = {
+        'id': [1, 2, 2, 3, 4, 5],
+        'name': ['Alice', 'Bob', 'Bob', 'Charlie', None, 'Eve'],
+        'age': [25, 30, 30, None, 35, 28],
+        'score': [85.5, 92.0, 92.0, 78.5, None, 88.0]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\n" + "="*50 + "\n")
+    
+    cleaned_df = clean_dataset(df, drop_duplicates=True, fill_missing=True, strategy='mean')
+    print("\nCleaned DataFrame:")
+    print(cleaned_df)
+    
+    is_valid = validate_data(cleaned_df, required_columns=['id', 'name', 'age', 'score'], min_rows=3)
+    
+    if is_valid:
+        export_cleaned_data(cleaned_df, 'cleaned_data.csv', format='csv')
