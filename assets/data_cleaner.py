@@ -92,3 +92,72 @@ def remove_duplicates_preserve_order(sequence):
             seen.add(item)
             result.append(item)
     return result
+import pandas as pd
+import re
+
+def clean_dataframe(df, columns_to_clean=None):
+    """
+    Clean a pandas DataFrame by removing duplicate rows and normalizing string columns.
+    """
+    # Remove duplicates
+    df_cleaned = df.drop_duplicates().reset_index(drop=True)
+    
+    if columns_to_clean is None:
+        # Automatically detect string columns
+        columns_to_clean = df_cleaned.select_dtypes(include=['object']).columns.tolist()
+    
+    for col in columns_to_clean:
+        if col in df_cleaned.columns and df_cleaned[col].dtype == 'object':
+            df_cleaned[col] = df_cleaned[col].apply(_normalize_string)
+    
+    return df_cleaned
+
+def _normalize_string(text):
+    """
+    Normalize a string by converting to lowercase, removing extra whitespace,
+    and stripping special characters.
+    """
+    if pd.isna(text):
+        return text
+    
+    # Convert to string if not already
+    text = str(text)
+    
+    # Convert to lowercase
+    text = text.lower()
+    
+    # Remove extra whitespace
+    text = re.sub(r'\s+', ' ', text).strip()
+    
+    # Remove special characters (keep alphanumeric and basic punctuation)
+    text = re.sub(r'[^\w\s.,!?-]', '', text)
+    
+    return text
+
+def validate_email(email):
+    """
+    Validate email format using regex.
+    """
+    if pd.isna(email):
+        return False
+    
+    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return bool(re.match(email_pattern, str(email)))
+
+def clean_phone_number(phone):
+    """
+    Clean and format phone numbers to a standard format.
+    """
+    if pd.isna(phone):
+        return phone
+    
+    phone = str(phone)
+    # Remove all non-digit characters
+    digits = re.sub(r'\D', '', phone)
+    
+    if len(digits) == 10:
+        return f"({digits[:3]}) {digits[3:6]}-{digits[6:]}"
+    elif len(digits) == 11 and digits[0] == '1':
+        return f"+1 ({digits[1:4]}) {digits[4:7]}-{digits[7:]}"
+    else:
+        return phone
