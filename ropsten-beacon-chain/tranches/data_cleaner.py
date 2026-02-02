@@ -1332,3 +1332,85 @@ if __name__ == "__main__":
     import os
     if os.path.exists('sample_data.csv'):
         os.remove('sample_data.csv')
+import numpy as np
+import pandas as pd
+
+def remove_outliers_iqr(df, column):
+    """
+    Remove outliers from a DataFrame column using the Interquartile Range method.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    column (str): Column name to process
+    
+    Returns:
+    pd.DataFrame: DataFrame with outliers removed
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    
+    return filtered_df.reset_index(drop=True)
+
+def calculate_summary_statistics(df, column):
+    """
+    Calculate summary statistics for a column after outlier removal.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    column (str): Column name to analyze
+    
+    Returns:
+    dict: Dictionary containing summary statistics
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    stats = {
+        'mean': df[column].mean(),
+        'median': df[column].median(),
+        'std': df[column].std(),
+        'min': df[column].min(),
+        'max': df[column].max(),
+        'count': df[column].count()
+    }
+    
+    return stats
+
+def process_dataset(file_path, column_to_clean):
+    """
+    Main function to load, clean, and analyze a dataset.
+    
+    Parameters:
+    file_path (str): Path to CSV file
+    column_to_clean (str): Column name to clean
+    
+    Returns:
+    tuple: Cleaned DataFrame and summary statistics
+    """
+    try:
+        df = pd.read_csv(file_path)
+        print(f"Original dataset shape: {df.shape}")
+        
+        cleaned_df = remove_outliers_iqr(df, column_to_clean)
+        print(f"Cleaned dataset shape: {cleaned_df.shape}")
+        print(f"Removed {len(df) - len(cleaned_df)} outliers")
+        
+        stats = calculate_summary_statistics(cleaned_df, column_to_clean)
+        
+        return cleaned_df, stats
+        
+    except FileNotFoundError:
+        print(f"Error: File '{file_path}' not found")
+        return None, None
+    except Exception as e:
+        print(f"Error processing dataset: {str(e)}")
+        return None, None
