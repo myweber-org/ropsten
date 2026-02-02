@@ -84,3 +84,11 @@ if __name__ == "__main__":
     input_csv = "input_data.csv"
     output_csv = "cleaned_data.csv"
     process_csv(input_csv, output_csv, email_field="email")
+def remove_duplicates_preserve_order(sequence):
+    seen = set()
+    result = []
+    for item in sequence:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
