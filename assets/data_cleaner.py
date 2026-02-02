@@ -280,4 +280,39 @@ def clean_dataset(df, missing_strategy='mean', outlier_threshold=1.5, standardiz
     if standardize:
         df_clean = standardize_columns(df_clean)
     
+    return df_cleanimport pandas as pd
+import re
+
+def clean_dataframe(df, text_column='text'):
+    """
+    Clean a DataFrame by removing duplicates and normalizing text in a specified column.
+    """
+    # Remove duplicate rows
+    df_clean = df.drop_duplicates().reset_index(drop=True)
+    
+    # Normalize text: lowercase and remove extra whitespace
+    df_clean[text_column] = df_clean[text_column].apply(
+        lambda x: re.sub(r'\s+', ' ', str(x).strip().lower())
+    )
+    
     return df_clean
+
+def save_cleaned_data(df, output_path='cleaned_data.csv'):
+    """
+    Save the cleaned DataFrame to a CSV file.
+    """
+    df.to_csv(output_path, index=False)
+    print(f"Cleaned data saved to {output_path}")
+
+if __name__ == "__main__":
+    # Example usage
+    data = pd.DataFrame({
+        'id': [1, 2, 3, 4, 5],
+        'text': ['  Hello World  ', 'hello world', 'Python Code', '  python code  ', 'Another Text']
+    })
+    
+    cleaned = clean_dataframe(data, text_column='text')
+    print("Cleaned DataFrame:")
+    print(cleaned)
+    
+    save_cleaned_data(cleaned, 'example_cleaned.csv')
