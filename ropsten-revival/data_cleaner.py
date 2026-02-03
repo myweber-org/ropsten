@@ -441,3 +441,45 @@ def get_data_summary(df):
         summary = summary.join(numeric_stats, how='left')
     
     return summary
+def remove_duplicates(input_list):
+    """
+    Remove duplicate elements from a list while preserving order.
+    
+    Args:
+        input_list: A list that may contain duplicate elements.
+    
+    Returns:
+        A new list with duplicates removed.
+    """
+    seen = set()
+    result = []
+    
+    for item in input_list:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    
+    return result
+
+def clean_data_with_threshold(data, threshold=1):
+    """
+    Remove elements that appear more than threshold times.
+    
+    Args:
+        data: List of elements to clean.
+        threshold: Maximum allowed occurrences (default: 1).
+    
+    Returns:
+        Cleaned list with elements occurring <= threshold times.
+    """
+    from collections import Counter
+    
+    counter = Counter(data)
+    return [item for item in data if counter[item] <= threshold]
+
+if __name__ == "__main__":
+    sample_data = [1, 2, 2, 3, 4, 4, 4, 5]
+    
+    print("Original data:", sample_data)
+    print("After removing duplicates:", remove_duplicates(sample_data))
+    print("With threshold 2:", clean_data_with_threshold(sample_data, 2))
