@@ -1,93 +1,73 @@
+
 import pandas as pd
+import numpy as np
 
-def remove_duplicates(df, subset=None, keep='first'):
+def remove_outliers_iqr(df, column):
     """
-    Remove duplicate rows from a DataFrame.
+    Remove outliers from a specified column in a DataFrame using the IQR method.
     
-    Args:
-        df (pd.DataFrame): Input DataFrame.
-        subset (list, optional): Column labels to consider for duplicates.
-        keep (str, optional): Which duplicates to keep.
-    
-    Returns:
-        pd.DataFrame: DataFrame with duplicates removed.
-    """
-    if df.empty:
-        return df
-    
-    cleaned_df = df.drop_duplicates(subset=subset, keep=keep)
-    return cleaned_df
-
-def validate_dataframe(df):
-    """
-    Basic validation of DataFrame structure.
-    
-    Args:
-        df (pd.DataFrame): DataFrame to validate.
+    Parameters:
+    df (pd.DataFrame): The input DataFrame.
+    column (str): The column name to process.
     
     Returns:
-        bool: True if valid, False otherwise.
+    pd.DataFrame: DataFrame with outliers removed.
     """
-    if not isinstance(df, pd.DataFrame):
-        return False
-    if df.shape[0] == 0:
-        return False
-    return True
-
-def clean_numeric_columns(df, columns):
-    """
-    Clean numeric columns by converting to appropriate dtype.
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
     
-    Args:
-        df (pd.DataFrame): Input DataFrame.
-        columns (list): List of column names to clean.
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    
+    return filtered_df
+
+def calculate_summary_statistics(df, column):
+    """
+    Calculate summary statistics for a column after outlier removal.
+    
+    Parameters:
+    df (pd.DataFrame): The input DataFrame.
+    column (str): The column name to analyze.
     
     Returns:
-        pd.DataFrame: DataFrame with cleaned numeric columns.
+    dict: Dictionary containing summary statistics.
     """
-    for col in columns:
-        if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors='coerce')
-    return df
-import pandas as pd
-import re
-
-def clean_dataframe(df, column_name):
-    """
-    Clean a specific column in a DataFrame by removing duplicates,
-    stripping whitespace, and converting to lowercase.
-    """
-    if column_name not in df.columns:
-        raise ValueError(f"Column '{column_name}' not found in DataFrame")
-
-    df[column_name] = df[column_name].astype(str)
-    df[column_name] = df[column_name].str.strip()
-    df[column_name] = df[column_name].str.lower()
-    df.drop_duplicates(subset=[column_name], inplace=True)
-    df.reset_index(drop=True, inplace=True)
-    return df
-
-def remove_special_characters(df, column_name):
-    """
-    Remove special characters from a column, keeping only alphanumeric and spaces.
-    """
-    df[column_name] = df[column_name].apply(lambda x: re.sub(r'[^a-zA-Z0-9\s]', '', x))
-    return df
-
-def normalize_column(df, column_name):
-    """
-    Apply all cleaning functions to a column.
-    """
-    df = clean_dataframe(df, column_name)
-    df = remove_special_characters(df, column_name)
-    return df
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    stats = {
+        'mean': df[column].mean(),
+        'median': df[column].median(),
+        'std': df[column].std(),
+        'min': df[column].min(),
+        'max': df[column].max(),
+        'count': df[column].count()
+    }
+    
+    return stats
 
 if __name__ == "__main__":
-    sample_data = {'Name': ['  Alice  ', 'Bob', 'alice', 'Charlie!', '  david  ']}
+    sample_data = {
+        'values': [10, 12, 12, 13, 12, 11, 10, 100, 12, 14, 15, 12, 11, 10, 9, 8, 12, 13, 14, 15, 200]
+    }
+    
     df = pd.DataFrame(sample_data)
     print("Original DataFrame:")
     print(df)
+    print(f"\nOriginal shape: {df.shape}")
     
-    cleaned_df = normalize_column(df, 'Name')
+    cleaned_df = remove_outliers_iqr(df, 'values')
     print("\nCleaned DataFrame:")
     print(cleaned_df)
+    print(f"\nCleaned shape: {cleaned_df.shape}")
+    
+    stats = calculate_summary_statistics(cleaned_df, 'values')
+    print("\nSummary Statistics:")
+    for key, value in stats.items():
+        print(f"{key}: {value:.2f}")
