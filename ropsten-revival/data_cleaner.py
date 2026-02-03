@@ -816,3 +816,107 @@ if __name__ == "__main__":
     
     is_valid = validate_dataframe(cleaned, required_columns=['A', 'B', 'C'])
     print(f"\nDataFrame validation: {is_valid}")
+import pandas as pd
+import numpy as np
+from pathlib import Path
+
+def clean_csv_data(input_path, output_path=None):
+    """
+    Clean CSV data by handling missing values and removing duplicates.
+    
+    Args:
+        input_path: Path to input CSV file
+        output_path: Path for cleaned CSV file (optional)
+    
+    Returns:
+        DataFrame containing cleaned data
+    """
+    try:
+        df = pd.read_csv(input_path)
+        print(f"Original data shape: {df.shape}")
+        
+        # Remove duplicate rows
+        initial_rows = len(df)
+        df.drop_duplicates(inplace=True)
+        duplicates_removed = initial_rows - len(df)
+        print(f"Removed {duplicates_removed} duplicate rows")
+        
+        # Handle missing values
+        missing_before = df.isnull().sum().sum()
+        
+        # Fill numeric columns with median
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        for col in numeric_cols:
+            if df[col].isnull().any():
+                median_val = df[col].median()
+                df[col].fillna(median_val, inplace=True)
+        
+        # Fill categorical columns with mode
+        categorical_cols = df.select_dtypes(include=['object']).columns
+        for col in categorical_cols:
+            if df[col].isnull().any():
+                mode_val = df[col].mode()[0] if not df[col].mode().empty else 'Unknown'
+                df[col].fillna(mode_val, inplace=True)
+        
+        missing_after = df.isnull().sum().sum()
+        print(f"Handled {missing_before - missing_after} missing values")
+        
+        # Save cleaned data if output path provided
+        if output_path:
+            output_path = Path(output_path)
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            df.to_csv(output_path, index=False)
+            print(f"Cleaned data saved to: {output_path}")
+        
+        print(f"Final data shape: {df.shape}")
+        return df
+        
+    except FileNotFoundError:
+        print(f"Error: File not found at {input_path}")
+        return None
+    except Exception as e:
+        print(f"Error during data cleaning: {str(e)}")
+        return None
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Args:
+        df: DataFrame to validate
+        required_columns: List of required column names
+    
+    Returns:
+        Boolean indicating if validation passed
+    """
+    if df is None or df.empty:
+        print("Validation failed: DataFrame is empty or None")
+        return False
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            print(f"Validation failed: Missing required columns: {missing_cols}")
+            return False
+    
+    # Check for infinite values in numeric columns
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    inf_count = np.isinf(df[numeric_cols]).sum().sum()
+    if inf_count > 0:
+        print(f"Warning: Found {inf_count} infinite values in numeric columns")
+    
+    return True
+
+if __name__ == "__main__":
+    # Example usage
+    input_file = "raw_data.csv"
+    output_file = "cleaned_data.csv"
+    
+    cleaned_df = clean_csv_data(input_file, output_file)
+    
+    if cleaned_df is not None:
+        validation_passed = validate_dataframe(cleaned_df)
+        if validation_passed:
+            print("Data cleaning completed successfully")
+        else:
+            print("Data cleaning completed with validation warnings")
