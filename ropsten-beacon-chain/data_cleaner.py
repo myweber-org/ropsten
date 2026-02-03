@@ -624,4 +624,56 @@ if __name__ == "__main__":
     
     cleaned_data = remove_outliers_iqr(sample_data, 'values')
     print("\nCleaned data shape:", cleaned_data.shape)
-    print("Cleaned statistics:", calculate_basic_stats(cleaned_data, 'values'))
+    print("Cleaned statistics:", calculate_basic_stats(cleaned_data, 'values'))import pandas as pd
+
+def remove_duplicates(dataframe, subset=None, keep='first'):
+    """
+    Remove duplicate rows from a pandas DataFrame.
+
+    Args:
+        dataframe (pd.DataFrame): The input DataFrame.
+        subset (list, optional): Column labels to consider for identifying duplicates.
+                                 If None, all columns are used.
+        keep (str, optional): Determines which duplicates to keep.
+                              'first' : Drop duplicates except for the first occurrence.
+                              'last' : Drop duplicates except for the last occurrence.
+                              False : Drop all duplicates.
+
+    Returns:
+        pd.DataFrame: DataFrame with duplicates removed.
+    """
+    if not isinstance(dataframe, pd.DataFrame):
+        raise TypeError("Input must be a pandas DataFrame")
+
+    cleaned_df = dataframe.drop_duplicates(subset=subset, keep=keep)
+    return cleaned_df
+
+def clean_numeric_column(dataframe, column_name, fill_method='mean'):
+    """
+    Clean a numeric column by filling missing values.
+
+    Args:
+        dataframe (pd.DataFrame): The input DataFrame.
+        column_name (str): Name of the column to clean.
+        fill_method (str): Method to fill missing values ('mean', 'median', 'zero').
+
+    Returns:
+        pd.DataFrame: DataFrame with cleaned column.
+    """
+    if column_name not in dataframe.columns:
+        raise ValueError(f"Column '{column_name}' not found in DataFrame")
+
+    if not pd.api.types.is_numeric_dtype(dataframe[column_name]):
+        raise TypeError(f"Column '{column_name}' must be numeric")
+
+    if fill_method == 'mean':
+        fill_value = dataframe[column_name].mean()
+    elif fill_method == 'median':
+        fill_value = dataframe[column_name].median()
+    elif fill_method == 'zero':
+        fill_value = 0
+    else:
+        raise ValueError("fill_method must be 'mean', 'median', or 'zero'")
+
+    dataframe[column_name] = dataframe[column_name].fillna(fill_value)
+    return dataframe
