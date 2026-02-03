@@ -1,71 +1,54 @@
 import pandas as pd
 
-def clean_dataframe(df, drop_duplicates=True, fill_missing=False, fill_value=0):
+def remove_duplicates(df, subset=None, keep='first'):
     """
-    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    Remove duplicate rows from a DataFrame.
     
-    Parameters:
-    df (pd.DataFrame): Input DataFrame to clean.
-    drop_duplicates (bool): Whether to drop duplicate rows. Default is True.
-    fill_missing (bool): Whether to fill missing values. Default is False.
-    fill_value: Value to use for filling missing values. Default is 0.
+    Args:
+        df (pd.DataFrame): Input DataFrame.
+        subset (list, optional): Column labels to consider for duplicates.
+        keep (str, optional): Which duplicates to keep.
     
     Returns:
-    pd.DataFrame: Cleaned DataFrame.
+        pd.DataFrame: DataFrame with duplicates removed.
     """
-    cleaned_df = df.copy()
+    if df.empty:
+        return df
     
-    if drop_duplicates:
-        cleaned_df = cleaned_df.drop_duplicates()
-    
-    if fill_missing:
-        cleaned_df = cleaned_df.fillna(fill_value)
-    
+    cleaned_df = df.drop_duplicates(subset=subset, keep=keep)
     return cleaned_df
 
-def validate_dataframe(df, required_columns=None):
+def clean_numeric_columns(df, columns):
     """
-    Validate a DataFrame by checking for required columns and data types.
+    Clean numeric columns by converting to appropriate types.
     
-    Parameters:
-    df (pd.DataFrame): DataFrame to validate.
-    required_columns (list): List of required column names.
+    Args:
+        df (pd.DataFrame): Input DataFrame.
+        columns (list): List of column names to clean.
     
     Returns:
-    bool: True if validation passes, False otherwise.
+        pd.DataFrame: DataFrame with cleaned numeric columns.
     """
-    if required_columns:
-        missing_columns = [col for col in required_columns if col not in df.columns]
-        if missing_columns:
-            print(f"Missing required columns: {missing_columns}")
-            return False
+    for col in columns:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+    return df
+
+def validate_dataframe(df, required_columns):
+    """
+    Validate that DataFrame contains required columns.
     
-    if df.empty:
-        print("DataFrame is empty")
+    Args:
+        df (pd.DataFrame): Input DataFrame.
+        required_columns (list): List of required column names.
+    
+    Returns:
+        bool: True if all required columns are present.
+    """
+    missing_columns = [col for col in required_columns if col not in df.columns]
+    
+    if missing_columns:
+        print(f"Missing columns: {missing_columns}")
         return False
     
     return True
-
-def remove_outliers(df, column, threshold=3):
-    """
-    Remove outliers from a DataFrame column using z-score method.
-    
-    Parameters:
-    df (pd.DataFrame): Input DataFrame.
-    column (str): Column name to process.
-    threshold (float): Z-score threshold for outlier detection.
-    
-    Returns:
-    pd.DataFrame: DataFrame with outliers removed.
-    """
-    from scipy import stats
-    import numpy as np
-    
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
-    
-    z_scores = np.abs(stats.zscore(df[column].dropna()))
-    outlier_indices = np.where(z_scores > threshold)[0]
-    
-    cleaned_df = df.drop(df.index[outlier_indices])
-    return cleaned_df
