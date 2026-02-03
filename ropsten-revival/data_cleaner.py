@@ -185,3 +185,11 @@ if __name__ == "__main__":
     
     is_valid = validate_dataframe(cleaned_df, ['id', 'value'])
     print(f"\nData validation: {'Passed' if is_valid else 'Failed'}")
+def remove_duplicates_preserve_order(sequence):
+    seen = set()
+    result = []
+    for item in sequence:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
