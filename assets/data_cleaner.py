@@ -241,4 +241,95 @@ def remove_outliers(df, column, method='iqr', threshold=1.5):
     else:
         raise ValueError("Method must be 'iqr' or 'zscore'")
     
-    return df[mask]
+    return df[mask]import pandas as pd
+
+def clean_dataset(df, column_mapping=None, drop_duplicates=True):
+    """
+    Clean a pandas DataFrame by standardizing column names and removing duplicates.
+    
+    Args:
+        df: pandas DataFrame to clean
+        column_mapping: Dictionary mapping original column names to standardized names
+        drop_duplicates: Boolean indicating whether to remove duplicate rows
+    
+    Returns:
+        Cleaned pandas DataFrame
+    """
+    cleaned_df = df.copy()
+    
+    # Standardize column names if mapping is provided
+    if column_mapping:
+        cleaned_df = cleaned_df.rename(columns=column_mapping)
+    
+    # Remove duplicate rows if requested
+    if drop_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates().reset_index(drop=True)
+    
+    # Convert column names to lowercase and replace spaces with underscores
+    cleaned_df.columns = cleaned_df.columns.str.lower().str.replace(' ', '_')
+    
+    # Remove leading/trailing whitespace from string columns
+    for col in cleaned_df.select_dtypes(include=['object']).columns:
+        cleaned_df[col] = cleaned_df[col].str.strip()
+    
+    return cleaned_df
+
+def validate_data(df, required_columns=None, numeric_columns=None):
+    """
+    Validate data quality by checking for required columns and numeric data types.
+    
+    Args:
+        df: pandas DataFrame to validate
+        required_columns: List of column names that must be present
+        numeric_columns: List of column names that should be numeric
+    
+    Returns:
+        Dictionary with validation results
+    """
+    validation_results = {
+        'is_valid': True,
+        'missing_columns': [],
+        'non_numeric_columns': [],
+        'null_counts': {}
+    }
+    
+    # Check for required columns
+    if required_columns:
+        missing = [col for col in required_columns if col not in df.columns]
+        if missing:
+            validation_results['missing_columns'] = missing
+            validation_results['is_valid'] = False
+    
+    # Check numeric columns
+    if numeric_columns:
+        for col in numeric_columns:
+            if col in df.columns:
+                if not pd.api.types.is_numeric_dtype(df[col]):
+                    validation_results['non_numeric_columns'].append(col)
+                    validation_results['is_valid'] = False
+    
+    # Count null values
+    for col in df.columns:
+        null_count = df[col].isnull().sum()
+        if null_count > 0:
+            validation_results['null_counts'][col] = null_count
+    
+    return validation_results
+
+def save_cleaned_data(df, output_path, format='csv'):
+    """
+    Save cleaned DataFrame to file.
+    
+    Args:
+        df: pandas DataFrame to save
+        output_path: Path where file should be saved
+        format: File format ('csv', 'excel', or 'parquet')
+    """
+    if format == 'csv':
+        df.to_csv(output_path, index=False)
+    elif format == 'excel':
+        df.to_excel(output_path, index=False)
+    elif format == 'parquet':
+        df.to_parquet(output_path, index=False)
+    else:
+        raise ValueError(f"Unsupported format: {format}. Use 'csv', 'excel', or 'parquet'.")
