@@ -453,4 +453,111 @@ if __name__ == "__main__":
     
     cleaned_df = clean_numeric_data(df, columns=['A', 'B'])
     print("\nCleaned DataFrame:")
-    print(cleaned_df)
+    print(cleaned_df)import numpy as np
+import pandas as pd
+
+def remove_outliers_iqr(dataframe, column, multiplier=1.5):
+    """
+    Remove outliers from a DataFrame column using the IQR method.
+    
+    Args:
+        dataframe: pandas DataFrame
+        column: Column name to process
+        multiplier: IQR multiplier (default 1.5)
+    
+    Returns:
+        DataFrame with outliers removed
+    """
+    if column not in dataframe.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    q1 = dataframe[column].quantile(0.25)
+    q3 = dataframe[column].quantile(0.75)
+    iqr = q3 - q1
+    
+    lower_bound = q1 - multiplier * iqr
+    upper_bound = q3 + multiplier * iqr
+    
+    filtered_df = dataframe[(dataframe[column] >= lower_bound) & 
+                           (dataframe[column] <= upper_bound)]
+    
+    return filtered_df
+
+def normalize_minmax(dataframe, columns=None):
+    """
+    Normalize specified columns using min-max scaling.
+    
+    Args:
+        dataframe: pandas DataFrame
+        columns: List of columns to normalize (default: all numeric columns)
+    
+    Returns:
+        DataFrame with normalized columns
+    """
+    if columns is None:
+        columns = dataframe.select_dtypes(include=[np.number]).columns.tolist()
+    
+    result_df = dataframe.copy()
+    
+    for col in columns:
+        if col not in result_df.columns:
+            continue
+            
+        col_min = result_df[col].min()
+        col_max = result_df[col].max()
+        
+        if col_max != col_min:
+            result_df[col] = (result_df[col] - col_min) / (col_max - col_min)
+        else:
+            result_df[col] = 0
+    
+    return result_df
+
+def clean_dataset(dataframe, numeric_columns=None, outlier_multiplier=1.5):
+    """
+    Complete data cleaning pipeline: remove outliers and normalize.
+    
+    Args:
+        dataframe: Input DataFrame
+        numeric_columns: Columns to process (default: all numeric)
+        outlier_multiplier: IQR multiplier for outlier detection
+    
+    Returns:
+        Cleaned DataFrame
+    """
+    if numeric_columns is None:
+        numeric_columns = dataframe.select_dtypes(include=[np.number]).columns.tolist()
+    
+    cleaned_df = dataframe.copy()
+    
+    for col in numeric_columns:
+        if col in cleaned_df.columns:
+            cleaned_df = remove_outliers_iqr(cleaned_df, col, outlier_multiplier)
+    
+    cleaned_df = normalize_minmax(cleaned_df, numeric_columns)
+    
+    return cleaned_df
+
+def validate_dataframe(dataframe, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Args:
+        dataframe: DataFrame to validate
+        required_columns: List of required column names
+    
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    if not isinstance(dataframe, pd.DataFrame):
+        return False, "Input must be a pandas DataFrame"
+    
+    if dataframe.empty:
+        return False, "DataFrame is empty"
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in dataframe.columns]
+        if missing_cols:
+            return False, f"Missing required columns: {missing_cols}"
+    
+    return True, "DataFrame is valid"
