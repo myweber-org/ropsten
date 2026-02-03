@@ -1,65 +1,43 @@
 
 import pandas as pd
+import re
+
+def clean_string_column(series):
+    """
+    Normalize string column: lowercase, strip whitespace, remove extra spaces.
+    """
+    if series.dtype == object:
+        series = series.astype(str)
+        series = series.str.lower()
+        series = series.str.strip()
+        series = series.apply(lambda x: re.sub(r'\s+', ' ', x))
+    return series
 
 def remove_duplicates(df, subset=None, keep='first'):
     """
-    Remove duplicate rows from a DataFrame.
-    
-    Args:
-        df (pd.DataFrame): Input DataFrame
-        subset (list, optional): Column labels to consider for duplicates
-        keep (str, optional): Which duplicates to keep ('first', 'last', False)
-    
-    Returns:
-        pd.DataFrame: DataFrame with duplicates removed
+    Remove duplicate rows from DataFrame.
     """
-    if df.empty:
-        return df
-    
-    cleaned_df = df.drop_duplicates(subset=subset, keep=keep)
-    
-    removed_count = len(df) - len(cleaned_df)
-    if removed_count > 0:
-        print(f"Removed {removed_count} duplicate rows")
-    
-    return cleaned_df.reset_index(drop=True)
+    return df.drop_duplicates(subset=subset, keep=keep)
 
-def clean_numeric_columns(df, columns):
+def clean_dataframe(df, string_columns=None):
     """
-    Clean numeric columns by converting to appropriate types and handling errors.
-    
-    Args:
-        df (pd.DataFrame): Input DataFrame
-        columns (list): List of column names to clean
-    
-    Returns:
-        pd.DataFrame: DataFrame with cleaned numeric columns
+    Apply cleaning functions to DataFrame.
     """
-    cleaned_df = df.copy()
+    df_clean = df.copy()
     
-    for col in columns:
-        if col in cleaned_df.columns:
-            cleaned_df[col] = pd.to_numeric(cleaned_df[col], errors='coerce')
+    if string_columns is None:
+        string_columns = df_clean.select_dtypes(include=['object']).columns
     
-    return cleaned_df
+    for col in string_columns:
+        if col in df_clean.columns:
+            df_clean[col] = clean_string_column(df_clean[col])
+    
+    df_clean = remove_duplicates(df_clean)
+    return df_clean
 
-def validate_dataframe(df, required_columns=None):
+def save_cleaned_data(df, output_path):
     """
-    Validate DataFrame structure and content.
-    
-    Args:
-        df (pd.DataFrame): DataFrame to validate
-        required_columns (list, optional): List of required column names
-    
-    Returns:
-        tuple: (is_valid, error_message)
+    Save cleaned DataFrame to CSV file.
     """
-    if df.empty:
-        return False, "DataFrame is empty"
-    
-    if required_columns:
-        missing_columns = [col for col in required_columns if col not in df.columns]
-        if missing_columns:
-            return False, f"Missing required columns: {missing_columns}"
-    
-    return True, "DataFrame is valid"
+    df.to_csv(output_path, index=False)
+    print(f"Cleaned data saved to {output_path}")
