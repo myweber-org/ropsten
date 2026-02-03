@@ -333,3 +333,171 @@ def save_cleaned_data(df, output_path, format='csv'):
         df.to_parquet(output_path, index=False)
     else:
         raise ValueError(f"Unsupported format: {format}. Use 'csv', 'excel', or 'parquet'.")
+import pandas as pd
+import numpy as np
+from typing import Optional, Union, List
+
+def remove_duplicates(df: pd.DataFrame, subset: Optional[List[str]] = None) -> pd.DataFrame:
+    """
+    Remove duplicate rows from DataFrame.
+    
+    Args:
+        df: Input DataFrame
+        subset: Columns to consider for identifying duplicates
+    
+    Returns:
+        DataFrame with duplicates removed
+    """
+    return df.drop_duplicates(subset=subset, keep='first')
+
+def fill_missing_values(df: pd.DataFrame, strategy: str = 'mean', columns: Optional[List[str]] = None) -> pd.DataFrame:
+    """
+    Fill missing values in DataFrame columns.
+    
+    Args:
+        df: Input DataFrame
+        strategy: Method to fill missing values ('mean', 'median', 'mode', 'zero')
+        columns: Specific columns to fill, fills all columns if None
+    
+    Returns:
+        DataFrame with missing values filled
+    """
+    df_filled = df.copy()
+    
+    if columns is None:
+        columns = df.columns
+    
+    for col in columns:
+        if df[col].dtype in ['int64', 'float64']:
+            if strategy == 'mean':
+                fill_value = df[col].mean()
+            elif strategy == 'median':
+                fill_value = df[col].median()
+            elif strategy == 'mode':
+                fill_value = df[col].mode()[0] if not df[col].mode().empty else 0
+            elif strategy == 'zero':
+                fill_value = 0
+            else:
+                raise ValueError(f"Unsupported strategy: {strategy}")
+            
+            df_filled[col] = df[col].fillna(fill_value)
+        else:
+            df_filled[col] = df[col].fillna(df[col].mode()[0] if not df[col].mode().empty else '')
+    
+    return df_filled
+
+def normalize_column(df: pd.DataFrame, column: str, method: str = 'minmax') -> pd.DataFrame:
+    """
+    Normalize a numerical column.
+    
+    Args:
+        df: Input DataFrame
+        column: Column name to normalize
+        method: Normalization method ('minmax' or 'zscore')
+    
+    Returns:
+        DataFrame with normalized column
+    """
+    df_normalized = df.copy()
+    
+    if method == 'minmax':
+        min_val = df[column].min()
+        max_val = df[column].max()
+        if max_val != min_val:
+            df_normalized[column] = (df[column] - min_val) / (max_val - min_val)
+    
+    elif method == 'zscore':
+        mean_val = df[column].mean()
+        std_val = df[column].std()
+        if std_val != 0:
+            df_normalized[column] = (df[column] - mean_val) / std_val
+    
+    else:
+        raise ValueError(f"Unsupported normalization method: {method}")
+    
+    return df_normalized
+
+def remove_outliers(df: pd.DataFrame, column: str, method: str = 'iqr', threshold: float = 1.5) -> pd.DataFrame:
+    """
+    Remove outliers from a column using specified method.
+    
+    Args:
+        df: Input DataFrame
+        column: Column name to process
+        method: Outlier detection method ('iqr' or 'zscore')
+        threshold: Threshold for outlier detection
+    
+    Returns:
+        DataFrame with outliers removed
+    """
+    if method == 'iqr':
+        Q1 = df[column].quantile(0.25)
+        Q3 = df[column].quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - threshold * IQR
+        upper_bound = Q3 + threshold * IQR
+        return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    
+    elif method == 'zscore':
+        z_scores = np.abs((df[column] - df[column].mean()) / df[column].std())
+        return df[z_scores < threshold]
+    
+    else:
+        raise ValueError(f"Unsupported outlier detection method: {method}")
+
+def convert_to_datetime(df: pd.DataFrame, column: str, format: Optional[str] = None) -> pd.DataFrame:
+    """
+    Convert column to datetime format.
+    
+    Args:
+        df: Input DataFrame
+        column: Column name to convert
+        format: Optional datetime format string
+    
+    Returns:
+        DataFrame with converted datetime column
+    """
+    df_converted = df.copy()
+    
+    if format:
+        df_converted[column] = pd.to_datetime(df[column], format=format, errors='coerce')
+    else:
+        df_converted[column] = pd.to_datetime(df[column], errors='coerce')
+    
+    return df_converted
+
+def clean_dataset(df: pd.DataFrame, 
+                  remove_dups: bool = True,
+                  fill_na: bool = True,
+                  fill_strategy: str = 'mean',
+                  normalize: Optional[str] = None,
+                  outlier_removal: Optional[str] = None) -> pd.DataFrame:
+    """
+    Comprehensive dataset cleaning pipeline.
+    
+    Args:
+        df: Input DataFrame
+        remove_dups: Whether to remove duplicates
+        fill_na: Whether to fill missing values
+        fill_strategy: Strategy for filling missing values
+        normalize: Column to normalize
+        outlier_removal: Column for outlier removal
+    
+    Returns:
+        Cleaned DataFrame
+    """
+    cleaned_df = df.copy()
+    
+    if remove_dups:
+        cleaned_df = remove_duplicates(cleaned_df)
+    
+    if fill_na:
+        cleaned_df = fill_missing_values(cleaned_df, strategy=fill_strategy)
+    
+    if normalize:
+        cleaned_df = normalize_column(cleaned_df, normalize)
+    
+    if outlier_removal:
+        cleaned_df = remove_outliers(cleaned_df, outlier_removal)
+    
+    return cleaned_df
