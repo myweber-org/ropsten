@@ -555,3 +555,81 @@ if __name__ == "__main__":
     
     if is_valid:
         export_cleaned_data(cleaned_df, 'cleaned_data.csv', format='csv')
+import pandas as pd
+
+def clean_dataset(df, columns_to_check=None, fill_missing='mean'):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean.
+        columns_to_check (list, optional): Specific columns to check for duplicates.
+            If None, checks all columns. Defaults to None.
+        fill_missing (str or dict): Strategy to fill missing values.
+            Can be 'mean', 'median', 'mode', or a dictionary of column:value pairs.
+            Defaults to 'mean'.
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame.
+    """
+    # Create a copy to avoid modifying the original
+    cleaned_df = df.copy()
+    
+    # Remove duplicates
+    if columns_to_check:
+        cleaned_df = cleaned_df.drop_duplicates(subset=columns_to_check)
+    else:
+        cleaned_df = cleaned_df.drop_duplicates()
+    
+    # Handle missing values
+    if isinstance(fill_missing, dict):
+        # Use provided values for specific columns
+        for column, value in fill_missing.items():
+            if column in cleaned_df.columns:
+                cleaned_df[column] = cleaned_df[column].fillna(value)
+    else:
+        # Apply strategy to numeric columns
+        numeric_cols = cleaned_df.select_dtypes(include=['number']).columns
+        
+        for column in numeric_cols:
+            if cleaned_df[column].isnull().any():
+                if fill_missing == 'mean':
+                    cleaned_df[column] = cleaned_df[column].fillna(cleaned_df[column].mean())
+                elif fill_missing == 'median':
+                    cleaned_df[column] = cleaned_df[column].fillna(cleaned_df[column].median())
+                elif fill_missing == 'mode':
+                    cleaned_df[column] = cleaned_df[column].fillna(cleaned_df[column].mode()[0])
+    
+    # For non-numeric columns, fill with the most frequent value
+    non_numeric_cols = cleaned_df.select_dtypes(exclude=['number']).columns
+    for column in non_numeric_cols:
+        if cleaned_df[column].isnull().any():
+            cleaned_df[column] = cleaned_df[column].fillna(cleaned_df[column].mode()[0])
+    
+    return cleaned_df
+
+def validate_dataset(df, required_columns=None, min_rows=1):
+    """
+    Validate that a DataFrame meets basic requirements.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate.
+        required_columns (list, optional): List of columns that must be present.
+            Defaults to None.
+        min_rows (int): Minimum number of rows required. Defaults to 1.
+    
+    Returns:
+        tuple: (is_valid, error_message)
+    """
+    if df.empty:
+        return False, "DataFrame is empty"
+    
+    if len(df) < min_rows:
+        return False, f"DataFrame has fewer than {min_rows} rows"
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            return False, f"Missing required columns: {missing_columns}"
+    
+    return True, "Dataset is valid"
