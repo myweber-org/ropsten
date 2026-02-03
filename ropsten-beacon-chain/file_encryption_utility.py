@@ -309,3 +309,84 @@ def main():
 
 if __name__ == "__main__":
     main()
+import os
+import hashlib
+from Crypto.Cipher import AES
+from Crypto.Protocol.KDF import PBKDF2
+from Crypto.Util.Padding import pad, unpad
+from Crypto.Random import get_random_bytes
+
+class FileEncryptor:
+    def __init__(self, password: str, salt_length: int = 16):
+        self.password = password.encode()
+        self.salt_length = salt_length
+
+    def derive_key(self, salt: bytes) -> bytes:
+        return PBKDF2(self.password, salt, dkLen=32, count=1000000)
+
+    def encrypt_file(self, input_path: str, output_path: str) -> None:
+        salt = get_random_bytes(self.salt_length)
+        key = self.derive_key(salt)
+
+        cipher = AES.new(key, AES.MODE_CBC)
+        iv = cipher.iv
+
+        with open(input_path, 'rb') as f:
+            plaintext = f.read()
+
+        ciphertext = cipher.encrypt(pad(plaintext, AES.block_size))
+
+        with open(output_path, 'wb') as f:
+            f.write(salt + iv + ciphertext)
+
+    def decrypt_file(self, input_path: str, output_path: str) -> None:
+        with open(input_path, 'rb') as f:
+            data = f.read()
+
+        salt = data[:self.salt_length]
+        iv = data[self.salt_length:self.salt_length + 16]
+        ciphertext = data[self.salt_length + 16:]
+
+        key = self.derive_key(salt)
+        cipher = AES.new(key, AES.MODE_CBC, iv=iv)
+
+        plaintext = unpad(cipher.decrypt(ciphertext), AES.block_size)
+
+        with open(output_path, 'wb') as f:
+            f.write(plaintext)
+
+    def calculate_hash(self, file_path: str, algorithm: str = 'sha256') -> str:
+        hash_func = hashlib.new(algorithm)
+        with open(file_path, 'rb') as f:
+            for chunk in iter(lambda: f.read(4096), b''):
+                hash_func.update(chunk)
+        return hash_func.hexdigest()
+
+def main():
+    encryptor = FileEncryptor("secure_password_123")
+    
+    test_file = "test_document.txt"
+    encrypted_file = "encrypted.bin"
+    decrypted_file = "decrypted.txt"
+    
+    with open(test_file, 'w') as f:
+        f.write("This is a sample text for encryption demonstration.")
+    
+    print("Original file created")
+    print(f"Original hash: {encryptor.calculate_hash(test_file)}")
+    
+    encryptor.encrypt_file(test_file, encrypted_file)
+    print("File encrypted successfully")
+    
+    encryptor.decrypt_file(encrypted_file, decrypted_file)
+    print("File decrypted successfully")
+    
+    print(f"Decrypted hash: {encryptor.calculate_hash(decrypted_file)}")
+    
+    os.remove(test_file)
+    os.remove(encrypted_file)
+    os.remove(decrypted_file)
+    print("Test files cleaned up")
+
+if __name__ == "__main__":
+    main()
