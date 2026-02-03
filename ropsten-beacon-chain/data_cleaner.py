@@ -49,3 +49,45 @@ def clean_numeric_columns(df, columns):
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors='coerce')
     return df
+import pandas as pd
+import re
+
+def clean_dataframe(df, column_name):
+    """
+    Clean a specific column in a DataFrame by removing duplicates,
+    stripping whitespace, and converting to lowercase.
+    """
+    if column_name not in df.columns:
+        raise ValueError(f"Column '{column_name}' not found in DataFrame")
+
+    df[column_name] = df[column_name].astype(str)
+    df[column_name] = df[column_name].str.strip()
+    df[column_name] = df[column_name].str.lower()
+    df.drop_duplicates(subset=[column_name], inplace=True)
+    df.reset_index(drop=True, inplace=True)
+    return df
+
+def remove_special_characters(df, column_name):
+    """
+    Remove special characters from a column, keeping only alphanumeric and spaces.
+    """
+    df[column_name] = df[column_name].apply(lambda x: re.sub(r'[^a-zA-Z0-9\s]', '', x))
+    return df
+
+def normalize_column(df, column_name):
+    """
+    Apply all cleaning functions to a column.
+    """
+    df = clean_dataframe(df, column_name)
+    df = remove_special_characters(df, column_name)
+    return df
+
+if __name__ == "__main__":
+    sample_data = {'Name': ['  Alice  ', 'Bob', 'alice', 'Charlie!', '  david  ']}
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    
+    cleaned_df = normalize_column(df, 'Name')
+    print("\nCleaned DataFrame:")
+    print(cleaned_df)
