@@ -500,4 +500,78 @@ def clean_dataset(df: pd.DataFrame,
     if outlier_removal:
         cleaned_df = remove_outliers(cleaned_df, outlier_removal)
     
-    return cleaned_df
+    return cleaned_dfimport pandas as pd
+import numpy as np
+from scipy import stats
+
+def load_and_clean_data(filepath):
+    """
+    Load a CSV file and perform basic data cleaning operations.
+    """
+    try:
+        df = pd.read_csv(filepath)
+    except FileNotFoundError:
+        print(f"Error: File not found at {filepath}")
+        return None
+    except Exception as e:
+        print(f"Error loading file: {e}")
+        return None
+
+    # Remove duplicate rows
+    initial_count = len(df)
+    df.drop_duplicates(inplace=True)
+    duplicates_removed = initial_count - len(df)
+    print(f"Removed {duplicates_removed} duplicate rows.")
+
+    # Handle missing values: drop rows where critical columns are missing
+    critical_columns = ['value', 'timestamp']
+    existing_critical = [col for col in critical_columns if col in df.columns]
+    if existing_critical:
+        df.dropna(subset=existing_critical, inplace=True)
+        print(f"Removed rows with missing values in {existing_critical}.")
+
+    # Remove outliers using Z-score for numeric columns
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    if len(numeric_cols) > 0:
+        z_scores = np.abs(stats.zscore(df[numeric_cols].dropna()))
+        outlier_mask = (z_scores < 3).all(axis=1)
+        df = df[outlier_mask].reset_index(drop=True)
+        print(f"Removed outliers using Z-score method.")
+
+    # Normalize numeric columns to range [0, 1]
+    for col in numeric_cols:
+        if col in df.columns:
+            col_min = df[col].min()
+            col_max = df[col].max()
+            if col_max > col_min:
+                df[col] = (df[col] - col_min) / (col_max - col_min)
+                print(f"Normalized column '{col}'.")
+
+    # Ensure timestamp column is datetime if present
+    if 'timestamp' in df.columns:
+        df['timestamp'] = pd.to_datetime(df['timestamp'], errors='coerce')
+        df.dropna(subset=['timestamp'], inplace=True)
+
+    print(f"Data cleaning complete. Final shape: {df.shape}")
+    return df
+
+def save_cleaned_data(df, output_path):
+    """
+    Save the cleaned DataFrame to a CSV file.
+    """
+    if df is not None and not df.empty:
+        df.to_csv(output_path, index=False)
+        print(f"Cleaned data saved to {output_path}")
+        return True
+    else:
+        print("No data to save.")
+        return False
+
+if __name__ == "__main__":
+    # Example usage
+    input_file = "raw_data.csv"
+    output_file = "cleaned_data.csv"
+
+    cleaned_df = load_and_clean_data(input_file)
+    if cleaned_df is not None:
+        save_cleaned_data(cleaned_df, output_file)
