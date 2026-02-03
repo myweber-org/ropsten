@@ -1,45 +1,4 @@
 import requests
-import sys
-
-def fetch_github_user(username):
-    """Fetch public details of a GitHub user."""
-    url = f"https://api.github.com/users/{username}"
-    try:
-        response = requests.get(url)
-        response.raise_for_status()
-        user_data = response.json()
-        return {
-            'login': user_data.get('login'),
-            'name': user_data.get('name'),
-            'public_repos': user_data.get('public_repos'),
-            'followers': user_data.get('followers'),
-            'following': user_data.get('following'),
-            'html_url': user_data.get('html_url')
-        }
-    except requests.exceptions.HTTPError as e:
-        print(f"Error fetching user {username}: {e}", file=sys.stderr)
-        return None
-    except requests.exceptions.RequestException as e:
-        print(f"Network error: {e}", file=sys.stderr)
-        return None
-
-if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print("Usage: python fetch_github_user.py <username>")
-        sys.exit(1)
-    
-    username = sys.argv[1]
-    user_info = fetch_github_user(username)
-    
-    if user_info:
-        print(f"GitHub User: {user_info['login']}")
-        print(f"Name: {user_info['name']}")
-        print(f"Public Repositories: {user_info['public_repos']}")
-        print(f"Followers: {user_info['followers']}")
-        print(f"Following: {user_info['following']}")
-        print(f"Profile URL: {user_info['html_url']}")
-    else:
-        print(f"Could not retrieve information for user '{username}'.")import requests
 
 def get_github_user(username):
     url = f"https://api.github.com/users/{username}"
@@ -48,48 +7,8 @@ def get_github_user(username):
     if response.status_code == 200:
         return response.json()
     else:
-        return None
+        return {"error": f"Failed to fetch user. Status code: {response.status_code}"}
 
 if __name__ == "__main__":
     user_data = get_github_user("octocat")
-    if user_data:
-        print(f"Name: {user_data.get('name')}")
-        print(f"Bio: {user_data.get('bio')}")
-        print(f"Public Repos: {user_data.get('public_repos')}")
-    else:
-        print("User not found")import requests
-
-def get_github_user(username):
-    url = f"https://api.github.com/users/{username}"
-    response = requests.get(url)
-    if response.status_code == 200:
-        return response.json()
-    else:
-        return {"error": "User not found or API request failed"}
-
-if __name__ == "__main__":
-    user_data = get_github_user("octocat")
-    print(user_data)import requests
-
-def fetch_github_user(username):
-    """Fetch and return public details of a GitHub user."""
-    url = f"https://api.github.com/users/{username}"
-    response = requests.get(url)
-    if response.status_code == 200:
-        return response.json()
-    else:
-        response.raise_for_status()
-
-if __name__ == "__main__":
-    try:
-        username = input("Enter GitHub username: ").strip()
-        user_data = fetch_github_user(username)
-        print(f"Name: {user_data.get('name', 'N/A')}")
-        print(f"Bio: {user_data.get('bio', 'N/A')}")
-        print(f"Public Repos: {user_data.get('public_repos', 'N/A')}")
-        print(f"Followers: {user_data.get('followers', 'N/A')}")
-        print(f"Following: {user_data.get('following', 'N/A')}")
-    except requests.exceptions.HTTPError as e:
-        print(f"Error fetching user: {e}")
-    except Exception as e:
-        print(f"An error occurred: {e}")
+    print(user_data)
