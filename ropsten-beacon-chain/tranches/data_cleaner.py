@@ -350,3 +350,11 @@ if __name__ == "__main__":
     cleaned_mean = clean_dataset(df, fill_missing='mean')
     print("\nDataFrame with mean imputation:")
     print(cleaned_mean)
+def remove_duplicates_preserve_order(iterable):
+    seen = set()
+    result = []
+    for item in iterable:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
