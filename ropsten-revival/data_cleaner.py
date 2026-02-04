@@ -747,3 +747,100 @@ def clean_data(input_file, output_file):
 
 if __name__ == "__main__":
     clean_data('raw_data.csv', 'cleaned_data.csv')
+import numpy as np
+
+def remove_outliers_iqr(data, column):
+    """
+    Remove outliers from a specified column using the Interquartile Range method.
+    
+    Args:
+        data (np.ndarray): Input data array
+        column (int): Column index to process
+    
+    Returns:
+        np.ndarray: Data with outliers removed
+    """
+    if not isinstance(data, np.ndarray):
+        raise ValueError("Input data must be a numpy array")
+    
+    if column >= data.shape[1]:
+        raise IndexError("Column index out of bounds")
+    
+    column_data = data[:, column]
+    
+    Q1 = np.percentile(column_data, 25)
+    Q3 = np.percentile(column_data, 75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    mask = (column_data >= lower_bound) & (column_data <= upper_bound)
+    
+    return data[mask]
+
+def calculate_statistics(data):
+    """
+    Calculate basic statistics for the data.
+    
+    Args:
+        data (np.ndarray): Input data array
+    
+    Returns:
+        dict: Dictionary containing mean, median, and standard deviation
+    """
+    if data.size == 0:
+        return {"mean": 0, "median": 0, "std": 0}
+    
+    return {
+        "mean": np.mean(data, axis=0),
+        "median": np.median(data, axis=0),
+        "std": np.std(data, axis=0)
+    }
+
+def validate_data(data):
+    """
+    Validate data for cleaning operations.
+    
+    Args:
+        data: Input data to validate
+    
+    Returns:
+        bool: True if data is valid, False otherwise
+    """
+    if data is None:
+        return False
+    
+    if isinstance(data, np.ndarray):
+        return data.size > 0
+    
+    return False
+
+def process_dataset(data_path, column_index=0):
+    """
+    Main function to process a dataset by loading, cleaning, and analyzing.
+    
+    Args:
+        data_path (str): Path to data file
+        column_index (int): Column to clean
+    
+    Returns:
+        tuple: Cleaned data and statistics
+    """
+    try:
+        data = np.loadtxt(data_path, delimiter=',')
+        
+        if not validate_data(data):
+            raise ValueError("Invalid or empty data")
+        
+        cleaned_data = remove_outliers_iqr(data, column_index)
+        stats = calculate_statistics(cleaned_data)
+        
+        return cleaned_data, stats
+        
+    except FileNotFoundError:
+        print(f"Error: File not found at {data_path}")
+        return None, None
+    except Exception as e:
+        print(f"Error processing data: {str(e)}")
+        return None, None
