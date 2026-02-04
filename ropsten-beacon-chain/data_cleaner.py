@@ -97,4 +97,112 @@ if __name__ == "__main__":
     
     print("\nCleaned dataset shape:", cleaned_df.shape)
     print("Cleaned statistics for column 'A':")
-    print(calculate_summary_statistics(cleaned_df, 'A'))
+    print(calculate_summary_statistics(cleaned_df, 'A'))import pandas as pd
+import numpy as np
+
+def load_and_clean_csv(file_path, drop_na=True, fill_value=0):
+    """
+    Load a CSV file and perform basic cleaning operations.
+    
+    Args:
+        file_path (str): Path to the CSV file.
+        drop_na (bool): Whether to drop rows with missing values.
+        fill_value: Value to fill missing data if drop_na is False.
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame.
+    """
+    try:
+        df = pd.read_csv(file_path)
+    except FileNotFoundError:
+        raise FileNotFoundError(f"File not found: {file_path}")
+    
+    if drop_na:
+        df = df.dropna()
+    else:
+        df = df.fillna(fill_value)
+    
+    df = df.reset_index(drop=True)
+    return df
+
+def remove_outliers_iqr(df, column, multiplier=1.5):
+    """
+    Remove outliers from a DataFrame column using the IQR method.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame.
+        column (str): Column name to process.
+        multiplier (float): IQR multiplier for outlier detection.
+    
+    Returns:
+        pd.DataFrame: DataFrame with outliers removed.
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - multiplier * IQR
+    upper_bound = Q3 + multiplier * IQR
+    
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    return filtered_df
+
+def normalize_column(df, column):
+    """
+    Normalize a column to range [0, 1] using min-max scaling.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame.
+        column (str): Column name to normalize.
+    
+    Returns:
+        pd.DataFrame: DataFrame with normalized column.
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    min_val = df[column].min()
+    max_val = df[column].max()
+    
+    if max_val == min_val:
+        df[column + '_normalized'] = 0.5
+    else:
+        df[column + '_normalized'] = (df[column] - min_val) / (max_val - min_val)
+    
+    return df
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate.
+        required_columns (list): List of required column names.
+    
+    Returns:
+        dict: Dictionary with validation results.
+    """
+    validation_result = {
+        'is_valid': True,
+        'errors': [],
+        'warnings': []
+    }
+    
+    if df.empty:
+        validation_result['is_valid'] = False
+        validation_result['errors'].append('DataFrame is empty')
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            validation_result['is_valid'] = False
+            validation_result['errors'].append(f'Missing columns: {missing_columns}')
+    
+    numeric_columns = df.select_dtypes(include=[np.number]).columns
+    if len(numeric_columns) == 0:
+        validation_result['warnings'].append('No numeric columns found')
+    
+    return validation_result
