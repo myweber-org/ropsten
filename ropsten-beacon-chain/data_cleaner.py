@@ -1,100 +1,92 @@
 
-import pandas as pd
 import numpy as np
-from scipy import stats
+import pandas as pd
 
-class DataCleaner:
-    def __init__(self, df):
-        self.df = df.copy()
-        self.original_shape = df.shape
-        
-    def remove_missing(self, threshold=0.3):
-        missing_percent = self.df.isnull().sum() / len(self.df)
-        columns_to_drop = missing_percent[missing_percent > threshold].index
-        self.df = self.df.drop(columns=columns_to_drop)
-        return self
+def remove_outliers_iqr(df, column):
+    """
+    Remove outliers from a DataFrame column using the IQR method.
     
-    def fill_numeric_missing(self, method='median'):
-        numeric_cols = self.df.select_dtypes(include=[np.number]).columns
-        
-        for col in numeric_cols:
-            if self.df[col].isnull().any():
-                if method == 'median':
-                    fill_value = self.df[col].median()
-                elif method == 'mean':
-                    fill_value = self.df[col].mean()
-                elif method == 'mode':
-                    fill_value = self.df[col].mode()[0]
-                else:
-                    fill_value = 0
-                
-                self.df[col] = self.df[col].fillna(fill_value)
-        
-        return self
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    column (str): Column name to clean
     
-    def detect_outliers_zscore(self, threshold=3):
-        numeric_cols = self.df.select_dtypes(include=[np.number]).columns
-        outliers_mask = pd.Series([False] * len(self.df))
-        
-        for col in numeric_cols:
-            z_scores = np.abs(stats.zscore(self.df[col].dropna()))
-            col_outliers = (z_scores > threshold)
-            outliers_mask = outliers_mask | col_outliers.reindex(self.df.index, fill_value=False)
-        
-        return outliers_mask
+    Returns:
+    pd.DataFrame: DataFrame with outliers removed
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
     
-    def remove_outliers(self, threshold=3):
-        outliers_mask = self.detect_outliers_zscore(threshold)
-        self.df = self.df[~outliers_mask]
-        return self
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
     
-    def normalize_data(self, method='minmax'):
-        numeric_cols = self.df.select_dtypes(include=[np.number]).columns
-        
-        if method == 'minmax':
-            for col in numeric_cols:
-                min_val = self.df[col].min()
-                max_val = self.df[col].max()
-                if max_val > min_val:
-                    self.df[col] = (self.df[col] - min_val) / (max_val - min_val)
-        
-        elif method == 'standard':
-            for col in numeric_cols:
-                mean_val = self.df[col].mean()
-                std_val = self.df[col].std()
-                if std_val > 0:
-                    self.df[col] = (self.df[col] - mean_val) / std_val
-        
-        return self
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
     
-    def get_cleaned_data(self):
-        return self.df
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
     
-    def get_summary(self):
-        cleaned_shape = self.df.shape
-        rows_removed = self.original_shape[0] - cleaned_shape[0]
-        cols_removed = self.original_shape[1] - cleaned_shape[1]
-        
-        summary = {
-            'original_rows': self.original_shape[0],
-            'original_columns': self.original_shape[1],
-            'cleaned_rows': cleaned_shape[0],
-            'cleaned_columns': cleaned_shape[1],
-            'rows_removed': rows_removed,
-            'columns_removed': cols_removed,
-            'remaining_missing': self.df.isnull().sum().sum()
-        }
-        
-        return summary
+    return filtered_df
 
-def clean_dataset(df, outlier_threshold=3, normalize=True):
-    cleaner = DataCleaner(df)
+def calculate_statistics(df, column):
+    """
+    Calculate basic statistics for a column.
     
-    cleaner.remove_missing(threshold=0.3)
-    cleaner.fill_numeric_missing(method='median')
-    cleaner.remove_outliers(threshold=outlier_threshold)
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    column (str): Column name
     
-    if normalize:
-        cleaner.normalize_data(method='standard')
+    Returns:
+    dict: Dictionary containing statistics
+    """
+    stats = {
+        'mean': df[column].mean(),
+        'median': df[column].median(),
+        'std': df[column].std(),
+        'min': df[column].min(),
+        'max': df[column].max(),
+        'count': df[column].count()
+    }
     
-    return cleaner.get_cleaned_data(), cleaner.get_summary()
+    return stats
+
+def clean_dataset(df, numeric_columns):
+    """
+    Clean multiple numeric columns in a DataFrame.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    numeric_columns (list): List of column names to clean
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame
+    """
+    cleaned_df = df.copy()
+    
+    for column in numeric_columns:
+        if column in cleaned_df.columns:
+            original_count = len(cleaned_df)
+            cleaned_df = remove_outliers_iqr(cleaned_df, column)
+            removed_count = original_count - len(cleaned_df)
+            print(f"Removed {removed_count} outliers from column '{column}'")
+    
+    return cleaned_df
+
+if __name__ == "__main__":
+    sample_data = {
+        'A': np.random.normal(100, 15, 1000),
+        'B': np.random.exponential(50, 1000),
+        'C': np.random.uniform(0, 200, 1000)
+    }
+    
+    sample_df = pd.DataFrame(sample_data)
+    sample_df.loc[::100, 'A'] = 500
+    
+    print("Original dataset shape:", sample_df.shape)
+    print("\nOriginal statistics for column 'A':")
+    print(calculate_statistics(sample_df, 'A'))
+    
+    cleaned_df = clean_dataset(sample_df, ['A', 'B', 'C'])
+    
+    print("\nCleaned dataset shape:", cleaned_df.shape)
+    print("\nCleaned statistics for column 'A':")
+    print(calculate_statistics(cleaned_df, 'A'))
