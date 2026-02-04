@@ -83,3 +83,68 @@ if __name__ == "__main__":
     
     print("\nFirst 5 rows of cleaned data:")
     print(cleaner.data.head())
+import pandas as pd
+
+def clean_dataset(df, column_name):
+    """
+    Remove duplicate rows and sort the DataFrame by a specified column.
+    
+    Args:
+        df (pd.DataFrame): The input DataFrame to clean.
+        column_name (str): The column name to sort by.
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame with duplicates removed and sorted.
+    """
+    if df.empty:
+        return df
+    
+    if column_name not in df.columns:
+        raise ValueError(f"Column '{column_name}' not found in DataFrame")
+    
+    df_cleaned = df.drop_duplicates().reset_index(drop=True)
+    df_cleaned = df_cleaned.sort_values(by=column_name).reset_index(drop=True)
+    
+    return df_cleaned
+
+def filter_by_threshold(df, column_name, threshold):
+    """
+    Filter rows where the column value is greater than a threshold.
+    
+    Args:
+        df (pd.DataFrame): The input DataFrame.
+        column_name (str): The column to apply the filter on.
+        threshold (float): The threshold value.
+    
+    Returns:
+        pd.DataFrame: Filtered DataFrame.
+    """
+    if df.empty:
+        return df
+    
+    if column_name not in df.columns:
+        raise ValueError(f"Column '{column_name}' not found in DataFrame")
+    
+    filtered_df = df[df[column_name] > threshold].reset_index(drop=True)
+    return filtered_df
+
+if __name__ == "__main__":
+    sample_data = {
+        'id': [1, 2, 2, 3, 4, 4, 5],
+        'value': [10.5, 20.3, 20.3, 15.7, 8.9, 8.9, 30.1],
+        'category': ['A', 'B', 'B', 'A', 'C', 'C', 'B']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print()
+    
+    cleaned_df = clean_dataset(df, 'value')
+    print("Cleaned DataFrame (duplicates removed, sorted by 'value'):")
+    print(cleaned_df)
+    print()
+    
+    filtered_df = filter_by_threshold(cleaned_df, 'value', 15.0)
+    print("Filtered DataFrame (value > 15.0):")
+    print(filtered_df)
