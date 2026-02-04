@@ -1529,4 +1529,81 @@ def remove_outliers(df, column, method='iqr', threshold=1.5):
     
     print(f"Removed {removed_count} outliers from column '{column}' using {method} method")
     
-    return filtered_df
+    return filtered_dfimport pandas as pd
+
+def clean_dataset(df, drop_duplicates=True, fill_method=None):
+    """
+    Clean a pandas DataFrame by handling missing values and duplicates.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean
+        drop_duplicates (bool): Whether to drop duplicate rows
+        fill_method (str or None): Method to fill missing values:
+            'mean' - fill with column mean (numeric only)
+            'median' - fill with column median (numeric only)
+            'mode' - fill with column mode
+            None - drop rows with missing values
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame
+    """
+    cleaned_df = df.copy()
+    
+    # Handle missing values
+    if fill_method is None:
+        cleaned_df = cleaned_df.dropna()
+    else:
+        numeric_cols = cleaned_df.select_dtypes(include=['number']).columns
+        
+        if fill_method == 'mean':
+            for col in numeric_cols:
+                cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].mean())
+        elif fill_method == 'median':
+            for col in numeric_cols:
+                cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].median())
+        elif fill_method == 'mode':
+            for col in cleaned_df.columns:
+                cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].mode()[0] if not cleaned_df[col].mode().empty else None)
+    
+    # Remove duplicates if requested
+    if drop_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates()
+    
+    # Reset index after cleaning
+    cleaned_df = cleaned_df.reset_index(drop=True)
+    
+    return cleaned_df
+
+def validate_dataset(df, required_columns=None):
+    """
+    Validate dataset structure and content.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate
+        required_columns (list): List of column names that must be present
+    
+    Returns:
+        dict: Validation results with keys:
+            'is_valid' (bool): Whether validation passed
+            'missing_columns' (list): Missing required columns
+            'null_counts' (dict): Count of null values per column
+            'duplicate_rows' (int): Number of duplicate rows
+    """
+    results = {
+        'is_valid': True,
+        'missing_columns': [],
+        'null_counts': {},
+        'duplicate_rows': df.duplicated().sum()
+    }
+    
+    # Check required columns
+    if required_columns:
+        missing = [col for col in required_columns if col not in df.columns]
+        if missing:
+            results['missing_columns'] = missing
+            results['is_valid'] = False
+    
+    # Count null values
+    results['null_counts'] = df.isnull().sum().to_dict()
+    
+    return results
