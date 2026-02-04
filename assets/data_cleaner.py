@@ -167,4 +167,77 @@ def validate_data(df, required_columns, min_rows=1):
     if df.isnull().sum().sum() > 0:
         print("Warning: Dataset contains missing values")
     
+    return Trueimport pandas as pd
+import numpy as np
+
+def clean_csv_data(file_path, output_path=None):
+    """
+    Load a CSV file, perform basic cleaning operations,
+    and optionally save the cleaned data.
+    """
+    try:
+        df = pd.read_csv(file_path)
+        print(f"Original shape: {df.shape}")
+        
+        # Remove duplicate rows
+        df = df.drop_duplicates()
+        print(f"After removing duplicates: {df.shape}")
+        
+        # Fill missing numeric values with column median
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        for col in numeric_cols:
+            if df[col].isnull().sum() > 0:
+                df[col] = df[col].fillna(df[col].median())
+        
+        # Fill missing categorical values with mode
+        categorical_cols = df.select_dtypes(include=['object']).columns
+        for col in categorical_cols:
+            if df[col].isnull().sum() > 0:
+                df[col] = df[col].fillna(df[col].mode()[0] if not df[col].mode().empty else 'Unknown')
+        
+        # Remove columns with more than 50% missing values
+        threshold = len(df) * 0.5
+        df = df.dropna(thresh=threshold, axis=1)
+        print(f"After dropping high-missing columns: {df.shape}")
+        
+        if output_path:
+            df.to_csv(output_path, index=False)
+            print(f"Cleaned data saved to: {output_path}")
+        
+        return df
+        
+    except FileNotFoundError:
+        print(f"Error: File not found at {file_path}")
+        return None
+    except Exception as e:
+        print(f"Error during cleaning: {str(e)}")
+        return None
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate the structure and content of a DataFrame.
+    """
+    if df is None or df.empty:
+        print("DataFrame is empty or None")
+        return False
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            print(f"Missing required columns: {missing_cols}")
+            return False
+    
+    # Check for any remaining NaN values
+    if df.isnull().sum().sum() > 0:
+        print("Warning: DataFrame still contains NaN values")
+    
     return True
+
+def sample_data(df, n=5, random_state=42):
+    """
+    Return a random sample from the DataFrame.
+    """
+    if df is None or df.empty:
+        return None
+    
+    return df.sample(n=n, random_state=random_state)
