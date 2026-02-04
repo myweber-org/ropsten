@@ -429,3 +429,73 @@ if __name__ == "__main__":
     
     is_valid = validate_data(cleaned_df, ['name', 'age', 'email'])
     print(f"\nData validation result: {is_valid}")
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df, key_columns=None, date_column=None, numeric_columns=None):
+    """
+    Clean a pandas DataFrame by removing duplicates, handling missing values,
+    and standardizing column formats.
+    """
+    df_clean = df.copy()
+    
+    # Remove duplicate rows based on key columns or all columns
+    if key_columns:
+        df_clean = df_clean.drop_duplicates(subset=key_columns, keep='first')
+    else:
+        df_clean = df_clean.drop_duplicates(keep='first')
+    
+    # Standardize date column if specified
+    if date_column and date_column in df_clean.columns:
+        df_clean[date_column] = pd.to_datetime(df_clean[date_column], errors='coerce')
+    
+    # Convert numeric columns to appropriate types
+    if numeric_columns:
+        for col in numeric_columns:
+            if col in df_clean.columns:
+                df_clean[col] = pd.to_numeric(df_clean[col], errors='coerce')
+    
+    # Fill missing numeric values with column median
+    numeric_cols = df_clean.select_dtypes(include=[np.number]).columns
+    for col in numeric_cols:
+        df_clean[col] = df_clean[col].fillna(df_clean[col].median())
+    
+    # Fill missing categorical values with mode
+    categorical_cols = df_clean.select_dtypes(include=['object']).columns
+    for col in categorical_cols:
+        df_clean[col] = df_clean[col].fillna(df_clean[col].mode()[0] if not df_clean[col].mode().empty else 'Unknown')
+    
+    # Reset index after cleaning
+    df_clean = df_clean.reset_index(drop=True)
+    
+    return df_clean
+
+def validate_dataframe(df, required_columns=None, min_rows=1):
+    """
+    Validate DataFrame structure and content.
+    """
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError("Input must be a pandas DataFrame")
+    
+    if len(df) < min_rows:
+        raise ValueError(f"DataFrame must have at least {min_rows} rows")
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            raise ValueError(f"Missing required columns: {missing_cols}")
+    
+    return True
+
+def export_cleaned_data(df, output_path, format='csv'):
+    """
+    Export cleaned DataFrame to specified format.
+    """
+    if format.lower() == 'csv':
+        df.to_csv(output_path, index=False)
+    elif format.lower() == 'excel':
+        df.to_excel(output_path, index=False)
+    elif format.lower() == 'json':
+        df.to_json(output_path, orient='records')
+    else:
+        raise ValueError(f"Unsupported format: {format}. Use 'csv', 'excel', or 'json'")
