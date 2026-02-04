@@ -1327,4 +1327,13 @@ if __name__ == "__main__":
     print("Cleaned data shape:", cleaned.shape)
     
     summary = get_data_summary(cleaned)
-    print(f"Processed {len(summary['numeric_summary'])} numeric columns")
+    print(f"Processed {len(summary['numeric_summary'])} numeric columns")def clean_data(data):
+    """
+    Remove duplicate entries from a list and sort the remaining items.
+    """
+    if not isinstance(data, list):
+        raise TypeError("Input must be a list")
+    # Remove duplicates by converting to set and back to list, then sort
+    unique_data = list(set(data))
+    unique_data.sort()
+    return unique_data
