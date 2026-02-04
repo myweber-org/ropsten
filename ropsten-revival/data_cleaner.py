@@ -397,3 +397,96 @@ if __name__ == "__main__":
     
     cleaned_df = clean_dataset(input_file, output_file, numeric_cols)
     print("Data cleaning completed successfully.")
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(df, columns):
+    """
+    Remove outliers using IQR method for specified columns.
+    Returns filtered DataFrame.
+    """
+    df_clean = df.copy()
+    for col in columns:
+        if col in df.columns:
+            Q1 = df[col].quantile(0.25)
+            Q3 = df[col].quantile(0.75)
+            IQR = Q3 - Q1
+            lower_bound = Q1 - 1.5 * IQR
+            upper_bound = Q3 + 1.5 * IQR
+            df_clean = df_clean[(df_clean[col] >= lower_bound) & (df_clean[col] <= upper_bound)]
+    return df_clean
+
+def normalize_minmax(df, columns):
+    """
+    Normalize specified columns using min-max scaling.
+    Returns DataFrame with normalized columns.
+    """
+    df_norm = df.copy()
+    for col in columns:
+        if col in df.columns:
+            min_val = df[col].min()
+            max_val = df[col].max()
+            if max_val != min_val:
+                df_norm[col] = (df[col] - min_val) / (max_val - min_val)
+            else:
+                df_norm[col] = 0
+    return df_norm
+
+def z_score_normalize(df, columns):
+    """
+    Normalize specified columns using z-score standardization.
+    Returns DataFrame with standardized columns.
+    """
+    df_std = df.copy()
+    for col in columns:
+        if col in df.columns:
+            mean_val = df[col].mean()
+            std_val = df[col].std()
+            if std_val > 0:
+                df_std[col] = (df[col] - mean_val) / std_val
+            else:
+                df_std[col] = 0
+    return df_std
+
+def handle_missing_values(df, strategy='mean'):
+    """
+    Handle missing values using specified strategy.
+    Supported strategies: 'mean', 'median', 'mode', 'drop'
+    """
+    df_clean = df.copy()
+    
+    if strategy == 'drop':
+        return df_clean.dropna()
+    
+    for col in df_clean.columns:
+        if df_clean[col].isnull().any():
+            if strategy == 'mean':
+                fill_value = df_clean[col].mean()
+            elif strategy == 'median':
+                fill_value = df_clean[col].median()
+            elif strategy == 'mode':
+                fill_value = df_clean[col].mode()[0]
+            else:
+                continue
+            df_clean[col].fillna(fill_value, inplace=True)
+    
+    return df_clean
+
+def validate_dataframe(df, required_columns=None, min_rows=1):
+    """
+    Validate DataFrame structure and content.
+    Returns (is_valid, error_message) tuple.
+    """
+    if not isinstance(df, pd.DataFrame):
+        return False, "Input is not a pandas DataFrame"
+    
+    if len(df) < min_rows:
+        return False, f"DataFrame has fewer than {min_rows} rows"
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            return False, f"Missing required columns: {missing_cols}"
+    
+    return True, "DataFrame is valid"
