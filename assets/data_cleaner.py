@@ -207,3 +207,54 @@ if __name__ == "__main__":
     print("\nCleaned dataset shape:", cleaned_df.shape)
     print("\nCleaned statistics for column 'A':")
     print(calculate_summary_statistics(cleaned_df, 'A'))
+import pandas as pd
+import numpy as np
+
+def detect_outliers_iqr(data, column):
+    Q1 = data[column].quantile(0.25)
+    Q3 = data[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    outliers = data[(data[column] < lower_bound) | (data[column] > upper_bound)]
+    return outliers
+
+def handle_missing_values(data, strategy='mean'):
+    if strategy == 'mean':
+        return data.fillna(data.mean())
+    elif strategy == 'median':
+        return data.fillna(data.median())
+    elif strategy == 'mode':
+        return data.fillna(data.mode().iloc[0])
+    elif strategy == 'drop':
+        return data.dropna()
+    else:
+        raise ValueError("Invalid strategy. Choose from 'mean', 'median', 'mode', or 'drop'.")
+
+def clean_dataset(data, numeric_columns):
+    cleaned_data = data.copy()
+    
+    for column in numeric_columns:
+        if column in cleaned_data.columns:
+            outliers = detect_outliers_iqr(cleaned_data, column)
+            if not outliers.empty:
+                median_value = cleaned_data[column].median()
+                cleaned_data.loc[outliers.index, column] = median_value
+            
+            cleaned_data = handle_missing_values(cleaned_data[[column]], strategy='median')
+    
+    return cleaned_data
+
+if __name__ == "__main__":
+    sample_data = pd.DataFrame({
+        'A': [1, 2, 3, 100, 5, np.nan, 7, 8, 9, 10],
+        'B': [10, 20, 30, 40, 50, 60, 70, 80, 90, 1000],
+        'C': [100, 200, 300, 400, 500, 600, 700, 800, 900, 10000]
+    })
+    
+    numeric_cols = ['A', 'B', 'C']
+    result = clean_dataset(sample_data, numeric_cols)
+    print("Original Data:")
+    print(sample_data)
+    print("\nCleaned Data:")
+    print(result)
