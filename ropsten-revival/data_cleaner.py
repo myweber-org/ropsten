@@ -1,71 +1,85 @@
 
 import numpy as np
+import pandas as pd
+from scipy import stats
 
-def remove_outliers_iqr(data, column):
-    Q1 = data[column].quantile(0.25)
-    Q3 = data[column].quantile(0.75)
-    IQR = Q3 - Q1
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
-    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
-    return filtered_data
-
-def clean_dataset(df, numeric_columns):
-    original_shape = df.shape
-    for col in numeric_columns:
-        if col in df.columns:
-            df = remove_outliers_iqr(df, col)
-    print(f"Original shape: {original_shape}, Cleaned shape: {df.shape}")
-    print(f"Removed {original_shape[0] - df.shape[0]} rows")
-    return dfimport pandas as pd
-import sys
-
-def remove_duplicates(input_file, output_file=None, subset=None, keep='first'):
-    """
-    Remove duplicate rows from a CSV file.
+class DataCleaner:
+    def __init__(self, data):
+        self.data = data
+        self.original_shape = data.shape
+        
+    def remove_outliers_iqr(self, columns=None):
+        if columns is None:
+            columns = self.data.columns if hasattr(self.data, 'columns') else range(self.data.shape[1])
+        
+        cleaned_data = self.data.copy()
+        for col in columns:
+            Q1 = cleaned_data[col].quantile(0.25)
+            Q3 = cleaned_data[col].quantile(0.75)
+            IQR = Q3 - Q1
+            lower_bound = Q1 - 1.5 * IQR
+            upper_bound = Q3 + 1.5 * IQR
+            cleaned_data = cleaned_data[(cleaned_data[col] >= lower_bound) & (cleaned_data[col] <= upper_bound)]
+        
+        self.removed_count = self.original_shape[0] - cleaned_data.shape[0]
+        self.data = cleaned_data
+        return self
     
-    Args:
-        input_file (str): Path to input CSV file
-        output_file (str, optional): Path to output CSV file. If None, overwrites input file
-        subset (list, optional): Columns to consider for identifying duplicates
-        keep (str): Which duplicate to keep - 'first', 'last', or False to drop all duplicates
+    def normalize_minmax(self, columns=None):
+        if columns is None:
+            columns = self.data.columns if hasattr(self.data, 'columns') else range(self.data.shape[1])
+        
+        normalized_data = self.data.copy()
+        for col in columns:
+            min_val = normalized_data[col].min()
+            max_val = normalized_data[col].max()
+            if max_val != min_val:
+                normalized_data[col] = (normalized_data[col] - min_val) / (max_val - min_val)
+        
+        self.data = normalized_data
+        return self
     
-    Returns:
-        int: Number of duplicates removed
-    """
-    try:
-        df = pd.read_csv(input_file)
-        initial_count = len(df)
+    def standardize_zscore(self, columns=None):
+        if columns is None:
+            columns = self.data.columns if hasattr(self.data, 'columns') else range(self.data.shape[1])
         
-        df_clean = df.drop_duplicates(subset=subset, keep=keep)
-        final_count = len(df_clean)
+        standardized_data = self.data.copy()
+        for col in columns:
+            mean_val = standardized_data[col].mean()
+            std_val = standardized_data[col].std()
+            if std_val > 0:
+                standardized_data[col] = (standardized_data[col] - mean_val) / std_val
         
-        duplicates_removed = initial_count - final_count
-        
-        if output_file is None:
-            output_file = input_file
-        
-        df_clean.to_csv(output_file, index=False)
-        
-        print(f"Removed {duplicates_removed} duplicate rows")
-        print(f"Original rows: {initial_count}, Cleaned rows: {final_count}")
-        print(f"Saved to: {output_file}")
-        
-        return duplicates_removed
-        
-    except FileNotFoundError:
-        print(f"Error: File '{input_file}' not found")
-        return -1
-    except Exception as e:
-        print(f"Error processing file: {e}")
-        return -1
+        self.data = standardized_data
+        return self
+    
+    def get_summary(self):
+        summary = {
+            'original_samples': self.original_shape[0],
+            'current_samples': self.data.shape[0],
+            'features': self.data.shape[1],
+            'removed_outliers': getattr(self, 'removed_count', 0)
+        }
+        return summary
+
+def create_sample_data(n_samples=1000, n_features=5):
+    np.random.seed(42)
+    data = np.random.randn(n_samples, n_features)
+    data = pd.DataFrame(data, columns=[f'feature_{i}' for i in range(n_features)])
+    return data
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python data_cleaner.py <input_file> [output_file]")
-        sys.exit(1)
+    sample_data = create_sample_data()
+    cleaner = DataCleaner(sample_data)
     
-    input_file = sys.argv[1]
-    output_file = sys.argv[2] if len(sys.argv) > 2 else None
+    print("Original data shape:", cleaner.original_shape)
     
-    remove_duplicates(input_file, output_file)
+    cleaner.remove_outliers_iqr()
+    cleaner.normalize_minmax()
+    
+    summary = cleaner.get_summary()
+    print(f"Cleaned data shape: {summary['current_samples']} samples, {summary['features']} features")
+    print(f"Removed outliers: {summary['removed_outliers']}")
+    
+    print("\nFirst 5 rows of cleaned data:")
+    print(cleaner.data.head())
