@@ -36,3 +36,31 @@ if __name__ == "__main__":
         sys.exit(1)
     
     rename_files_with_sequence(dir_path, prefix, extension)
+import os
+import sys
+
+def rename_files_with_sequence(directory, prefix="file", extension=".txt"):
+    try:
+        files = [f for f in os.listdir(directory) if os.path.isfile(os.path.join(directory, f))]
+        files.sort()
+        
+        for index, filename in enumerate(files, start=1):
+            old_path = os.path.join(directory, filename)
+            new_name = f"{prefix}_{index:03d}{extension}"
+            new_path = os.path.join(directory, new_name)
+            
+            os.rename(old_path, new_path)
+            print(f"Renamed: {filename} -> {new_name}")
+            
+        return True
+    except Exception as e:
+        print(f"Error: {e}")
+        return False
+
+if __name__ == "__main__":
+    if len(sys.argv) > 1:
+        target_dir = sys.argv[1]
+    else:
+        target_dir = "."
+    
+    rename_files_with_sequence(target_dir)
