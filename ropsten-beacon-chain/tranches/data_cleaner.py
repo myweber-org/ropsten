@@ -1,113 +1,99 @@
 
-import numpy as np
 import pandas as pd
-from scipy import stats
 
-def remove_outliers_iqr(data, column, threshold=1.5):
+def remove_duplicates(df, subset=None, keep='first'):
     """
-    Remove outliers using IQR method
+    Remove duplicate rows from a DataFrame.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        subset (list, optional): Columns to consider for duplicates
+        keep (str, optional): Which duplicates to keep ('first', 'last', False)
+    
+    Returns:
+        pd.DataFrame: DataFrame with duplicates removed
     """
-    if column not in data.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
+    if df.empty:
+        return df
     
-    q1 = data[column].quantile(0.25)
-    q3 = data[column].quantile(0.75)
-    iqr = q3 - q1
-    lower_bound = q1 - threshold * iqr
-    upper_bound = q3 + threshold * iqr
+    cleaned_df = df.drop_duplicates(subset=subset, keep=keep)
     
-    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
-    return filtered_data.copy()
+    removed_count = len(df) - len(cleaned_df)
+    if removed_count > 0:
+        print(f"Removed {removed_count} duplicate rows")
+    
+    return cleaned_df
 
-def remove_outliers_zscore(data, column, threshold=3):
+def clean_numeric_column(df, column_name):
     """
-    Remove outliers using Z-score method
-    """
-    if column not in data.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
+    Clean a numeric column by removing non-numeric values and converting to float.
     
-    z_scores = np.abs(stats.zscore(data[column]))
-    filtered_data = data[z_scores < threshold]
-    return filtered_data.copy()
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        column_name (str): Name of the column to clean
+    
+    Returns:
+        pd.DataFrame: DataFrame with cleaned column
+    """
+    if column_name not in df.columns:
+        raise ValueError(f"Column '{column_name}' not found in DataFrame")
+    
+    original_count = len(df)
+    df[column_name] = pd.to_numeric(df[column_name], errors='coerce')
+    df = df.dropna(subset=[column_name])
+    
+    removed_count = original_count - len(df)
+    if removed_count > 0:
+        print(f"Removed {removed_count} rows with invalid numeric values in column '{column_name}'")
+    
+    return df
 
-def normalize_minmax(data, column):
+def validate_dataframe(df, required_columns=None):
     """
-    Normalize data using Min-Max scaling
+    Validate DataFrame structure and content.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate
+        required_columns (list, optional): List of required column names
+    
+    Returns:
+        bool: True if validation passes, False otherwise
     """
-    if column not in data.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
+    if not isinstance(df, pd.DataFrame):
+        print("Error: Input is not a pandas DataFrame")
+        return False
     
-    min_val = data[column].min()
-    max_val = data[column].max()
-    
-    if max_val == min_val:
-        return data[column].copy()
-    
-    normalized = (data[column] - min_val) / (max_val - min_val)
-    return normalized
-
-def normalize_zscore(data, column):
-    """
-    Normalize data using Z-score standardization
-    """
-    if column not in data.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
-    
-    mean_val = data[column].mean()
-    std_val = data[column].std()
-    
-    if std_val == 0:
-        return data[column].copy()
-    
-    standardized = (data[column] - mean_val) / std_val
-    return standardized
-
-def clean_dataset(data, numeric_columns=None, outlier_method='iqr', normalize_method='zscore'):
-    """
-    Clean dataset by removing outliers and normalizing numeric columns
-    """
-    if numeric_columns is None:
-        numeric_columns = data.select_dtypes(include=[np.number]).columns.tolist()
-    
-    cleaned_data = data.copy()
-    
-    for column in numeric_columns:
-        if column not in data.columns:
-            continue
-            
-        if outlier_method == 'iqr':
-            cleaned_data = remove_outliers_iqr(cleaned_data, column)
-        elif outlier_method == 'zscore':
-            cleaned_data = remove_outliers_zscore(cleaned_data, column)
-        
-        if normalize_method == 'minmax':
-            cleaned_data[column] = normalize_minmax(cleaned_data, column)
-        elif normalize_method == 'zscore':
-            cleaned_data[column] = normalize_zscore(cleaned_data, column)
-    
-    return cleaned_data
-
-def validate_data(data, required_columns=None, check_missing=True, check_duplicates=True):
-    """
-    Validate data quality
-    """
-    validation_report = {}
+    if df.empty:
+        print("Warning: DataFrame is empty")
+        return True
     
     if required_columns:
-        missing_columns = [col for col in required_columns if col not in data.columns]
-        validation_report['missing_columns'] = missing_columns
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            print(f"Error: Missing required columns: {missing_columns}")
+            return False
     
-    if check_missing:
-        missing_values = data.isnull().sum().to_dict()
-        validation_report['missing_values'] = missing_values
+    return True
+
+def get_data_summary(df):
+    """
+    Generate a summary of the DataFrame.
     
-    if check_duplicates:
-        duplicate_count = data.duplicated().sum()
-        validation_report['duplicate_rows'] = duplicate_count
+    Args:
+        df (pd.DataFrame): Input DataFrame
     
-    numeric_cols = data.select_dtypes(include=[np.number]).columns
-    if len(numeric_cols) > 0:
-        summary_stats = data[numeric_cols].describe().to_dict()
-        validation_report['summary_statistics'] = summary_stats
+    Returns:
+        dict: Dictionary containing summary statistics
+    """
+    if df.empty:
+        return {"row_count": 0, "column_count": 0}
     
-    return validation_report
+    summary = {
+        "row_count": len(df),
+        "column_count": len(df.columns),
+        "column_names": list(df.columns),
+        "dtypes": df.dtypes.to_dict(),
+        "missing_values": df.isnull().sum().to_dict()
+    }
+    
+    return summary
