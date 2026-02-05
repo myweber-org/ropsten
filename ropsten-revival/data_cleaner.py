@@ -384,4 +384,77 @@ def main():
     print(calculate_summary_statistics(normalized_df, 'values'))
 
 if __name__ == "__main__":
-    main()
+    main()import pandas as pd
+import numpy as np
+
+def load_data(filepath):
+    """Load data from a CSV file."""
+    try:
+        df = pd.read_csv(filepath)
+        print(f"Data loaded successfully. Shape: {df.shape}")
+        return df
+    except FileNotFoundError:
+        print(f"Error: File not found at {filepath}")
+        return None
+
+def remove_outliers_iqr(df, column):
+    """Remove outliers using the IQR method."""
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    removed_count = len(df) - len(filtered_df)
+    print(f"Removed {removed_count} outliers from column '{column}'")
+    return filtered_df
+
+def normalize_column(df, column):
+    """Normalize a column using min-max scaling."""
+    if column in df.columns:
+        min_val = df[column].min()
+        max_val = df[column].max()
+        if max_val > min_val:
+            df[column] = (df[column] - min_val) / (max_val - min_val)
+            print(f"Column '{column}' normalized.")
+        else:
+            print(f"Column '{column}' has no variation (min == max).")
+    else:
+        print(f"Column '{column}' not found in DataFrame.")
+    return df
+
+def clean_data(df, numeric_columns):
+    """Main cleaning function: remove outliers and normalize."""
+    if df is None or df.empty:
+        print("No data to clean.")
+        return df
+    
+    original_shape = df.shape
+    for col in numeric_columns:
+        if col in df.columns:
+            df = remove_outliers_iqr(df, col)
+    
+    for col in numeric_columns:
+        if col in df.columns:
+            df = normalize_column(df, col)
+    
+    print(f"Data cleaning complete. Original shape: {original_shape}, Final shape: {df.shape}")
+    return df
+
+def save_cleaned_data(df, output_path):
+    """Save the cleaned DataFrame to a CSV file."""
+    if df is not None and not df.empty:
+        df.to_csv(output_path, index=False)
+        print(f"Cleaned data saved to {output_path}")
+    else:
+        print("No data to save.")
+
+if __name__ == "__main__":
+    input_file = "raw_data.csv"
+    output_file = "cleaned_data.csv"
+    numeric_cols = ["age", "income", "score"]
+    
+    raw_df = load_data(input_file)
+    if raw_df is not None:
+        cleaned_df = clean_data(raw_df, numeric_cols)
+        save_cleaned_data(cleaned_df, output_file)
