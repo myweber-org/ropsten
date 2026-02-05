@@ -387,3 +387,38 @@ if __name__ == "__main__":
     output_file = sys.argv[2] if len(sys.argv) > 2 else None
     
     remove_duplicates(input_file, output_file)
+import sys
+
+def remove_duplicates(input_file, output_file):
+    try:
+        with open(input_file, 'r') as f:
+            lines = f.readlines()
+        
+        unique_lines = []
+        seen = set()
+        
+        for line in lines:
+            stripped_line = line.rstrip('\n')
+            if stripped_line not in seen:
+                seen.add(stripped_line)
+                unique_lines.append(line)
+        
+        with open(output_file, 'w') as f:
+            f.writelines(unique_lines)
+        
+        print(f"Removed {len(lines) - len(unique_lines)} duplicate lines.")
+        print(f"Unique lines saved to: {output_file}")
+        
+    except FileNotFoundError:
+        print(f"Error: File '{input_file}' not found.")
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
+if __name__ == "__main__":
+    if len(sys.argv) != 3:
+        print("Usage: python file_cleaner.py <input_file> <output_file>")
+        sys.exit(1)
+    
+    input_file = sys.argv[1]
+    output_file = sys.argv[2]
+    remove_duplicates(input_file, output_file)
