@@ -334,3 +334,88 @@ def example_usage():
 
 if __name__ == "__main__":
     result = example_usage()
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df, drop_duplicates=True, standardize_columns=True):
+    """
+    Clean a pandas DataFrame by removing duplicates and standardizing column names.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean
+        drop_duplicates (bool): Whether to drop duplicate rows
+        standardize_columns (bool): Whether to standardize column names
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame
+    """
+    df_clean = df.copy()
+    
+    if drop_duplicates:
+        initial_rows = len(df_clean)
+        df_clean = df_clean.drop_duplicates()
+        removed = initial_rows - len(df_clean)
+        print(f"Removed {removed} duplicate rows")
+    
+    if standardize_columns:
+        df_clean.columns = (
+            df_clean.columns
+            .str.lower()
+            .str.replace(' ', '_')
+            .str.replace(r'[^a-z0-9_]', '', regex=True)
+        )
+        print("Standardized column names")
+    
+    return df_clean
+
+def validate_data(df, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate
+        required_columns (list): List of required column names
+    
+    Returns:
+        dict: Validation results
+    """
+    validation_results = {
+        'total_rows': len(df),
+        'total_columns': len(df.columns),
+        'null_values': df.isnull().sum().sum(),
+        'duplicate_rows': df.duplicated().sum()
+    }
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        validation_results['missing_columns'] = missing_columns
+    
+    return validation_results
+
+def sample_data_cleaning():
+    """
+    Example usage of the data cleaning functions.
+    """
+    sample_data = {
+        'User ID': [1, 2, 2, 3, 4],
+        'First Name': ['John', 'Jane', 'Jane', 'Bob', 'Alice'],
+        'Last Name': ['Doe', 'Smith', 'Smith', 'Johnson', 'Brown'],
+        'Email Address': ['john@example.com', 'jane@example.com', 'jane@example.com', 'bob@example.com', 'alice@example.com']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\n" + "="*50 + "\n")
+    
+    cleaned_df = clean_dataset(df)
+    print("\nCleaned DataFrame:")
+    print(cleaned_df)
+    
+    validation = validate_data(cleaned_df, required_columns=['user_id', 'first_name'])
+    print("\nValidation Results:")
+    for key, value in validation.items():
+        print(f"{key}: {value}")
+
+if __name__ == "__main__":
+    sample_data_cleaning()
