@@ -1640,3 +1640,32 @@ if __name__ == "__main__":
     cleaned_data = clean_dataset('raw_data.csv')
     cleaned_data.to_csv('cleaned_data.csv', index=False)
     print(f"Data cleaning complete. Cleaned {len(cleaned_data)} records.")
+import re
+
+def clean_text(text):
+    """
+    Clean and normalize input text by:
+    1. Converting to lowercase.
+    2. Removing extra whitespace.
+    3. Removing special characters (keeping alphanumeric and spaces).
+    """
+    if not isinstance(text, str):
+        return ""
+    
+    # Convert to lowercase
+    text = text.lower()
+    
+    # Remove special characters, keep alphanumeric and spaces
+    text = re.sub(r'[^a-z0-9\s]', '', text)
+    
+    # Replace multiple spaces with a single space and strip leading/trailing spaces
+    text = re.sub(r'\s+', ' ', text).strip()
+    
+    return text
+
+def tokenize_text(text):
+    """
+    Tokenize cleaned text into a list of words.
+    """
+    cleaned = clean_text(text)
+    return cleaned.split() if cleaned else []
