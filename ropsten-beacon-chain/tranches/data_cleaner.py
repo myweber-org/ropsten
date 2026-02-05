@@ -1,99 +1,91 @@
-
 import pandas as pd
+import numpy as np
 
-def remove_duplicates(df, subset=None, keep='first'):
+def remove_outliers_iqr(df, column):
     """
-    Remove duplicate rows from a DataFrame.
+    Remove outliers from a DataFrame column using the IQR method.
     
-    Args:
-        df (pd.DataFrame): Input DataFrame
-        subset (list, optional): Columns to consider for duplicates
-        keep (str, optional): Which duplicates to keep ('first', 'last', False)
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    column (str): Column name to process
     
     Returns:
-        pd.DataFrame: DataFrame with duplicates removed
+    pd.DataFrame: DataFrame with outliers removed
     """
-    if df.empty:
-        return df
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
     
-    cleaned_df = df.drop_duplicates(subset=subset, keep=keep)
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
     
-    removed_count = len(df) - len(cleaned_df)
-    if removed_count > 0:
-        print(f"Removed {removed_count} duplicate rows")
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    
+    return filtered_df
+
+def clean_dataset(df, numeric_columns=None):
+    """
+    Clean dataset by removing outliers from specified numeric columns.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    numeric_columns (list): List of numeric column names to clean
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame
+    """
+    if numeric_columns is None:
+        numeric_columns = df.select_dtypes(include=[np.number]).columns.tolist()
+    
+    cleaned_df = df.copy()
+    
+    for column in numeric_columns:
+        if column in cleaned_df.columns and pd.api.types.is_numeric_dtype(cleaned_df[column]):
+            original_count = len(cleaned_df)
+            cleaned_df = remove_outliers_iqr(cleaned_df, column)
+            removed_count = original_count - len(cleaned_df)
+            print(f"Removed {removed_count} outliers from column '{column}'")
     
     return cleaned_df
 
-def clean_numeric_column(df, column_name):
+def save_cleaned_data(df, input_path, output_suffix="_cleaned"):
     """
-    Clean a numeric column by removing non-numeric values and converting to float.
+    Save cleaned DataFrame to a new CSV file.
     
-    Args:
-        df (pd.DataFrame): Input DataFrame
-        column_name (str): Name of the column to clean
-    
-    Returns:
-        pd.DataFrame: DataFrame with cleaned column
+    Parameters:
+    df (pd.DataFrame): Cleaned DataFrame
+    input_path (str): Original file path
+    output_suffix (str): Suffix to add to output filename
     """
-    if column_name not in df.columns:
-        raise ValueError(f"Column '{column_name}' not found in DataFrame")
+    if input_path.endswith('.csv'):
+        output_path = input_path.replace('.csv', f'{output_suffix}.csv')
+    else:
+        output_path = f"{input_path}{output_suffix}.csv"
     
-    original_count = len(df)
-    df[column_name] = pd.to_numeric(df[column_name], errors='coerce')
-    df = df.dropna(subset=[column_name])
+    df.to_csv(output_path, index=False)
+    print(f"Cleaned data saved to: {output_path}")
     
-    removed_count = original_count - len(df)
-    if removed_count > 0:
-        print(f"Removed {removed_count} rows with invalid numeric values in column '{column_name}'")
-    
-    return df
+    return output_path
 
-def validate_dataframe(df, required_columns=None):
-    """
-    Validate DataFrame structure and content.
-    
-    Args:
-        df (pd.DataFrame): DataFrame to validate
-        required_columns (list, optional): List of required column names
-    
-    Returns:
-        bool: True if validation passes, False otherwise
-    """
-    if not isinstance(df, pd.DataFrame):
-        print("Error: Input is not a pandas DataFrame")
-        return False
-    
-    if df.empty:
-        print("Warning: DataFrame is empty")
-        return True
-    
-    if required_columns:
-        missing_columns = [col for col in required_columns if col not in df.columns]
-        if missing_columns:
-            print(f"Error: Missing required columns: {missing_columns}")
-            return False
-    
-    return True
-
-def get_data_summary(df):
-    """
-    Generate a summary of the DataFrame.
-    
-    Args:
-        df (pd.DataFrame): Input DataFrame
-    
-    Returns:
-        dict: Dictionary containing summary statistics
-    """
-    if df.empty:
-        return {"row_count": 0, "column_count": 0}
-    
-    summary = {
-        "row_count": len(df),
-        "column_count": len(df.columns),
-        "column_names": list(df.columns),
-        "dtypes": df.dtypes.to_dict(),
-        "missing_values": df.isnull().sum().to_dict()
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'id': range(100),
+        'value': np.concatenate([
+            np.random.normal(100, 10, 90),
+            np.random.normal(300, 50, 10)  # Outliers
+        ]),
+        'category': np.random.choice(['A', 'B', 'C'], 100)
     }
     
-    return summary
+    df = pd.DataFrame(sample_data)
+    print(f"Original dataset shape: {df.shape}")
+    
+    cleaned_df = clean_dataset(df, numeric_columns=['value'])
+    print(f"Cleaned dataset shape: {cleaned_df.shape}")
+    
+    # Save example
+    save_cleaned_data(cleaned_df, "sample_data.csv")
