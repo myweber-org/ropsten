@@ -92,4 +92,62 @@ if __name__ == "__main__":
     extension_arg = sys.argv[3] if len(sys.argv) > 3 else ".txt"
     
     success = rename_files_sequentially(dir_path, prefix_arg, extension_arg)
-    sys.exit(0 if success else 1)
+    sys.exit(0 if success else 1)import os
+import re
+import argparse
+
+def rename_files(directory, pattern, replacement):
+    """
+    Rename files in the specified directory based on a regex pattern.
+    
+    Args:
+        directory (str): Path to the directory containing files to rename.
+        pattern (str): Regex pattern to match in filenames.
+        replacement (str): String to replace matched pattern with.
+    """
+    try:
+        files = os.listdir(directory)
+    except FileNotFoundError:
+        print(f"Error: Directory '{directory}' not found.")
+        return
+    except PermissionError:
+        print(f"Error: Permission denied for directory '{directory}'.")
+        return
+
+    renamed_count = 0
+    for filename in files:
+        filepath = os.path.join(directory, filename)
+        
+        if not os.path.isfile(filepath):
+            continue
+
+        new_filename = re.sub(pattern, replacement, filename)
+        
+        if new_filename != filename:
+            new_filepath = os.path.join(directory, new_filename)
+            
+            if os.path.exists(new_filepath):
+                print(f"Warning: '{new_filename}' already exists. Skipping '{filename}'.")
+                continue
+            
+            try:
+                os.rename(filepath, new_filepath)
+                print(f"Renamed: '{filename}' -> '{new_filename}'")
+                renamed_count += 1
+            except OSError as e:
+                print(f"Error renaming '{filename}': {e}")
+
+    print(f"\nRenaming complete. {renamed_count} files renamed.")
+
+def main():
+    parser = argparse.ArgumentParser(description="Rename files in a directory using regex patterns.")
+    parser.add_argument("directory", help="Directory containing files to rename")
+    parser.add_argument("pattern", help="Regex pattern to match in filenames")
+    parser.add_argument("replacement", help="Replacement string for matched pattern")
+    
+    args = parser.parse_args()
+    
+    rename_files(args.directory, args.pattern, args.replacement)
+
+if __name__ == "__main__":
+    main()
