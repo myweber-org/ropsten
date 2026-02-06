@@ -422,3 +422,59 @@ if __name__ == "__main__":
     input_file = sys.argv[1]
     output_file = sys.argv[2]
     remove_duplicates(input_file, output_file)
+import os
+import shutil
+import tempfile
+from pathlib import Path
+
+def clean_temp_files(directory: str, extensions: tuple = ('.tmp', '.temp', '.log'), days_old: int = 7):
+    """
+    Remove temporary files with specified extensions older than given days.
+    
+    Args:
+        directory: Path to the directory to clean.
+        extensions: Tuple of file extensions to target.
+        days_old: Remove files older than this many days.
+    """
+    target_dir = Path(directory)
+    if not target_dir.exists() or not target_dir.is_dir():
+        raise ValueError(f"Invalid directory: {directory}")
+    
+    current_time = time.time()
+    cutoff_time = current_time - (days_old * 24 * 60 * 60)
+    
+    removed_count = 0
+    total_size = 0
+    
+    for file_path in target_dir.rglob('*'):
+        if file_path.is_file() and file_path.suffix.lower() in extensions:
+            file_stat = file_path.stat()
+            if file_stat.st_mtime < cutoff_time:
+                try:
+                    total_size += file_stat.st_size
+                    file_path.unlink()
+                    removed_count += 1
+                    print(f"Removed: {file_path}")
+                except (PermissionError, OSError) as e:
+                    print(f"Failed to remove {file_path}: {e}")
+    
+    print(f"Cleaning complete. Removed {removed_count} files, freed {total_size / (1024*1024):.2f} MB.")
+
+if __name__ == "__main__":
+    import time
+    import argparse
+    
+    parser = argparse.ArgumentParser(description='Clean temporary files from directory.')
+    parser.add_argument('directory', help='Directory to clean')
+    parser.add_argument('--extensions', nargs='+', default=['.tmp', '.temp', '.log'],
+                       help='File extensions to target')
+    parser.add_argument('--days', type=int, default=7,
+                       help='Remove files older than N days')
+    
+    args = parser.parse_args()
+    
+    try:
+        clean_temp_files(args.directory, tuple(args.extensions), args.days)
+    except Exception as e:
+        print(f"Error: {e}")
+        exit(1)
