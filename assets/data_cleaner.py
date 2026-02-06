@@ -206,3 +206,107 @@ def remove_outliers(df, column, method='iqr', threshold=1.5):
         return df
     
     return df[mask]
+import pandas as pd
+import numpy as np
+
+def remove_outliers_iqr(df, column):
+    """
+    Remove outliers from a DataFrame column using the Interquartile Range method.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    column (str): Column name to process
+    
+    Returns:
+    pd.DataFrame: DataFrame with outliers removed
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    
+    return filtered_df
+
+def detect_outliers_iqr(df, column):
+    """
+    Detect outliers in a DataFrame column using the Interquartile Range method.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    column (str): Column name to process
+    
+    Returns:
+    pd.Series: Boolean series indicating outliers (True = outlier)
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    outliers = (df[column] < lower_bound) | (df[column] > upper_bound)
+    
+    return outliers
+
+def clean_numeric_data(df, columns=None):
+    """
+    Clean numeric data by removing outliers from specified columns.
+    If no columns specified, clean all numeric columns.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    columns (list): List of column names to clean (optional)
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame
+    """
+    if columns is None:
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        columns = list(numeric_cols)
+    
+    cleaned_df = df.copy()
+    
+    for column in columns:
+        if column in cleaned_df.columns:
+            outliers = detect_outliers_iqr(cleaned_df, column)
+            if outliers.any():
+                print(f"Removing {outliers.sum()} outliers from column '{column}'")
+                cleaned_df = cleaned_df[~outliers]
+    
+    return cleaned_df
+
+if __name__ == "__main__":
+    # Example usage
+    np.random.seed(42)
+    data = {
+        'id': range(100),
+        'value': np.random.normal(100, 15, 100),
+        'score': np.random.uniform(0, 1, 100)
+    }
+    
+    # Add some outliers
+    data['value'][10] = 500
+    data['value'][20] = -200
+    data['score'][30] = 1.5
+    
+    df = pd.DataFrame(data)
+    print(f"Original shape: {df.shape}")
+    
+    # Clean specific column
+    cleaned = remove_outliers_iqr(df, 'value')
+    print(f"After cleaning 'value' column: {cleaned.shape}")
+    
+    # Clean all numeric columns
+    fully_cleaned = clean_numeric_data(df)
+    print(f"After cleaning all numeric columns: {fully_cleaned.shape}")
