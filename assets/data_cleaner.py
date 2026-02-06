@@ -309,4 +309,86 @@ if __name__ == "__main__":
     
     # Clean all numeric columns
     fully_cleaned = clean_numeric_data(df)
-    print(f"After cleaning all numeric columns: {fully_cleaned.shape}")
+    print(f"After cleaning all numeric columns: {fully_cleaned.shape}")import pandas as pd
+import numpy as np
+
+def clean_csv_data(file_path, fill_strategy='mean'):
+    """
+    Load a CSV file and clean missing values based on specified strategy.
+    
+    Args:
+        file_path (str): Path to the CSV file
+        fill_strategy (str): Strategy for handling missing values.
+                             Options: 'mean', 'median', 'mode', 'drop'
+    
+    Returns:
+        pandas.DataFrame: Cleaned DataFrame
+    """
+    try:
+        df = pd.read_csv(file_path)
+        print(f"Loaded data with shape: {df.shape}")
+        
+        missing_count = df.isnull().sum().sum()
+        if missing_count == 0:
+            print("No missing values found.")
+            return df
+        
+        print(f"Found {missing_count} missing values.")
+        
+        if fill_strategy == 'drop':
+            df_cleaned = df.dropna()
+            print(f"Removed rows with missing values. New shape: {df_cleaned.shape}")
+        else:
+            numeric_cols = df.select_dtypes(include=[np.number]).columns
+            
+            for col in numeric_cols:
+                if df[col].isnull().any():
+                    if fill_strategy == 'mean':
+                        fill_value = df[col].mean()
+                    elif fill_strategy == 'median':
+                        fill_value = df[col].median()
+                    elif fill_strategy == 'mode':
+                        fill_value = df[col].mode()[0]
+                    else:
+                        raise ValueError(f"Unknown fill strategy: {fill_strategy}")
+                    
+                    df[col] = df[col].fillna(fill_value)
+                    print(f"Filled missing values in column '{col}' with {fill_strategy}: {fill_value}")
+            
+            categorical_cols = df.select_dtypes(include=['object']).columns
+            for col in categorical_cols:
+                if df[col].isnull().any():
+                    df[col] = df[col].fillna('Unknown')
+                    print(f"Filled missing values in column '{col}' with 'Unknown'")
+        
+        return df
+    
+    except FileNotFoundError:
+        print(f"Error: File not found at {file_path}")
+        return None
+    except Exception as e:
+        print(f"Error during data cleaning: {str(e)}")
+        return None
+
+def save_cleaned_data(df, output_path):
+    """
+    Save cleaned DataFrame to CSV file.
+    
+    Args:
+        df (pandas.DataFrame): DataFrame to save
+        output_path (str): Path for output CSV file
+    """
+    if df is not None:
+        df.to_csv(output_path, index=False)
+        print(f"Cleaned data saved to {output_path}")
+        return True
+    return False
+
+if __name__ == "__main__":
+    input_file = "raw_data.csv"
+    output_file = "cleaned_data.csv"
+    
+    cleaned_df = clean_csv_data(input_file, fill_strategy='median')
+    
+    if cleaned_df is not None:
+        save_cleaned_data(cleaned_df, output_file)
