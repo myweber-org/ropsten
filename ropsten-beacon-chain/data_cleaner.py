@@ -178,3 +178,11 @@ if __name__ == "__main__":
     
     if cleaned_df is not None:
         save_cleaned_data(cleaned_df, 'cleaned_sample_data.csv')
+def remove_duplicates(sequence):
+    seen = set()
+    result = []
+    for item in sequence:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
