@@ -417,4 +417,42 @@ def load_and_clean_csv(filepath: str, cleaning_steps: Optional[Dict] = None) -> 
         if 'normalize' in cleaning_steps:
             cleaner.normalize_numeric(**cleaning_steps['normalize'])
     
-    return cleaner.get_cleaned_data()
+    return cleaner.get_cleaned_data()import pandas as pd
+import numpy as np
+
+def normalize_column(series, method='minmax'):
+    if method == 'minmax':
+        return (series - series.min()) / (series.max() - series.min())
+    elif method == 'zscore':
+        return (series - series.mean()) / series.std()
+    else:
+        raise ValueError("Method must be 'minmax' or 'zscore'")
+
+def remove_outliers_iqr(df, column):
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+
+def clean_dataset(df, numeric_columns, normalization_method='minmax'):
+    cleaned_df = df.copy()
+    
+    for col in numeric_columns:
+        if col in cleaned_df.columns:
+            cleaned_df = remove_outliers_iqr(cleaned_df, col)
+            cleaned_df[col] = normalize_column(cleaned_df[col], normalization_method)
+    
+    cleaned_df = cleaned_df.dropna()
+    return cleaned_df.reset_index(drop=True)
+
+def validate_data(df, required_columns):
+    missing_cols = [col for col in required_columns if col not in df.columns]
+    if missing_cols:
+        raise KeyError(f"Missing required columns: {missing_cols}")
+    
+    if df.empty:
+        raise ValueError("DataFrame is empty")
+    
+    return True
