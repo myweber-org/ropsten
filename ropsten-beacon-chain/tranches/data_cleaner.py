@@ -174,4 +174,72 @@ def validate_dataframe(df, required_columns=None, min_rows=1):
         if missing_cols:
             return False, f"Missing required columns: {missing_cols}"
     
-    return True, "DataFrame is valid"
+    return True, "DataFrame is valid"import pandas as pd
+import numpy as np
+
+def clean_dataset(df):
+    """
+    Cleans a pandas DataFrame by removing duplicates and standardizing column names.
+    """
+    # Create a copy to avoid modifying the original
+    df_clean = df.copy()
+
+    # Standardize column names: lowercase and replace spaces with underscores
+    df_clean.columns = df_clean.columns.str.lower().str.replace(' ', '_')
+
+    # Remove duplicate rows
+    initial_rows = df_clean.shape[0]
+    df_clean = df_clean.drop_duplicates()
+    removed_rows = initial_rows - df_clean.shape[0]
+
+    # Fill missing numeric values with column median
+    numeric_cols = df_clean.select_dtypes(include=[np.number]).columns
+    for col in numeric_cols:
+        if df_clean[col].isnull().any():
+            df_clean[col] = df_clean[col].fillna(df_clean[col].median())
+
+    # Fill missing categorical values with mode
+    categorical_cols = df_clean.select_dtypes(include=['object']).columns
+    for col in categorical_cols:
+        if df_clean[col].isnull().any():
+            df_clean[col] = df_clean[col].fillna(df_clean[col].mode()[0])
+
+    print(f"Removed {removed_rows} duplicate rows.")
+    print(f"Dataset shape after cleaning: {df_clean.shape}")
+    return df_clean
+
+def validate_data(df):
+    """
+    Performs basic validation checks on the cleaned DataFrame.
+    """
+    validation_results = {}
+    validation_results['total_rows'] = df.shape[0]
+    validation_results['total_columns'] = df.shape[1]
+    validation_results['missing_values'] = df.isnull().sum().sum()
+    validation_results['duplicate_rows'] = df.duplicated().sum()
+
+    print("Data Validation Results:")
+    for key, value in validation_results.items():
+        print(f"{key}: {value}")
+
+    return validation_results
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'Customer ID': [1, 2, 2, 3, 4, None],
+        'Order Value': [100, 200, 200, None, 150, 300],
+        'Product Category': ['A', 'B', 'B', 'C', None, 'A']
+    }
+
+    df = pd.DataFrame(sample_data)
+    print("Original dataset:")
+    print(df)
+    print("\n")
+
+    cleaned_df = clean_dataset(df)
+    print("\nCleaned dataset:")
+    print(cleaned_df)
+    print("\n")
+
+    validation = validate_data(cleaned_df)
