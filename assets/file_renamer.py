@@ -108,4 +108,39 @@ if __name__ == "__main__":
     regex_pattern = sys.argv[2]
     replace_with = sys.argv[3]
     
-    rename_files(target_dir, regex_pattern, replace_with)
+    rename_files(target_dir, regex_pattern, replace_with)import os
+import sys
+
+def rename_files_with_sequence(directory, prefix="file"):
+    try:
+        files = [f for f in os.listdir(directory) if os.path.isfile(os.path.join(directory, f))]
+        files.sort()
+        
+        for index, filename in enumerate(files, start=1):
+            file_extension = os.path.splitext(filename)[1]
+            new_name = f"{prefix}_{index:03d}{file_extension}"
+            old_path = os.path.join(directory, filename)
+            new_path = os.path.join(directory, new_name)
+            
+            os.rename(old_path, new_path)
+            print(f"Renamed: {filename} -> {new_name}")
+        
+        print(f"Successfully renamed {len(files)} files.")
+        return True
+    
+    except FileNotFoundError:
+        print(f"Error: Directory '{directory}' not found.")
+        return False
+    except PermissionError:
+        print(f"Error: Permission denied for directory '{directory}'.")
+        return False
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        return False
+
+if __name__ == "__main__":
+    if len(sys.argv) > 1:
+        target_dir = sys.argv[1]
+        rename_files_with_sequence(target_dir)
+    else:
+        print("Usage: python file_renamer.py <directory_path>")
