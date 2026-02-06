@@ -513,4 +513,42 @@ if __name__ == "__main__":
         print(f"{key}: {value}")
     
     print("\nFirst 5 rows of cleaned data:")
-    print(cleaned_df.head())
+    print(cleaned_df.head())import pandas as pd
+import numpy as np
+import sys
+
+def clean_csv(input_file, output_file):
+    try:
+        df = pd.read_csv(input_file)
+        
+        df_cleaned = df.copy()
+        
+        df_cleaned = df_cleaned.drop_duplicates()
+        
+        for column in df_cleaned.select_dtypes(include=[np.number]).columns:
+            df_cleaned[column] = df_cleaned[column].fillna(df_cleaned[column].median())
+        
+        for column in df_cleaned.select_dtypes(include=['object']).columns:
+            df_cleaned[column] = df_cleaned[column].fillna('Unknown')
+        
+        df_cleaned.to_csv(output_file, index=False)
+        print(f"Cleaned data saved to {output_file}")
+        return True
+        
+    except FileNotFoundError:
+        print(f"Error: File {input_file} not found.")
+        return False
+    except Exception as e:
+        print(f"Error during cleaning: {e}")
+        return False
+
+if __name__ == "__main__":
+    if len(sys.argv) != 3:
+        print("Usage: python data_cleaner.py <input_file> <output_file>")
+        sys.exit(1)
+    
+    input_file = sys.argv[1]
+    output_file = sys.argv[2]
+    
+    success = clean_csv(input_file, output_file)
+    sys.exit(0 if success else 1)
