@@ -55,3 +55,45 @@ def main():
 
 if __name__ == "__main__":
     main()
+import requests
+import sys
+
+API_KEY = "your_api_key_here"
+BASE_URL = "http://api.openweathermap.org/data/2.5/weather"
+
+def get_weather(city):
+    params = {
+        'q': city,
+        'appid': API_KEY,
+        'units': 'metric'
+    }
+    try:
+        response = requests.get(BASE_URL, params=params)
+        response.raise_for_status()
+        data = response.json()
+        return data
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching weather data: {e}")
+        return None
+
+def display_weather(data):
+    if data and data.get('cod') == 200:
+        city = data['name']
+        country = data['sys']['country']
+        temp = data['main']['temp']
+        humidity = data['main']['humidity']
+        description = data['weather'][0]['description']
+        print(f"Weather in {city}, {country}:")
+        print(f"Temperature: {temp}°C")
+        print(f"Humidity: {humidity}%")
+        print(f"Conditions: {description}")
+    else:
+        print("City not found or invalid API key.")
+
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        print("Usage: python fetch_weather.py <city_name>")
+        sys.exit(1)
+    city_name = ' '.join(sys.argv[1:])
+    weather_data = get_weather(city_name)
+    display_weather(weather_data)
