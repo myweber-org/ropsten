@@ -95,3 +95,77 @@ if __name__ == "__main__":
     cleaned_df = clean_dataframe(df, drop_duplicates=True, fill_missing='median')
     print("\nCleaned DataFrame:")
     print(cleaned_df)
+import pandas as pd
+import numpy as np
+from typing import Optional, List, Union
+
+class DataCleaner:
+    def __init__(self, df: pd.DataFrame):
+        self.df = df.copy()
+        self.original_shape = df.shape
+        
+    def remove_duplicates(self, subset: Optional[List[str]] = None) -> 'DataCleaner':
+        self.df = self.df.drop_duplicates(subset=subset, keep='first')
+        return self
+        
+    def fill_missing_values(self, strategy: str = 'mean', fill_value: Optional[Union[int, float]] = None) -> 'DataCleaner':
+        numeric_cols = self.df.select_dtypes(include=[np.number]).columns
+        
+        if strategy == 'mean':
+            for col in numeric_cols:
+                self.df[col] = self.df[col].fillna(self.df[col].mean())
+        elif strategy == 'median':
+            for col in numeric_cols:
+                self.df[col] = self.df[col].fillna(self.df[col].median())
+        elif strategy == 'mode':
+            for col in numeric_cols:
+                self.df[col] = self.df[col].fillna(self.df[col].mode()[0])
+        elif strategy == 'constant' and fill_value is not None:
+            self.df[numeric_cols] = self.df[numeric_cols].fillna(fill_value)
+        else:
+            raise ValueError(f"Unsupported strategy: {strategy}")
+            
+        return self
+        
+    def remove_outliers(self, method: str = 'iqr', threshold: float = 1.5) -> 'DataCleaner':
+        if method == 'iqr':
+            numeric_cols = self.df.select_dtypes(include=[np.number]).columns
+            for col in numeric_cols:
+                Q1 = self.df[col].quantile(0.25)
+                Q3 = self.df[col].quantile(0.75)
+                IQR = Q3 - Q1
+                lower_bound = Q1 - threshold * IQR
+                upper_bound = Q3 + threshold * IQR
+                self.df = self.df[(self.df[col] >= lower_bound) & (self.df[col] <= upper_bound)]
+        return self
+        
+    def normalize_data(self, columns: Optional[List[str]] = None) -> 'DataCleaner':
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
+            
+        for col in columns:
+            if col in self.df.columns:
+                min_val = self.df[col].min()
+                max_val = self.df[col].max()
+                if max_val != min_val:
+                    self.df[col] = (self.df[col] - min_val) / (max_val - min_val)
+        return self
+        
+    def get_cleaned_data(self) -> pd.DataFrame:
+        return self.df
+        
+    def get_cleaning_report(self) -> dict:
+        return {
+            'original_rows': self.original_shape[0],
+            'original_columns': self.original_shape[1],
+            'cleaned_rows': self.df.shape[0],
+            'cleaned_columns': self.df.shape[1],
+            'rows_removed': self.original_shape[0] - self.df.shape[0],
+            'missing_values': self.df.isnull().sum().sum()
+        }
+
+def load_and_clean_csv(filepath: str, **kwargs) -> pd.DataFrame:
+    df = pd.read_csv(filepath, **kwargs)
+    cleaner = DataCleaner(df)
+    cleaner.remove_duplicates().fill_missing_values(strategy='mean')
+    return cleaner.get_cleaned_data()
