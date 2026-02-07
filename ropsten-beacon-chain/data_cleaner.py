@@ -1,7 +1,8 @@
 import numpy as np
 import pandas as pd
+from scipy import stats
 
-def remove_outliers_iqr(data, column, threshold=1.5):
+def remove_outliers_iqr(data, column, factor=1.5):
     """
     Remove outliers using IQR method
     """
@@ -12,75 +13,112 @@ def remove_outliers_iqr(data, column, threshold=1.5):
     Q3 = data[column].quantile(0.75)
     IQR = Q3 - Q1
     
-    lower_bound = Q1 - threshold * IQR
-    upper_bound = Q3 + threshold * IQR
+    lower_bound = Q1 - factor * IQR
+    upper_bound = Q3 + factor * IQR
     
     filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
-    return filtered_data
+    removed_count = len(data) - len(filtered_data)
+    
+    return filtered_data, removed_count
 
-def normalize_minmax(data, columns=None):
+def remove_outliers_zscore(data, column, threshold=3):
     """
-    Normalize data using min-max scaling
+    Remove outliers using Z-score method
     """
-    if columns is None:
-        columns = data.select_dtypes(include=[np.number]).columns
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
     
-    normalized_data = data.copy()
+    z_scores = np.abs(stats.zscore(data[column]))
+    filtered_data = data[z_scores < threshold]
+    removed_count = len(data) - len(filtered_data)
     
-    for col in columns:
-        if col in data.columns and pd.api.types.is_numeric_dtype(data[col]):
-            min_val = data[col].min()
-            max_val = data[col].max()
-            
-            if max_val != min_val:
-                normalized_data[col] = (data[col] - min_val) / (max_val - min_val)
-            else:
-                normalized_data[col] = 0
-    
-    return normalized_data
+    return filtered_data, removed_count
 
-def handle_missing_values(data, strategy='mean', columns=None):
+def normalize_minmax(data, column):
     """
-    Handle missing values using specified strategy
+    Normalize data using Min-Max scaling
     """
-    if columns is None:
-        columns = data.select_dtypes(include=[np.number]).columns
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
     
-    processed_data = data.copy()
+    min_val = data[column].min()
+    max_val = data[column].max()
     
-    for col in columns:
-        if col in data.columns and pd.api.types.is_numeric_dtype(data[col]):
-            if strategy == 'mean':
-                fill_value = data[col].mean()
-            elif strategy == 'median':
-                fill_value = data[col].median()
-            elif strategy == 'mode':
-                fill_value = data[col].mode()[0] if not data[col].mode().empty else 0
-            else:
-                fill_value = 0
-            
-            processed_data[col].fillna(fill_value, inplace=True)
+    if max_val == min_val:
+        return data[column].apply(lambda x: 0.5)
     
-    return processed_data
+    normalized = (data[column] - min_val) / (max_val - min_val)
+    return normalized
 
-def clean_dataset(data, numeric_columns=None, outlier_threshold=1.5, 
-                  normalize=True, missing_strategy='mean'):
+def normalize_zscore(data, column):
     """
-    Complete data cleaning pipeline
+    Normalize data using Z-score standardization
     """
-    if numeric_columns is None:
-        numeric_columns = data.select_dtypes(include=[np.number]).columns.tolist()
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
     
+    mean_val = data[column].mean()
+    std_val = data[column].std()
+    
+    if std_val == 0:
+        return data[column].apply(lambda x: 0)
+    
+    standardized = (data[column] - mean_val) / std_val
+    return standardized
+
+def clean_dataset(data, numeric_columns, outlier_method='iqr', normalize_method='minmax'):
+    """
+    Comprehensive data cleaning pipeline
+    """
     cleaned_data = data.copy()
+    removal_stats = {}
     
-    for col in numeric_columns:
-        if col in cleaned_data.columns:
-            cleaned_data = remove_outliers_iqr(cleaned_data, col, outlier_threshold)
+    for column in numeric_columns:
+        if column not in cleaned_data.columns:
+            continue
+            
+        # Remove outliers
+        if outlier_method == 'iqr':
+            cleaned_data, removed = remove_outliers_iqr(cleaned_data, column)
+        elif outlier_method == 'zscore':
+            cleaned_data, removed = remove_outliers_zscore(cleaned_data, column)
+        else:
+            removed = 0
+        
+        removal_stats[column] = removed
+        
+        # Normalize data
+        if normalize_method == 'minmax':
+            cleaned_data[column] = normalize_minmax(cleaned_data, column)
+        elif normalize_method == 'zscore':
+            cleaned_data[column] = normalize_zscore(cleaned_data, column)
     
-    cleaned_data = handle_missing_values(cleaned_data, strategy=missing_strategy, 
-                                         columns=numeric_columns)
+    return cleaned_data, removal_stats
+
+def validate_data(data, required_columns, numeric_columns):
+    """
+    Validate data structure and content
+    """
+    missing_columns = [col for col in required_columns if col not in data.columns]
     
-    if normalize:
-        cleaned_data = normalize_minmax(cleaned_data, columns=numeric_columns)
+    if missing_columns:
+        raise ValueError(f"Missing required columns: {missing_columns}")
     
-    return cleaned_data
+    validation_report = {
+        'total_rows': len(data),
+        'total_columns': len(data.columns),
+        'missing_values': data.isnull().sum().to_dict(),
+        'numeric_stats': {}
+    }
+    
+    for column in numeric_columns:
+        if column in data.columns:
+            validation_report['numeric_stats'][column] = {
+                'mean': data[column].mean(),
+                'std': data[column].std(),
+                'min': data[column].min(),
+                'max': data[column].max(),
+                'missing': data[column].isnull().sum()
+            }
+    
+    return validation_report
