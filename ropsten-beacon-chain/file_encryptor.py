@@ -1,61 +1,79 @@
 
 import os
-import sys
+import hashlib
+from base64 import b64encode, b64decode
+from Crypto.Cipher import AES
+from Crypto.Protocol.KDF import PBKDF2
+from Crypto.Random import get_random_bytes
+from Crypto.Util.Padding import pad, unpad
 
-class XORCipher:
-    def __init__(self, key: str):
-        self.key = key.encode('utf-8')
-    
-    def encrypt(self, data: bytes) -> bytes:
-        key_length = len(self.key)
-        encrypted = bytearray()
-        for i, byte in enumerate(data):
-            encrypted.append(byte ^ self.key[i % key_length])
-        return bytes(encrypted)
-    
-    def decrypt(self, data: bytes) -> bytes:
-        return self.encrypt(data)
+class FileEncryptor:
+    def __init__(self, password):
+        self.password = password.encode('utf-8')
+        self.salt = get_random_bytes(16)
+        self.key = self._derive_key()
 
-def process_file(input_path: str, output_path: str, key: str, mode: str = 'encrypt'):
-    cipher = XORCipher(key)
-    
-    try:
+    def _derive_key(self):
+        return PBKDF2(self.password, self.salt, dkLen=32, count=1000000)
+
+    def encrypt_file(self, input_path, output_path):
+        iv = get_random_bytes(16)
+        cipher = AES.new(self.key, AES.MODE_CBC, iv)
+
+        with open(input_path, 'rb') as f:
+            plaintext = f.read()
+
+        ciphertext = cipher.encrypt(pad(plaintext, AES.block_size))
+        with open(output_path, 'wb') as f:
+            f.write(self.salt + iv + ciphertext)
+
+    def decrypt_file(self, input_path, output_path):
         with open(input_path, 'rb') as f:
             data = f.read()
-        
-        if mode == 'encrypt':
-            processed_data = cipher.encrypt(data)
-        elif mode == 'decrypt':
-            processed_data = cipher.decrypt(data)
-        else:
-            raise ValueError("Mode must be 'encrypt' or 'decrypt'")
-        
+
+        self.salt = data[:16]
+        iv = data[16:32]
+        ciphertext = data[32:]
+
+        self.key = self._derive_key()
+        cipher = AES.new(self.key, AES.MODE_CBC, iv)
+        plaintext = unpad(cipher.decrypt(ciphertext), AES.block_size)
+
         with open(output_path, 'wb') as f:
-            f.write(processed_data)
-        
-        print(f"Successfully {mode}ed file: {input_path} -> {output_path}")
-        
-    except FileNotFoundError:
-        print(f"Error: Input file not found: {input_path}")
-    except Exception as e:
-        print(f"Error processing file: {str(e)}")
+            f.write(plaintext)
+
+    def calculate_hash(self, file_path):
+        sha256_hash = hashlib.sha256()
+        with open(file_path, 'rb') as f:
+            for byte_block in iter(lambda: f.read(4096), b''):
+                sha256_hash.update(byte_block)
+        return sha256_hash.hexdigest()
 
 def main():
-    if len(sys.argv) < 5:
-        print("Usage: python file_encryptor.py <input_file> <output_file> <key> <mode>")
-        print("Mode: encrypt or decrypt")
-        sys.exit(1)
-    
-    input_file = sys.argv[1]
-    output_file = sys.argv[2]
-    key = sys.argv[3]
-    mode = sys.argv[4].lower()
-    
-    if mode not in ['encrypt', 'decrypt']:
-        print("Error: Mode must be 'encrypt' or 'decrypt'")
-        sys.exit(1)
-    
-    process_file(input_file, output_file, key, mode)
+    password = "secure_password_123"
+    encryptor = FileEncryptor(password)
+
+    test_file = "test_data.bin"
+    encrypted_file = "encrypted.bin"
+    decrypted_file = "decrypted.bin"
+
+    with open(test_file, 'wb') as f:
+        f.write(get_random_bytes(1024))
+
+    print(f"Original file hash: {encryptor.calculate_hash(test_file)}")
+    encryptor.encrypt_file(test_file, encrypted_file)
+    print(f"Encrypted file size: {os.path.getsize(encrypted_file)} bytes")
+    encryptor.decrypt_file(encrypted_file, decrypted_file)
+    print(f"Decrypted file hash: {encryptor.calculate_hash(decrypted_file)}")
+
+    if encryptor.calculate_hash(test_file) == encryptor.calculate_hash(decrypted_file):
+        print("Encryption/decryption successful")
+    else:
+        print("Encryption/decryption failed")
+
+    os.remove(test_file)
+    os.remove(encrypted_file)
+    os.remove(decrypted_file)
 
 if __name__ == "__main__":
     main()
