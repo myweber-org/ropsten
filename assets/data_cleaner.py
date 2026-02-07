@@ -168,4 +168,11 @@ def example_usage():
         print(f"{col}: {report}")
 
 if __name__ == "__main__":
-    example_usage()
+    example_usage()def remove_duplicates(seq):
+    seen = set()
+    result = []
+    for item in seq:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
