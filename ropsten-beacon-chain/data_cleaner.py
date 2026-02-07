@@ -404,4 +404,42 @@ def clean_dataset(input_file, output_file):
     return df
 
 if __name__ == "__main__":
-    clean_dataset("raw_data.csv", "cleaned_data.csv")
+    clean_dataset("raw_data.csv", "cleaned_data.csv")import pandas as pd
+import re
+
+def clean_dataframe(df, text_column):
+    """
+    Clean a DataFrame by removing duplicates and standardizing text in a specified column.
+    """
+    # Remove duplicate rows
+    df_clean = df.drop_duplicates().reset_index(drop=True)
+    
+    # Standardize text: lowercase, remove extra whitespace
+    if text_column in df_clean.columns:
+        df_clean[text_column] = df_clean[text_column].apply(
+            lambda x: re.sub(r'\s+', ' ', str(x).strip().lower())
+        )
+    
+    return df_clean
+
+def validate_email_column(df, email_column):
+    """
+    Validate email addresses in a specified column.
+    Returns a DataFrame with a new boolean column indicating valid emails.
+    """
+    if email_column not in df.columns:
+        raise ValueError(f"Column '{email_column}' not found in DataFrame")
+    
+    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    df['valid_email'] = df[email_column].apply(
+        lambda x: bool(re.match(email_pattern, str(x)))
+    )
+    
+    return df
+
+def save_cleaned_data(df, output_path):
+    """
+    Save cleaned DataFrame to a CSV file.
+    """
+    df.to_csv(output_path, index=False)
+    print(f"Cleaned data saved to {output_path}")
