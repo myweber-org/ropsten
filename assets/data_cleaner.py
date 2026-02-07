@@ -118,4 +118,104 @@ def validate_dataframe(df):
     for check, message in required_checks:
         if not check(df):
             raise ValueError(message)
-    return True
+    return Trueimport numpy as np
+import pandas as pd
+from scipy import stats
+
+class DataCleaner:
+    def __init__(self, df):
+        self.df = df.copy()
+        self.original_shape = df.shape
+        
+    def remove_outliers_iqr(self, columns=None, threshold=1.5):
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
+            
+        df_clean = self.df.copy()
+        for col in columns:
+            if col in df_clean.columns:
+                Q1 = df_clean[col].quantile(0.25)
+                Q3 = df_clean[col].quantile(0.75)
+                IQR = Q3 - Q1
+                lower_bound = Q1 - threshold * IQR
+                upper_bound = Q3 + threshold * IQR
+                df_clean = df_clean[(df_clean[col] >= lower_bound) & (df_clean[col] <= upper_bound)]
+        
+        removed_count = len(self.df) - len(df_clean)
+        self.df = df_clean
+        return removed_count
+    
+    def impute_missing(self, strategy='mean', columns=None):
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
+            
+        df_imputed = self.df.copy()
+        for col in columns:
+            if col in df_imputed.columns and df_imputed[col].isnull().any():
+                if strategy == 'mean':
+                    fill_value = df_imputed[col].mean()
+                elif strategy == 'median':
+                    fill_value = df_imputed[col].median()
+                elif strategy == 'mode':
+                    fill_value = df_imputed[col].mode()[0]
+                else:
+                    fill_value = 0
+                
+                df_imputed[col] = df_imputed[col].fillna(fill_value)
+        
+        self.df = df_imputed
+        return self.df.isnull().sum().sum()
+    
+    def standardize_columns(self, columns=None):
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
+            
+        df_scaled = self.df.copy()
+        for col in columns:
+            if col in df_scaled.columns:
+                mean = df_scaled[col].mean()
+                std = df_scaled[col].std()
+                if std > 0:
+                    df_scaled[col] = (df_scaled[col] - mean) / std
+        
+        self.df = df_scaled
+        return self.df
+    
+    def get_cleaned_data(self):
+        return self.df
+    
+    def get_cleaning_stats(self):
+        return {
+            'original_rows': self.original_shape[0],
+            'cleaned_rows': len(self.df),
+            'rows_removed': self.original_shape[0] - len(self.df),
+            'original_columns': self.original_shape[1],
+            'cleaned_columns': self.df.shape[1]
+        }
+
+def example_usage():
+    np.random.seed(42)
+    data = {
+        'feature_a': np.random.normal(100, 15, 1000),
+        'feature_b': np.random.exponential(50, 1000),
+        'feature_c': np.random.randint(1, 100, 1000)
+    }
+    
+    df = pd.DataFrame(data)
+    df.iloc[10:20, 0] = np.nan
+    df.iloc[50:60, 1] = np.nan
+    
+    cleaner = DataCleaner(df)
+    outliers_removed = cleaner.remove_outliers_iqr(threshold=1.5)
+    missing_imputed = cleaner.impute_missing(strategy='median')
+    standardized_df = cleaner.standardize_columns()
+    
+    stats = cleaner.get_cleaning_stats()
+    print(f"Outliers removed: {outliers_removed}")
+    print(f"Missing values imputed: {missing_imputed}")
+    print(f"Cleaning stats: {stats}")
+    
+    return cleaner.get_cleaned_data()
+
+if __name__ == "__main__":
+    cleaned_data = example_usage()
