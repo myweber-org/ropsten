@@ -439,4 +439,86 @@ if __name__ == "__main__":
     stats = calculate_summary_statistics(cleaned_df, 'value')
     print("Summary statistics after cleaning:")
     for key, value in stats.items():
-        print(f"{key}: {value:.2f}")
+        print(f"{key}: {value:.2f}")import pandas as pd
+import numpy as np
+
+def clean_missing_data(df, strategy='mean', columns=None):
+    """
+    Clean missing data in a pandas DataFrame.
+
+    Parameters:
+    df (pd.DataFrame): Input DataFrame.
+    strategy (str): Strategy for handling missing values.
+                    Options: 'mean', 'median', 'mode', 'drop', 'fill'.
+    columns (list): List of columns to apply cleaning. If None, applies to all.
+
+    Returns:
+    pd.DataFrame: Cleaned DataFrame.
+    """
+    if df.empty:
+        return df
+
+    if columns is None:
+        columns = df.columns.tolist()
+    else:
+        columns = [col for col in columns if col in df.columns]
+
+    df_cleaned = df.copy()
+
+    for column in columns:
+        if df_cleaned[column].isnull().any():
+            if strategy == 'mean':
+                fill_value = df_cleaned[column].mean()
+            elif strategy == 'median':
+                fill_value = df_cleaned[column].median()
+            elif strategy == 'mode':
+                fill_value = df_cleaned[column].mode()[0] if not df_cleaned[column].mode().empty else np.nan
+            elif strategy == 'drop':
+                df_cleaned = df_cleaned.dropna(subset=[column])
+                continue
+            elif strategy == 'fill':
+                fill_value = 0
+            else:
+                raise ValueError(f"Unknown strategy: {strategy}")
+
+            df_cleaned[column] = df_cleaned[column].fillna(fill_value)
+
+    return df_cleaned
+
+def remove_outliers_iqr(df, columns=None, multiplier=1.5):
+    """
+    Remove outliers using the Interquartile Range (IQR) method.
+
+    Parameters:
+    df (pd.DataFrame): Input DataFrame.
+    columns (list): List of columns to check for outliers.
+    multiplier (float): IQR multiplier.
+
+    Returns:
+    pd.DataFrame: DataFrame with outliers removed.
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns.tolist()
+
+    df_filtered = df.copy()
+    for column in columns:
+        if column in df.columns and pd.api.types.is_numeric_dtype(df[column]):
+            Q1 = df_filtered[column].quantile(0.25)
+            Q3 = df_filtered[column].quantile(0.75)
+            IQR = Q3 - Q1
+            lower_bound = Q1 - multiplier * IQR
+            upper_bound = Q3 + multiplier * IQR
+            df_filtered = df_filtered[(df_filtered[column] >= lower_bound) & (df_filtered[column] <= upper_bound)]
+
+    return df_filtered
+
+if __name__ == "__main__":
+    sample_data = {'A': [1, 2, np.nan, 4, 5],
+                   'B': [10, 20, 30, np.nan, 50],
+                   'C': [100, 200, 300, 400, 500]}
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    cleaned_df = clean_missing_data(df, strategy='mean')
+    print("\nCleaned DataFrame (mean strategy):")
+    print(cleaned_df)
