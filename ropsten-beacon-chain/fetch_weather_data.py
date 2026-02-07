@@ -505,3 +505,102 @@ if __name__ == "__main__":
         display_weather(weather)
     else:
         print("City name cannot be empty.")
+import requests
+import json
+from datetime import datetime
+
+def get_current_weather(api_key, city_name, units='metric'):
+    """
+    Fetch current weather data for a given city.
+    
+    Args:
+        api_key (str): OpenWeatherMap API key.
+        city_name (str): Name of the city to get weather for.
+        units (str): Units of measurement. 'metric' for Celsius, 'imperial' for Fahrenheit.
+    
+    Returns:
+        dict: Parsed weather data containing temperature, conditions, humidity, etc.
+              Returns None if the request fails.
+    """
+    base_url = "http://api.openweathermap.org/data/2.5/weather"
+    
+    params = {
+        'q': city_name,
+        'appid': api_key,
+        'units': units
+    }
+    
+    try:
+        response = requests.get(base_url, params=params, timeout=10)
+        response.raise_for_status()
+        
+        data = response.json()
+        
+        if data.get('cod') != 200:
+            print(f"Error: {data.get('message', 'Unknown error')}")
+            return None
+        
+        parsed_data = {
+            'city': data['name'],
+            'country': data['sys']['country'],
+            'timestamp': datetime.fromtimestamp(data['dt']).isoformat(),
+            'temperature': data['main']['temp'],
+            'feels_like': data['main']['feels_like'],
+            'humidity': data['main']['humidity'],
+            'pressure': data['main']['pressure'],
+            'weather_main': data['weather'][0]['main'],
+            'weather_description': data['weather'][0]['description'],
+            'wind_speed': data['wind']['speed'],
+            'wind_deg': data['wind'].get('deg', 0),
+            'cloudiness': data['clouds']['all'],
+            'visibility': data.get('visibility', 0),
+            'sunrise': datetime.fromtimestamp(data['sys']['sunrise']).isoformat(),
+            'sunset': datetime.fromtimestamp(data['sys']['sunset']).isoformat()
+        }
+        
+        return parsed_data
+        
+    except requests.exceptions.RequestException as e:
+        print(f"Network error occurred: {e}")
+        return None
+    except (KeyError, json.JSONDecodeError) as e:
+        print(f"Error parsing response: {e}")
+        return None
+
+def display_weather_data(weather_data):
+    """
+    Display weather data in a readable format.
+    
+    Args:
+        weather_data (dict): Parsed weather data from get_current_weather function.
+    """
+    if not weather_data:
+        print("No weather data to display.")
+        return
+    
+    print("\n" + "="*50)
+    print(f"Weather in {weather_data['city']}, {weather_data['country']}")
+    print("="*50)
+    print(f"Time: {weather_data['timestamp']}")
+    print(f"Temperature: {weather_data['temperature']}°C")
+    print(f"Feels like: {weather_data['feels_like']}°C")
+    print(f"Conditions: {weather_data['weather_main']} - {weather_data['weather_description']}")
+    print(f"Humidity: {weather_data['humidity']}%")
+    print(f"Pressure: {weather_data['pressure']} hPa")
+    print(f"Wind: {weather_data['wind_speed']} m/s at {weather_data['wind_deg']}°")
+    print(f"Cloudiness: {weather_data['cloudiness']}%")
+    print(f"Visibility: {weather_data['visibility']} meters")
+    print(f"Sunrise: {weather_data['sunrise']}")
+    print(f"Sunset: {weather_data['sunset']}")
+    print("="*50 + "\n")
+
+if __name__ == "__main__":
+    API_KEY = "your_api_key_here"
+    CITY = "London"
+    
+    weather = get_current_weather(API_KEY, CITY)
+    
+    if weather:
+        display_weather_data(weather)
+    else:
+        print("Failed to retrieve weather data.")
