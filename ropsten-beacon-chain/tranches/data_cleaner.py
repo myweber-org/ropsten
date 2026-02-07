@@ -156,3 +156,30 @@ def validate_dataframe(data):
         raise ValueError("DataFrame has no columns")
     
     return True
+import pandas as pd
+import re
+
+def clean_text(text):
+    if pd.isna(text):
+        return ""
+    text = str(text).strip().lower()
+    text = re.sub(r'\s+', ' ', text)
+    return text
+
+def remove_duplicates(df, column_name):
+    df[column_name] = df[column_name].apply(clean_text)
+    df = df.drop_duplicates(subset=[column_name], keep='first')
+    return df
+
+def process_data(input_file, output_file, column_to_clean):
+    try:
+        df = pd.read_csv(input_file)
+        df_cleaned = remove_duplicates(df, column_to_clean)
+        df_cleaned.to_csv(output_file, index=False)
+        print(f"Data cleaned and saved to {output_file}")
+        print(f"Removed {len(df) - len(df_cleaned)} duplicate entries")
+    except Exception as e:
+        print(f"Error processing data: {e}")
+
+if __name__ == "__main__":
+    process_data("raw_data.csv", "cleaned_data.csv", "description")
