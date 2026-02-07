@@ -35,4 +35,44 @@ if __name__ == "__main__":
         else:
             print("Could not retrieve user information.")
     else:
-        print("No username provided.")
+        print("No username provided.")import requests
+import sys
+
+def fetch_github_user(username):
+    """Fetch public information for a given GitHub username."""
+    url = f"https://api.github.com/users/{username}"
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.HTTPError as err:
+        if response.status_code == 404:
+            print(f"Error: User '{username}' not found.")
+        else:
+            print(f"HTTP error occurred: {err}")
+        sys.exit(1)
+    except requests.exceptions.RequestException as err:
+        print(f"Request error occurred: {err}")
+        sys.exit(1)
+
+def display_user_info(user_data):
+    """Display selected user information."""
+    if not user_data:
+        return
+
+    print(f"GitHub User: {user_data.get('login')}")
+    print(f"Name: {user_data.get('name', 'Not provided')}")
+    print(f"Bio: {user_data.get('bio', 'Not provided')}")
+    print(f"Public Repos: {user_data.get('public_repos', 0)}")
+    print(f"Followers: {user_data.get('followers', 0)}")
+    print(f"Following: {user_data.get('following', 0)}")
+    print(f"Profile URL: {user_data.get('html_url')}")
+
+if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        print("Usage: python fetch_github_user_info.py <username>")
+        sys.exit(1)
+
+    username = sys.argv[1]
+    user_data = fetch_github_user(username)
+    display_user_info(user_data)
