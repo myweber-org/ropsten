@@ -1,61 +1,33 @@
 
 import os
-import sys
-import argparse
+import glob
+from pathlib import Path
+from datetime import datetime
 
-def rename_files_with_sequence(directory, prefix="file", extension=".txt", start_number=1):
-    """
-    Rename all files in the specified directory with sequential numbering.
+def rename_files_sequentially(directory, prefix="file", extension=".txt"):
+    files = glob.glob(os.path.join(directory, f"*{extension}"))
     
-    Args:
-        directory (str): Path to the directory containing files to rename
-        prefix (str): Prefix for renamed files
-        extension (str): File extension to filter and apply
-        start_number (int): Starting number for the sequence
-    """
-    if not os.path.isdir(directory):
-        print(f"Error: Directory '{directory}' does not exist.")
-        sys.exit(1)
+    files_with_mtime = []
+    for file_path in files:
+        mtime = os.path.getmtime(file_path)
+        files_with_mtime.append((mtime, file_path))
     
-    files = [f for f in os.listdir(directory) if os.path.isfile(os.path.join(directory, f))]
+    files_with_mtime.sort(key=lambda x: x[0])
     
-    if not files:
-        print("No files found in the directory.")
-        return
-    
-    counter = start_number
-    for filename in files:
-        old_path = os.path.join(directory, filename)
-        name, ext = os.path.splitext(filename)
-        
-        if extension and not filename.endswith(extension):
-            continue
-        
-        new_filename = f"{prefix}_{counter:03d}{extension}"
-        new_path = os.path.join(directory, new_filename)
+    for index, (_, file_path) in enumerate(files_with_mtime, start=1):
+        new_filename = f"{prefix}_{index:03d}{extension}"
+        new_filepath = os.path.join(directory, new_filename)
         
         try:
-            os.rename(old_path, new_path)
-            print(f"Renamed: {filename} -> {new_filename}")
-            counter += 1
+            os.rename(file_path, new_filepath)
+            print(f"Renamed: {Path(file_path).name} -> {new_filename}")
         except OSError as e:
-            print(f"Error renaming {filename}: {e}")
-
-def main():
-    parser = argparse.ArgumentParser(description="Rename files with sequential numbering.")
-    parser.add_argument("directory", help="Directory containing files to rename")
-    parser.add_argument("-p", "--prefix", default="file", help="Prefix for renamed files")
-    parser.add_argument("-e", "--extension", default=".txt", help="File extension filter")
-    parser.add_argument("-s", "--start", type=int, default=1, help="Starting number for sequence")
-    
-    args = parser.parse_args()
-    
-    rename_files_with_sequence(
-        directory=args.directory,
-        prefix=args.prefix,
-        extension=args.extension,
-        start_number=args.start
-    )
+            print(f"Error renaming {file_path}: {e}")
 
 if __name__ == "__main__":
-    main()
+    target_directory = "./documents"
+    
+    if not os.path.exists(target_directory):
+        print(f"Directory '{target_directory}' does not exist.")
+    else:
+        rename_files_sequentially(target_directory, prefix="document", extension=".pdf")
