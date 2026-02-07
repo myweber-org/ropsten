@@ -381,4 +381,71 @@ if __name__ == "__main__":
     cleaned = clean_dataset(sample_data, numeric_columns=['A', 'B'], missing_strategy='fill')
     
     print("\nCleaned data:")
-    print(cleaned)
+    print(cleaned)import csv
+import sys
+from pathlib import Path
+
+def remove_duplicates(input_file, output_file=None, key_column=None):
+    """
+    Remove duplicate rows from a CSV file.
+    
+    Args:
+        input_file: Path to input CSV file
+        output_file: Path to output CSV file (optional)
+        key_column: Column name to identify duplicates (optional)
+    
+    Returns:
+        Number of duplicates removed
+    """
+    if output_file is None:
+        output_file = input_file.replace('.csv', '_cleaned.csv')
+    
+    seen = set()
+    duplicates_removed = 0
+    
+    with open(input_file, 'r', newline='', encoding='utf-8') as infile:
+        reader = csv.DictReader(infile)
+        fieldnames = reader.fieldnames
+        
+        with open(output_file, 'w', newline='', encoding='utf-8') as outfile:
+            writer = csv.DictWriter(outfile, fieldnames=fieldnames)
+            writer.writeheader()
+            
+            for row in reader:
+                if key_column:
+                    key = row[key_column]
+                else:
+                    key = tuple(row.values())
+                
+                if key not in seen:
+                    seen.add(key)
+                    writer.writerow(row)
+                else:
+                    duplicates_removed += 1
+    
+    return duplicates_removed
+
+def main():
+    if len(sys.argv) < 2:
+        print("Usage: python data_cleaner.py <input_file> [output_file] [key_column]")
+        sys.exit(1)
+    
+    input_file = sys.argv[1]
+    output_file = sys.argv[2] if len(sys.argv) > 2 else None
+    key_column = sys.argv[3] if len(sys.argv) > 3 else None
+    
+    if not Path(input_file).exists():
+        print(f"Error: File '{input_file}' not found")
+        sys.exit(1)
+    
+    try:
+        removed = remove_duplicates(input_file, output_file, key_column)
+        output = output_file if output_file else input_file.replace('.csv', '_cleaned.csv')
+        print(f"Removed {removed} duplicate rows")
+        print(f"Cleaned data saved to: {output}")
+    except Exception as e:
+        print(f"Error processing file: {e}")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()
