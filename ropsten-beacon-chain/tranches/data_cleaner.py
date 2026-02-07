@@ -279,3 +279,106 @@ def main():
 
 if __name__ == "__main__":
     main()
+import pandas as pd
+import numpy as np
+
+def detect_outliers_iqr(data, column):
+    """
+    Detect outliers in a specified column using the IQR method.
+    
+    Parameters:
+    data (pd.DataFrame): Input dataframe
+    column (str): Column name to analyze
+    
+    Returns:
+    pd.DataFrame: Dataframe with outliers removed
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in dataframe")
+    
+    Q1 = data[column].quantile(0.25)
+    Q3 = data[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    outliers_mask = (data[column] < lower_bound) | (data[column] > upper_bound)
+    cleaned_data = data[~outliers_mask].copy()
+    
+    outliers_count = outliers_mask.sum()
+    print(f"Removed {outliers_count} outliers from column '{column}'")
+    
+    return cleaned_data
+
+def remove_missing_values(data, strategy='drop', fill_value=None):
+    """
+    Handle missing values in dataframe.
+    
+    Parameters:
+    data (pd.DataFrame): Input dataframe
+    strategy (str): 'drop' to remove rows, 'fill' to fill values
+    fill_value: Value to fill missing data with (if strategy='fill')
+    
+    Returns:
+    pd.DataFrame: Processed dataframe
+    """
+    if strategy == 'drop':
+        cleaned_data = data.dropna()
+        print(f"Removed {len(data) - len(cleaned_data)} rows with missing values")
+    elif strategy == 'fill':
+        if fill_value is None:
+            fill_value = data.mean(numeric_only=True)
+        cleaned_data = data.fillna(fill_value)
+        print("Filled missing values")
+    else:
+        raise ValueError("Strategy must be 'drop' or 'fill'")
+    
+    return cleaned_data
+
+def clean_dataset(data, numeric_columns=None, missing_strategy='drop'):
+    """
+    Comprehensive data cleaning function.
+    
+    Parameters:
+    data (pd.DataFrame): Input dataframe
+    numeric_columns (list): List of numeric column names for outlier detection
+    missing_strategy (str): Strategy for handling missing values
+    
+    Returns:
+    pd.DataFrame: Cleaned dataframe
+    """
+    original_shape = data.shape
+    
+    cleaned_data = data.copy()
+    
+    cleaned_data = remove_missing_values(cleaned_data, strategy=missing_strategy)
+    
+    if numeric_columns:
+        for column in numeric_columns:
+            if column in cleaned_data.columns:
+                cleaned_data = detect_outliers_iqr(cleaned_data, column)
+    
+    final_shape = cleaned_data.shape
+    rows_removed = original_shape[0] - final_shape[0]
+    
+    print(f"Data cleaning complete. Removed {rows_removed} rows.")
+    print(f"Original shape: {original_shape}, Cleaned shape: {final_shape}")
+    
+    return cleaned_data
+
+if __name__ == "__main__":
+    sample_data = pd.DataFrame({
+        'A': [1, 2, 3, 100, 5, 6, 7, 8, 9, 10],
+        'B': [10, 20, 30, 40, 50, 60, 70, 80, 90, 1000],
+        'C': [1.1, 2.2, None, 4.4, 5.5, 6.6, 7.7, 8.8, 9.9, 10.0]
+    })
+    
+    print("Original data:")
+    print(sample_data)
+    print("\n")
+    
+    cleaned = clean_dataset(sample_data, numeric_columns=['A', 'B'], missing_strategy='fill')
+    
+    print("\nCleaned data:")
+    print(cleaned)
