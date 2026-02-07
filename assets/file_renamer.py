@@ -144,3 +144,29 @@ if __name__ == "__main__":
         rename_files_with_sequence(target_dir)
     else:
         print("Usage: python file_renamer.py <directory_path>")
+import os
+import glob
+from pathlib import Path
+from datetime import datetime
+
+def rename_files_with_timestamp(directory, prefix="file", extension=".txt"):
+    files = sorted(glob.glob(os.path.join(directory, "*" + extension)), key=os.path.getctime)
+    
+    for index, file_path in enumerate(files, start=1):
+        creation_time = datetime.fromtimestamp(os.path.getctime(file_path))
+        timestamp_str = creation_time.strftime("%Y%m%d_%H%M%S")
+        new_name = f"{prefix}_{timestamp_str}_{index:03d}{extension}"
+        new_path = os.path.join(directory, new_name)
+        
+        try:
+            os.rename(file_path, new_path)
+            print(f"Renamed: {Path(file_path).name} -> {new_name}")
+        except OSError as e:
+            print(f"Error renaming {file_path}: {e}")
+
+if __name__ == "__main__":
+    target_directory = "./documents"
+    if os.path.exists(target_directory):
+        rename_files_with_timestamp(target_directory, prefix="document", extension=".pdf")
+    else:
+        print(f"Directory {target_directory} does not exist.")
