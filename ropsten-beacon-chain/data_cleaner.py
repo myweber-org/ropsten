@@ -350,3 +350,11 @@ if __name__ == "__main__":
     for col in ['A', 'B', 'C']:
         lower, upper, outliers = detect_outliers_iqr(cleaned_df, col)
         print(f"Column {col}: outliers at indices {outliers}")
+def remove_duplicates_preserve_order(sequence):
+    seen = set()
+    result = []
+    for item in sequence:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
