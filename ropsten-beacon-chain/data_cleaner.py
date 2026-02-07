@@ -265,3 +265,88 @@ def example_usage():
 if __name__ == "__main__":
     result = example_usage()
     print(result.head())
+import pandas as pd
+import numpy as np
+from pathlib import Path
+
+def clean_csv_data(input_path, output_path=None, strategy='mean'):
+    """
+    Clean CSV data by handling missing values.
+    
+    Parameters:
+    input_path (str): Path to input CSV file
+    output_path (str, optional): Path for cleaned output CSV
+    strategy (str): Method for handling missing values ('mean', 'median', 'drop')
+    
+    Returns:
+    pandas.DataFrame: Cleaned DataFrame
+    """
+    
+    if not Path(input_path).exists():
+        raise FileNotFoundError(f"Input file not found: {input_path}")
+    
+    df = pd.read_csv(input_path)
+    
+    print(f"Original data shape: {df.shape}")
+    print(f"Missing values per column:\n{df.isnull().sum()}")
+    
+    if strategy == 'drop':
+        df_cleaned = df.dropna()
+    elif strategy == 'mean':
+        df_cleaned = df.fillna(df.mean(numeric_only=True))
+    elif strategy == 'median':
+        df_cleaned = df.fillna(df.median(numeric_only=True))
+    else:
+        raise ValueError(f"Unknown strategy: {strategy}")
+    
+    print(f"Cleaned data shape: {df_cleaned.shape}")
+    
+    if output_path:
+        df_cleaned.to_csv(output_path, index=False)
+        print(f"Cleaned data saved to: {output_path}")
+    
+    return df_cleaned
+
+def detect_outliers_iqr(df, column):
+    """
+    Detect outliers using IQR method.
+    
+    Parameters:
+    df (pandas.DataFrame): Input DataFrame
+    column (str): Column name to check for outliers
+    
+    Returns:
+    tuple: (lower_bound, upper_bound, outlier_indices)
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    if not np.issubdtype(df[column].dtype, np.number):
+        raise TypeError(f"Column '{column}' must be numeric")
+    
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    outliers = df[(df[column] < lower_bound) | (df[column] > upper_bound)]
+    
+    return lower_bound, upper_bound, outliers.index.tolist()
+
+if __name__ == "__main__":
+    sample_data = {
+        'A': [1, 2, np.nan, 4, 5, 100],
+        'B': [10, np.nan, 30, 40, 50, 60],
+        'C': [100, 200, 300, np.nan, 500, 600]
+    }
+    
+    df_sample = pd.DataFrame(sample_data)
+    df_sample.to_csv('sample_data.csv', index=False)
+    
+    cleaned_df = clean_csv_data('sample_data.csv', 'cleaned_sample.csv', strategy='median')
+    
+    for col in ['A', 'B', 'C']:
+        lower, upper, outliers = detect_outliers_iqr(cleaned_df, col)
+        print(f"Column {col}: outliers at indices {outliers}")
