@@ -233,3 +233,30 @@ def process_data_pipeline(data, columns=None):
             statistics[f'column_{column}'] = stats
     
     return cleaned_data, statistics
+def remove_duplicates(data_list):
+    seen = set()
+    unique_list = []
+    for item in data_list:
+        if item not in seen:
+            seen.add(item)
+            unique_list.append(item)
+    return unique_list
+
+def clean_data_with_order(data_list, key=None):
+    if key is None:
+        key = lambda x: x
+    seen = set()
+    cleaned = []
+    for item in data_list:
+        identifier = key(item)
+        if identifier not in seen:
+            seen.add(identifier)
+            cleaned.append(item)
+    return cleaned
+
+if __name__ == "__main__":
+    sample = [1, 2, 2, 3, 4, 4, 5]
+    print(remove_duplicates(sample))
+    
+    sample_dicts = [{"id": 1}, {"id": 2}, {"id": 1}, {"id": 3}]
+    print(clean_data_with_order(sample_dicts, key=lambda x: x["id"]))
