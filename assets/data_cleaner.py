@@ -153,3 +153,52 @@ if __name__ == "__main__":
     df = pd.DataFrame(sample_data)
     cleaned_df = clean_dataset(df, ['values'])
     print(cleaned_df)
+import numpy as np
+import pandas as pd
+
+def remove_outliers_iqr(df, column):
+    """
+    Remove outliers from a specified column in a DataFrame using the Interquartile Range (IQR) method.
+
+    Parameters:
+    df (pd.DataFrame): The input DataFrame.
+    column (str): The name of the column to clean.
+
+    Returns:
+    pd.DataFrame: A new DataFrame with outliers removed from the specified column.
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame.")
+
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    return filtered_df.copy()
+
+def example_usage():
+    """Example usage of the remove_outliers_iqr function."""
+    np.random.seed(42)
+    data = {
+        'id': range(1, 101),
+        'value': np.concatenate([
+            np.random.normal(50, 10, 90),
+            np.array([150, -30, 200, 180])
+        ])
+    }
+    df = pd.DataFrame(data)
+    print(f"Original shape: {df.shape}")
+    print(f"Original data preview:\n{df.head(10)}")
+
+    cleaned_df = remove_outliers_iqr(df, 'value')
+    print(f"\nCleaned shape: {cleaned_df.shape}")
+    print(f"Cleaned data preview:\n{cleaned_df.head(10)}")
+
+    print(f"\nOutliers removed: {len(df) - len(cleaned_df)}")
+
+if __name__ == "__main__":
+    example_usage()
