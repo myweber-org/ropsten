@@ -70,3 +70,59 @@ def organize_files_by_extension(directory_path):
 if __name__ == "__main__":
     target_directory = input("Enter directory path to organize: ").strip()
     organize_files_by_extension(target_directory)
+import os
+import shutil
+from pathlib import Path
+
+def organize_files(directory_path):
+    """
+    Organizes files in the given directory by moving them into subfolders
+    named after their file extensions.
+    """
+    # Convert to Path object for easier handling
+    base_path = Path(directory_path)
+
+    # Check if the directory exists
+    if not base_path.exists() or not base_path.is_dir():
+        print(f"Error: The directory '{directory_path}' does not exist or is not a directory.")
+        return
+
+    # Iterate over all items in the directory
+    for item in base_path.iterdir():
+        # Skip if it's a directory
+        if item.is_dir():
+            continue
+
+        # Get the file extension (without the dot)
+        extension = item.suffix[1:].lower() if item.suffix else 'no_extension'
+
+        # Create a folder name based on the extension
+        folder_name = extension if extension else 'no_extension'
+        target_folder = base_path / folder_name
+
+        # Create the target folder if it doesn't exist
+        target_folder.mkdir(exist_ok=True)
+
+        # Construct the target file path
+        target_file_path = target_folder / item.name
+
+        # Check if a file with the same name already exists in the target folder
+        counter = 1
+        while target_file_path.exists():
+            # Append a number to the filename to avoid overwriting
+            new_name = f"{item.stem}_{counter}{item.suffix}"
+            target_file_path = target_folder / new_name
+            counter += 1
+
+        # Move the file
+        try:
+            shutil.move(str(item), str(target_file_path))
+            print(f"Moved: {item.name} -> {target_folder.name}/")
+        except Exception as e:
+            print(f"Failed to move {item.name}: {e}")
+
+if __name__ == "__main__":
+    # Example usage: organize files in the current directory
+    current_directory = os.getcwd()
+    organize_files(current_directory)
+    print("File organization complete.")
