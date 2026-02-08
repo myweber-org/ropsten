@@ -616,4 +616,126 @@ if __name__ == "__main__":
     
     print("\nNormalization complete")
     print("Temperature range after normalization:", normalized_temp.min(), "to", normalized_temp.max())
-    print("Pressure mean after standardization:", standardized_pressure.mean())
+    print("Pressure mean after standardization:", standardized_pressure.mean())import numpy as np
+import pandas as pd
+
+def remove_outliers_iqr(data, column, factor=1.5):
+    """
+    Remove outliers using the Interquartile Range method.
+    
+    Parameters:
+    data (pd.DataFrame): Input dataframe
+    column (str): Column name to process
+    factor (float): Multiplier for IQR (default 1.5)
+    
+    Returns:
+    pd.DataFrame: Dataframe with outliers removed
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in dataframe")
+    
+    q1 = data[column].quantile(0.25)
+    q3 = data[column].quantile(0.75)
+    iqr = q3 - q1
+    
+    lower_bound = q1 - factor * iqr
+    upper_bound = q3 + factor * iqr
+    
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    return filtered_data.copy()
+
+def normalize_minmax(data, columns=None):
+    """
+    Normalize data using Min-Max scaling to [0, 1] range.
+    
+    Parameters:
+    data (pd.DataFrame): Input dataframe
+    columns (list): List of columns to normalize (default: all numeric columns)
+    
+    Returns:
+    pd.DataFrame: Normalized dataframe
+    """
+    if columns is None:
+        numeric_cols = data.select_dtypes(include=[np.number]).columns
+        columns = list(numeric_cols)
+    
+    normalized_data = data.copy()
+    
+    for col in columns:
+        if col not in data.columns:
+            raise ValueError(f"Column '{col}' not found in dataframe")
+        
+        if not pd.api.types.is_numeric_dtype(data[col]):
+            raise TypeError(f"Column '{col}' is not numeric")
+        
+        col_min = data[col].min()
+        col_max = data[col].max()
+        
+        if col_max == col_min:
+            normalized_data[col] = 0.5
+        else:
+            normalized_data[col] = (data[col] - col_min) / (col_max - col_min)
+    
+    return normalized_data
+
+def handle_missing_values(data, strategy='mean', columns=None):
+    """
+    Handle missing values in dataframe.
+    
+    Parameters:
+    data (pd.DataFrame): Input dataframe
+    strategy (str): Imputation strategy ('mean', 'median', 'mode', 'drop')
+    columns (list): List of columns to process (default: all columns)
+    
+    Returns:
+    pd.DataFrame: Dataframe with handled missing values
+    """
+    if columns is None:
+        columns = data.columns
+    
+    processed_data = data.copy()
+    
+    for col in columns:
+        if col not in data.columns:
+            raise ValueError(f"Column '{col}' not found in dataframe")
+        
+        if data[col].isnull().any():
+            if strategy == 'drop':
+                processed_data = processed_data.dropna(subset=[col])
+            elif strategy == 'mean':
+                if pd.api.types.is_numeric_dtype(data[col]):
+                    processed_data[col].fillna(data[col].mean(), inplace=True)
+            elif strategy == 'median':
+                if pd.api.types.is_numeric_dtype(data[col]):
+                    processed_data[col].fillna(data[col].median(), inplace=True)
+            elif strategy == 'mode':
+                processed_data[col].fillna(data[col].mode()[0], inplace=True)
+            else:
+                raise ValueError(f"Unknown strategy: {strategy}")
+    
+    return processed_data
+
+def validate_data(data, required_columns=None, min_rows=1):
+    """
+    Validate dataframe structure and content.
+    
+    Parameters:
+    data (pd.DataFrame): Input dataframe
+    required_columns (list): List of required column names
+    min_rows (int): Minimum number of rows required
+    
+    Returns:
+    tuple: (is_valid, error_message)
+    """
+    if not isinstance(data, pd.DataFrame):
+        return False, "Input is not a pandas DataFrame"
+    
+    if len(data) < min_rows:
+        return False, f"Dataframe has less than {min_rows} rows"
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in data.columns]
+        if missing_cols:
+            return False, f"Missing required columns: {missing_cols}"
+    
+    return True, "Data validation passed"
