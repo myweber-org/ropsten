@@ -145,3 +145,72 @@ if __name__ == "__main__":
     
     is_valid, message = validate_dataframe(cleaned, required_columns=['A', 'B'])
     print(f"\nValidation: {message}")
+import pandas as pd
+import numpy as np
+
+def clean_csv_data(input_path, output_path, missing_strategy='mean'):
+    """
+    Load a CSV file, handle missing values, and save cleaned data.
+    """
+    try:
+        df = pd.read_csv(input_path)
+        print(f"Original shape: {df.shape}")
+        
+        missing_count = df.isnull().sum().sum()
+        if missing_count > 0:
+            print(f"Found {missing_count} missing values")
+            
+            if missing_strategy == 'mean':
+                df = df.fillna(df.mean(numeric_only=True))
+            elif missing_strategy == 'median':
+                df = df.fillna(df.median(numeric_only=True))
+            elif missing_strategy == 'drop':
+                df = df.dropna()
+            else:
+                df = df.fillna(0)
+            
+            print(f"Missing values handled using: {missing_strategy}")
+        
+        df.to_csv(output_path, index=False)
+        print(f"Cleaned data saved to: {output_path}")
+        print(f"Final shape: {df.shape}")
+        return True
+        
+    except FileNotFoundError:
+        print(f"Error: File not found at {input_path}")
+        return False
+    except Exception as e:
+        print(f"Error during cleaning: {str(e)}")
+        return False
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate dataframe structure and content.
+    """
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            raise ValueError(f"Missing required columns: {missing_cols}")
+    
+    if df.empty:
+        raise ValueError("DataFrame is empty")
+    
+    return True
+
+if __name__ == "__main__":
+    sample_data = {
+        'A': [1, 2, np.nan, 4, 5],
+        'B': [5, np.nan, 7, 8, 9],
+        'C': [10, 11, 12, np.nan, 14]
+    }
+    
+    test_df = pd.DataFrame(sample_data)
+    test_df.to_csv('test_input.csv', index=False)
+    
+    clean_csv_data('test_input.csv', 'test_output.csv', 'mean')
+    
+    import os
+    if os.path.exists('test_input.csv'):
+        os.remove('test_input.csv')
+    if os.path.exists('test_output.csv'):
+        os.remove('test_output.csv')
