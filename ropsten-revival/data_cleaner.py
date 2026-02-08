@@ -419,4 +419,94 @@ if __name__ == "__main__":
     print(f"Cleaned shape: {cleaned_df.shape}")
     
     is_valid = validate_dataframe(cleaned_df, ['temperature', 'humidity', 'pressure'])
-    print(f"\nDataFrame validation: {is_valid}")
+    print(f"\nDataFrame validation: {is_valid}")import pandas as pd
+
+def clean_dataset(df, drop_duplicates=True, fill_missing=True, fill_value=0):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean.
+        drop_duplicates (bool): Whether to drop duplicate rows. Default is True.
+        fill_missing (bool): Whether to fill missing values. Default is True.
+        fill_value: Value to use for filling missing values. Default is 0.
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame.
+    """
+    cleaned_df = df.copy()
+    
+    if drop_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates()
+    
+    if fill_missing:
+        cleaned_df = cleaned_df.fillna(fill_value)
+    
+    return cleaned_df
+
+def calculate_statistics(df, numeric_columns=None):
+    """
+    Calculate basic statistics for numeric columns in the DataFrame.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame.
+        numeric_columns (list): List of numeric column names. If None, uses all numeric columns.
+    
+    Returns:
+        dict: Dictionary containing statistics for each numeric column.
+    """
+    if numeric_columns is None:
+        numeric_columns = df.select_dtypes(include=['number']).columns.tolist()
+    
+    stats = {}
+    for col in numeric_columns:
+        if col in df.columns:
+            col_data = df[col]
+            stats[col] = {
+                'mean': col_data.mean(),
+                'median': col_data.median(),
+                'std': col_data.std(),
+                'min': col_data.min(),
+                'max': col_data.max(),
+                'count': col_data.count()
+            }
+    
+    return stats
+
+def filter_outliers(df, column, method='iqr', multiplier=1.5):
+    """
+    Filter outliers from a DataFrame column using specified method.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame.
+        column (str): Column name to filter.
+        method (str): Method to detect outliers. 'iqr' or 'zscore'.
+        multiplier (float): Multiplier for IQR method or threshold for z-score.
+    
+    Returns:
+        pd.DataFrame: DataFrame with outliers removed.
+    """
+    if column not in df.columns:
+        return df
+    
+    data = df[column].dropna()
+    
+    if method == 'iqr':
+        Q1 = data.quantile(0.25)
+        Q3 = data.quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - multiplier * IQR
+        upper_bound = Q3 + multiplier * IQR
+        filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    
+    elif method == 'zscore':
+        from scipy import stats
+        z_scores = stats.zscore(data)
+        abs_z_scores = abs(z_scores)
+        filtered_indices = abs_z_scores < multiplier
+        filtered_df = df.loc[data.index[filtered_indices]]
+    
+    else:
+        filtered_df = df
+    
+    return filtered_df
