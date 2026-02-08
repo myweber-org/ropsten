@@ -246,3 +246,185 @@ def clean_dataset(input_file, output_file):
 
 if __name__ == "__main__":
     cleaned_df = clean_dataset('raw_data.csv', 'cleaned_data.csv')
+import numpy as np
+import pandas as pd
+
+def remove_outliers_iqr(data, column, multiplier=1.5):
+    """
+    Remove outliers using the Interquartile Range method.
+    
+    Args:
+        data: pandas DataFrame
+        column: column name to process
+        multiplier: IQR multiplier (default 1.5)
+    
+    Returns:
+        DataFrame with outliers removed
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    q1 = data[column].quantile(0.25)
+    q3 = data[column].quantile(0.75)
+    iqr = q3 - q1
+    lower_bound = q1 - multiplier * iqr
+    upper_bound = q3 + multiplier * iqr
+    
+    return data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+
+def normalize_minmax(data, column):
+    """
+    Normalize data using min-max scaling to [0, 1] range.
+    
+    Args:
+        data: pandas DataFrame
+        column: column name to normalize
+    
+    Returns:
+        Series with normalized values
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    min_val = data[column].min()
+    max_val = data[column].max()
+    
+    if max_val == min_val:
+        return pd.Series([0.5] * len(data), index=data.index)
+    
+    return (data[column] - min_val) / (max_val - min_val)
+
+def standardize_zscore(data, column):
+    """
+    Standardize data using z-score normalization.
+    
+    Args:
+        data: pandas DataFrame
+        column: column name to standardize
+    
+    Returns:
+        Series with standardized values
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    mean_val = data[column].mean()
+    std_val = data[column].std()
+    
+    if std_val == 0:
+        return pd.Series([0] * len(data), index=data.index)
+    
+    return (data[column] - mean_val) / std_val
+
+def handle_missing_values(data, strategy='mean', columns=None):
+    """
+    Handle missing values in specified columns.
+    
+    Args:
+        data: pandas DataFrame
+        strategy: imputation strategy ('mean', 'median', 'mode', 'constant')
+        columns: list of columns to process (None for all numeric columns)
+    
+    Returns:
+        DataFrame with missing values handled
+    """
+    if columns is None:
+        columns = data.select_dtypes(include=[np.number]).columns
+    
+    data_filled = data.copy()
+    
+    for col in columns:
+        if col not in data.columns:
+            continue
+            
+        if strategy == 'mean':
+            fill_value = data[col].mean()
+        elif strategy == 'median':
+            fill_value = data[col].median()
+        elif strategy == 'mode':
+            fill_value = data[col].mode()[0] if not data[col].mode().empty else 0
+        elif strategy == 'constant':
+            fill_value = 0
+        else:
+            raise ValueError(f"Unknown strategy: {strategy}")
+        
+        data_filled[col] = data[col].fillna(fill_value)
+    
+    return data_filled
+
+def clean_dataset(data, numeric_columns=None, outlier_multiplier=1.5, 
+                  normalize_cols=None, standardize_cols=None, 
+                  missing_strategy='mean'):
+    """
+    Comprehensive data cleaning pipeline.
+    
+    Args:
+        data: pandas DataFrame
+        numeric_columns: list of numeric columns to process
+        outlier_multiplier: IQR multiplier for outlier removal
+        normalize_cols: columns to normalize using min-max
+        standardize_cols: columns to standardize using z-score
+        missing_strategy: strategy for handling missing values
+    
+    Returns:
+        Cleaned DataFrame
+    """
+    if numeric_columns is None:
+        numeric_columns = data.select_dtypes(include=[np.number]).columns.tolist()
+    
+    cleaned_data = data.copy()
+    
+    # Handle missing values
+    cleaned_data = handle_missing_values(
+        cleaned_data, 
+        strategy=missing_strategy, 
+        columns=numeric_columns
+    )
+    
+    # Remove outliers from numeric columns
+    for col in numeric_columns:
+        if col in cleaned_data.columns:
+            cleaned_data = remove_outliers_iqr(
+                cleaned_data, 
+                col, 
+                multiplier=outlier_multiplier
+            )
+    
+    # Apply normalization
+    if normalize_cols:
+        for col in normalize_cols:
+            if col in cleaned_data.columns:
+                cleaned_data[f'{col}_normalized'] = normalize_minmax(cleaned_data, col)
+    
+    # Apply standardization
+    if standardize_cols:
+        for col in standardize_cols:
+            if col in cleaned_data.columns:
+                cleaned_data[f'{col}_standardized'] = standardize_zscore(cleaned_data, col)
+    
+    return cleaned_data
+
+def validate_data(data, required_columns=None, min_rows=1):
+    """
+    Validate data structure and content.
+    
+    Args:
+        data: pandas DataFrame
+        required_columns: list of required column names
+        min_rows: minimum number of rows required
+    
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    if not isinstance(data, pd.DataFrame):
+        return False, "Data must be a pandas DataFrame"
+    
+    if len(data) < min_rows:
+        return False, f"Data must have at least {min_rows} rows"
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in data.columns]
+        if missing_cols:
+            return False, f"Missing required columns: {missing_cols}"
+    
+    return True, "Data validation passed"
