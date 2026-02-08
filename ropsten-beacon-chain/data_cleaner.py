@@ -611,3 +611,85 @@ def calculate_statistics(df):
     }
     
     return pd.DataFrame(stats)
+import pandas as pd
+import re
+from typing import List, Optional
+
+class DataCleaner:
+    def __init__(self, df: pd.DataFrame):
+        self.df = df.copy()
+        
+    def remove_duplicates(self, subset: Optional[List[str]] = None) -> pd.DataFrame:
+        initial_count = len(self.df)
+        self.df = self.df.drop_duplicates(subset=subset, keep='first')
+        removed_count = initial_count - len(self.df)
+        print(f"Removed {removed_count} duplicate rows")
+        return self.df
+    
+    def normalize_text(self, column: str) -> pd.DataFrame:
+        if column not in self.df.columns:
+            raise ValueError(f"Column '{column}' not found in DataFrame")
+        
+        def clean_text(text: str) -> str:
+            if pd.isna(text):
+                return text
+            text = str(text).lower().strip()
+            text = re.sub(r'\s+', ' ', text)
+            text = re.sub(r'[^\w\s]', '', text)
+            return text
+        
+        self.df[column] = self.df[column].apply(clean_text)
+        print(f"Normalized text in column '{column}'")
+        return self.df
+    
+    def handle_missing_values(self, column: str, strategy: str = 'mean') -> pd.DataFrame:
+        if column not in self.df.columns:
+            raise ValueError(f"Column '{column}' not found in DataFrame")
+        
+        if strategy == 'mean':
+            fill_value = self.df[column].mean()
+        elif strategy == 'median':
+            fill_value = self.df[column].median()
+        elif strategy == 'mode':
+            fill_value = self.df[column].mode()[0]
+        elif strategy == 'drop':
+            self.df = self.df.dropna(subset=[column])
+            print(f"Dropped rows with missing values in column '{column}'")
+            return self.df
+        else:
+            raise ValueError("Strategy must be 'mean', 'median', 'mode', or 'drop'")
+        
+        missing_count = self.df[column].isna().sum()
+        self.df[column] = self.df[column].fillna(fill_value)
+        print(f"Filled {missing_count} missing values in column '{column}' with {strategy}: {fill_value}")
+        return self.df
+    
+    def get_dataframe(self) -> pd.DataFrame:
+        return self.df.copy()
+
+def example_usage():
+    data = {
+        'id': [1, 2, 3, 4, 5, 5],
+        'name': ['John Doe', 'Jane Smith', 'john doe', 'Bob Johnson', 'Alice Brown', 'Alice Brown'],
+        'age': [25, 30, None, 35, 28, 28],
+        'email': ['john@example.com', 'jane@example.com', 'john@example.com', 'bob@example.com', 'alice@example.com', 'alice@example.com']
+    }
+    
+    df = pd.DataFrame(data)
+    print("Original DataFrame:")
+    print(df)
+    print("\n" + "="*50 + "\n")
+    
+    cleaner = DataCleaner(df)
+    cleaner.remove_duplicates(subset=['id', 'email'])
+    cleaner.normalize_text('name')
+    cleaner.handle_missing_values('age', strategy='mean')
+    
+    cleaned_df = cleaner.get_dataframe()
+    print("\nCleaned DataFrame:")
+    print(cleaned_df)
+    
+    return cleaned_df
+
+if __name__ == "__main__":
+    example_usage()
