@@ -214,3 +214,82 @@ if __name__ == "__main__":
         os.remove('test_input.csv')
     if os.path.exists('test_output.csv'):
         os.remove('test_output.csv')
+import numpy as np
+
+def remove_outliers_iqr(data, column):
+    """
+    Remove outliers from a specified column using the Interquartile Range method.
+    
+    Parameters:
+    data (list or array): The dataset containing the column to clean.
+    column (int or str): The index or name of the column to process.
+    
+    Returns:
+    tuple: (cleaned_data, removed_indices)
+    """
+    if isinstance(data, list):
+        data_array = np.array(data)
+    else:
+        data_array = data.copy()
+    
+    col_data = data_array[:, column] if isinstance(column, int) else data_array[column]
+    
+    q1 = np.percentile(col_data, 25)
+    q3 = np.percentile(col_data, 75)
+    iqr = q3 - q1
+    
+    lower_bound = q1 - 1.5 * iqr
+    upper_bound = q3 + 1.5 * iqr
+    
+    outlier_mask = (col_data >= lower_bound) & (col_data <= upper_bound)
+    cleaned_data = data_array[outlier_mask]
+    removed_indices = np.where(~outlier_mask)[0]
+    
+    return cleaned_data, removed_indices
+
+def calculate_statistics(data, column):
+    """
+    Calculate basic statistics for a column after outlier removal.
+    
+    Parameters:
+    data (array): The dataset.
+    column (int or str): The column to analyze.
+    
+    Returns:
+    dict: Dictionary containing mean, median, std, min, max.
+    """
+    col_data = data[:, column] if isinstance(column, int) else data[column]
+    
+    stats = {
+        'mean': np.mean(col_data),
+        'median': np.median(col_data),
+        'std': np.std(col_data),
+        'min': np.min(col_data),
+        'max': np.max(col_data),
+        'count': len(col_data)
+    }
+    
+    return stats
+
+def example_usage():
+    """
+    Example usage of the data cleaning functions.
+    """
+    np.random.seed(42)
+    sample_data = np.random.randn(100, 3)
+    sample_data[10, 1] = 10.0
+    sample_data[20, 1] = -8.0
+    
+    print("Original data shape:", sample_data.shape)
+    
+    cleaned_data, removed = remove_outliers_iqr(sample_data, column=1)
+    print("Cleaned data shape:", cleaned_data.shape)
+    print("Removed indices:", removed)
+    
+    stats = calculate_statistics(cleaned_data, column=1)
+    print("Statistics after cleaning:")
+    for key, value in stats.items():
+        print(f"{key}: {value:.4f}")
+
+if __name__ == "__main__":
+    example_usage()
