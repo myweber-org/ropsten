@@ -90,4 +90,40 @@ def clean_dataset(df, numeric_columns, outlier_method='iqr', normalize_method='m
         elif normalize_method == 'zscore':
             cleaned_df = normalize_zscore(cleaned_df, col)
     
-    return cleaned_df
+    return cleaned_dfimport pandas as pd
+
+def clean_dataset(file_path, output_path=None):
+    """
+    Load a CSV file, remove duplicate rows, sort by the first column,
+    and save the cleaned data.
+    """
+    try:
+        df = pd.read_csv(file_path)
+        initial_count = len(df)
+        df_cleaned = df.drop_duplicates()
+        df_cleaned = df_cleaned.sort_values(by=df_cleaned.columns[0])
+        final_count = len(df_cleaned)
+        duplicates_removed = initial_count - final_count
+
+        if output_path is None:
+            output_path = file_path.replace('.csv', '_cleaned.csv')
+
+        df_cleaned.to_csv(output_path, index=False)
+        print(f"Cleaning complete. Removed {duplicates_removed} duplicate rows.")
+        print(f"Cleaned data saved to: {output_path}")
+        return df_cleaned
+
+    except FileNotFoundError:
+        print(f"Error: File not found at {file_path}")
+        return None
+    except pd.errors.EmptyDataError:
+        print("Error: The file is empty.")
+        return None
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+        return None
+
+if __name__ == "__main__":
+    # Example usage
+    input_file = "sample_data.csv"
+    clean_dataset(input_file)
