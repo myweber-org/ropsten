@@ -259,4 +259,57 @@ if __name__ == "__main__":
     print(remove_duplicates(sample))
     
     sample_dicts = [{"id": 1}, {"id": 2}, {"id": 1}, {"id": 3}]
-    print(clean_data_with_order(sample_dicts, key=lambda x: x["id"]))
+    print(clean_data_with_order(sample_dicts, key=lambda x: x["id"]))import pandas as pd
+import re
+
+def clean_dataframe(df, text_column='text', id_column='id'):
+    """
+    Clean a DataFrame by removing duplicate rows based on id_column,
+    normalizing text in text_column, and dropping rows with empty text.
+    """
+    # Remove duplicate rows based on id
+    df_clean = df.drop_duplicates(subset=[id_column], keep='first').copy()
+    
+    # Normalize text: lowercase, remove extra whitespace
+    def normalize_text(text):
+        if pd.isna(text):
+            return ''
+        text = str(text).lower()
+        text = re.sub(r'\s+', ' ', text).strip()
+        return text
+    
+    df_clean[text_column] = df_clean[text_column].apply(normalize_text)
+    
+    # Remove rows where text is empty after normalization
+    df_clean = df_clean[df_clean[text_column] != '']
+    
+    # Reset index
+    df_clean.reset_index(drop=True, inplace=True)
+    
+    return df_clean
+
+def save_cleaned_data(df, input_path, output_suffix='_cleaned'):
+    """
+    Save cleaned DataFrame to a new CSV file.
+    """
+    if input_path.endswith('.csv'):
+        output_path = input_path.replace('.csv', f'{output_suffix}.csv')
+        df.to_csv(output_path, index=False)
+        print(f"Cleaned data saved to: {output_path}")
+    else:
+        print("Input file must be a CSV.")
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = pd.DataFrame({
+        'id': [1, 2, 2, 3, 4],
+        'text': ['Hello World!', 'Duplicate entry', 'Duplicate entry', '   Mixed CASE   ', '']
+    })
+    
+    print("Original DataFrame:")
+    print(sample_data)
+    
+    cleaned_df = clean_dataframe(sample_data, text_column='text', id_column='id')
+    
+    print("\nCleaned DataFrame:")
+    print(cleaned_df)
