@@ -110,3 +110,126 @@ if __name__ == "__main__":
     print("\nCleaned DataFrame:")
     cleaned_df = clean_dataset(df)
     print(cleaned_df)
+import numpy as np
+
+def remove_outliers_iqr(data, column):
+    """
+    Remove outliers from a specific column using the Interquartile Range method.
+    
+    Parameters:
+    data (np.ndarray): Input data array
+    column (int): Column index to process
+    
+    Returns:
+    np.ndarray: Data with outliers removed
+    """
+    if data.size == 0:
+        return data
+    
+    col_data = data[:, column]
+    q1 = np.percentile(col_data, 25)
+    q3 = np.percentile(col_data, 75)
+    iqr = q3 - q1
+    
+    lower_bound = q1 - 1.5 * iqr
+    upper_bound = q3 + 1.5 * iqr
+    
+    mask = (col_data >= lower_bound) & (col_data <= upper_bound)
+    return data[mask]
+
+def calculate_statistics(data, column):
+    """
+    Calculate basic statistics for a column after outlier removal.
+    
+    Parameters:
+    data (np.ndarray): Input data array
+    column (int): Column index to analyze
+    
+    Returns:
+    dict: Dictionary containing statistical measures
+    """
+    if data.size == 0:
+        return {}
+    
+    col_data = data[:, column]
+    stats = {
+        'mean': np.mean(col_data),
+        'median': np.median(col_data),
+        'std': np.std(col_data),
+        'min': np.min(col_data),
+        'max': np.max(col_data),
+        'count': len(col_data)
+    }
+    return stats
+
+def clean_dataset(data, columns_to_clean=None):
+    """
+    Clean dataset by removing outliers from specified columns.
+    
+    Parameters:
+    data (np.ndarray): Input data array
+    columns_to_clean (list): List of column indices to clean
+    
+    Returns:
+    np.ndarray: Cleaned data array
+    """
+    if columns_to_clean is None:
+        columns_to_clean = list(range(data.shape[1]))
+    
+    cleaned_data = data.copy()
+    for column in columns_to_clean:
+        if column < data.shape[1]:
+            cleaned_data = remove_outliers_iqr(cleaned_data, column)
+    
+    return cleaned_data
+
+def validate_data(data):
+    """
+    Validate data for common issues.
+    
+    Parameters:
+    data (np.ndarray): Input data array
+    
+    Returns:
+    bool: True if data is valid, False otherwise
+    """
+    if data is None:
+        return False
+    
+    if not isinstance(data, np.ndarray):
+        return False
+    
+    if data.size == 0:
+        return False
+    
+    if np.any(np.isnan(data)):
+        return False
+    
+    return True
+
+def process_data_pipeline(data, columns=None):
+    """
+    Complete data processing pipeline.
+    
+    Parameters:
+    data (np.ndarray): Input data array
+    columns (list): List of column indices to process
+    
+    Returns:
+    tuple: (cleaned_data, statistics_dict)
+    """
+    if not validate_data(data):
+        raise ValueError("Invalid input data")
+    
+    cleaned_data = clean_dataset(data, columns)
+    
+    statistics = {}
+    if columns is None:
+        columns = list(range(data.shape[1]))
+    
+    for column in columns:
+        if column < data.shape[1]:
+            stats = calculate_statistics(cleaned_data, column)
+            statistics[f'column_{column}'] = stats
+    
+    return cleaned_data, statistics
