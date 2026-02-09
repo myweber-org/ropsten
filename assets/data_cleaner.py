@@ -603,4 +603,84 @@ def validate_dataframe(df, required_columns=None):
 #     cleaned = clean_dataset(df, fill_method='mean')
 #     print("Original shape:", df.shape)
 #     print("Cleaned shape:", cleaned.shape)
-#     print("Validation:", validate_dataframe(cleaned))
+#     print("Validation:", validate_dataframe(cleaned))import pandas as pd
+import numpy as np
+from typing import List, Optional
+
+class DataCleaner:
+    def __init__(self, df: pd.DataFrame):
+        self.df = df.copy()
+        self.cleaning_log = []
+
+    def remove_duplicates(self, subset: Optional[List[str]] = None) -> pd.DataFrame:
+        initial_count = len(self.df)
+        self.df = self.df.drop_duplicates(subset=subset, keep='first')
+        removed = initial_count - len(self.df)
+        self.cleaning_log.append(f"Removed {removed} duplicate rows")
+        return self.df
+
+    def standardize_text(self, column: str) -> pd.DataFrame:
+        if column in self.df.columns:
+            self.df[column] = self.df[column].astype(str).str.lower().str.strip()
+            self.cleaning_log.append(f"Standardized text in column '{column}'")
+        return self.df
+
+    def fill_missing_values(self, column: str, strategy: str = 'mean') -> pd.DataFrame:
+        if column not in self.df.columns:
+            return self.df
+            
+        if strategy == 'mean':
+            fill_value = self.df[column].mean()
+        elif strategy == 'median':
+            fill_value = self.df[column].median()
+        elif strategy == 'mode':
+            fill_value = self.df[column].mode()[0]
+        else:
+            fill_value = 0
+            
+        self.df[column] = self.df[column].fillna(fill_value)
+        self.cleaning_log.append(f"Filled missing values in '{column}' using {strategy}")
+        return self.df
+
+    def remove_outliers(self, column: str, threshold: float = 3.0) -> pd.DataFrame:
+        if column not in self.df.columns:
+            return self.df
+            
+        z_scores = np.abs((self.df[column] - self.df[column].mean()) / self.df[column].std())
+        initial_count = len(self.df)
+        self.df = self.df[z_scores < threshold]
+        removed = initial_count - len(self.df)
+        self.cleaning_log.append(f"Removed {removed} outliers from column '{column}'")
+        return self.df
+
+    def get_cleaning_summary(self) -> str:
+        summary = f"Data cleaning completed. {len(self.cleaning_log)} operations performed:\n"
+        for log_entry in self.cleaning_log:
+            summary += f"- {log_entry}\n"
+        return summary
+
+    def save_cleaned_data(self, filepath: str) -> None:
+        self.df.to_csv(filepath, index=False)
+        self.cleaning_log.append(f"Saved cleaned data to {filepath}")
+
+def example_usage():
+    data = {
+        'name': ['Alice', 'Bob', 'Alice', 'Charlie', None],
+        'age': [25, 30, 25, 150, 28],
+        'score': [85.5, 92.0, 85.5, 99.9, 88.0]
+    }
+    
+    df = pd.DataFrame(data)
+    cleaner = DataCleaner(df)
+    
+    cleaner.remove_duplicates(['name', 'age'])
+    cleaner.standardize_text('name')
+    cleaner.fill_missing_values('name', strategy='mode')
+    cleaner.remove_outliers('age')
+    
+    print(cleaner.get_cleaning_summary())
+    return cleaner.df
+
+if __name__ == "__main__":
+    cleaned_df = example_usage()
+    print(f"Cleaned data shape: {cleaned_df.shape}")
