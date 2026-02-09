@@ -414,4 +414,45 @@ if __name__ == "__main__":
         print("\nNote: To use this script, you need to:")
         print("1. Sign up for a free API key at https://openweathermap.org/api")
         print("2. Set your API key as environment variable: OPENWEATHER_API_KEY")
-        print("3. Or modify the script to include your API key directly")
+        print("3. Or modify the script to include your API key directly")import requests
+import json
+import sys
+
+def get_weather(api_key, city):
+    base_url = "http://api.openweathermap.org/data/2.5/weather"
+    params = {
+        'q': city,
+        'appid': api_key,
+        'units': 'metric'
+    }
+    try:
+        response = requests.get(base_url, params=params)
+        response.raise_for_status()
+        data = response.json()
+        return data
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching weather data: {e}")
+        return None
+
+def display_weather(data):
+    if data and data.get('cod') == 200:
+        city = data['name']
+        country = data['sys']['country']
+        temp = data['main']['temp']
+        humidity = data['main']['humidity']
+        description = data['weather'][0]['description']
+        print(f"Weather in {city}, {country}:")
+        print(f"Temperature: {temp}°C")
+        print(f"Humidity: {humidity}%")
+        print(f"Conditions: {description.capitalize()}")
+    else:
+        print("City not found or invalid API response.")
+
+if __name__ == "__main__":
+    if len(sys.argv) != 3:
+        print("Usage: python fetch_weather_data.py <API_KEY> <CITY_NAME>")
+        sys.exit(1)
+    api_key = sys.argv[1]
+    city = sys.argv[2]
+    weather_data = get_weather(api_key, city)
+    display_weather(weather_data)
