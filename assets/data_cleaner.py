@@ -207,3 +207,92 @@ if __name__ == "__main__":
     
     is_valid = validate_dataframe(cleaned_df, required_columns=['id', 'value', 'category'])
     print(f"Data validation passed: {is_valid}")
+import numpy as np
+
+def remove_outliers_iqr(data, column):
+    """
+    Remove outliers from a specified column using the Interquartile Range method.
+    
+    Args:
+        data (np.ndarray): Input data array
+        column (int): Column index to process
+    
+    Returns:
+        np.ndarray: Data with outliers removed
+    """
+    if not isinstance(data, np.ndarray):
+        raise ValueError("Input data must be a numpy array")
+    
+    if column >= data.shape[1]:
+        raise ValueError("Column index out of bounds")
+    
+    column_data = data[:, column]
+    
+    Q1 = np.percentile(column_data, 25)
+    Q3 = np.percentile(column_data, 75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    mask = (column_data >= lower_bound) & (column_data <= upper_bound)
+    
+    return data[mask]
+
+def calculate_statistics(data):
+    """
+    Calculate basic statistics for the data.
+    
+    Args:
+        data (np.ndarray): Input data array
+    
+    Returns:
+        dict: Dictionary containing mean, median, and std
+    """
+    if data.size == 0:
+        return {"mean": np.nan, "median": np.nan, "std": np.nan}
+    
+    return {
+        "mean": np.mean(data),
+        "median": np.median(data),
+        "std": np.std(data)
+    }
+
+def process_dataset(data_path, column_index=0):
+    """
+    Load and process dataset by removing outliers.
+    
+    Args:
+        data_path (str): Path to data file
+        column_index (int): Column to process for outliers
+    
+    Returns:
+        tuple: (cleaned_data, original_stats, cleaned_stats)
+    """
+    try:
+        data = np.loadtxt(data_path, delimiter=',')
+    except FileNotFoundError:
+        print(f"Error: File {data_path} not found")
+        return None, None, None
+    
+    original_stats = calculate_statistics(data[:, column_index])
+    
+    cleaned_data = remove_outliers_iqr(data, column_index)
+    
+    cleaned_stats = calculate_statistics(cleaned_data[:, column_index])
+    
+    return cleaned_data, original_stats, cleaned_stats
+
+if __name__ == "__main__":
+    sample_data = np.random.randn(1000, 3) * 10 + 50
+    
+    print("Original data shape:", sample_data.shape)
+    
+    cleaned = remove_outliers_iqr(sample_data, 0)
+    
+    print("Cleaned data shape:", cleaned.shape)
+    
+    stats = calculate_statistics(cleaned[:, 0])
+    print(f"Statistics - Mean: {stats['mean']:.2f}, "
+          f"Median: {stats['median']:.2f}, "
+          f"Std: {stats['std']:.2f}")
