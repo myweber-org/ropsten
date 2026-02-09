@@ -333,4 +333,122 @@ if __name__ == "__main__":
     print("\nCleaned DataFrame:")
     print(cleaned)
     print("\nCleaned Validation Results:")
-    print(validate_dataframe(cleaned))
+    print(validate_dataframe(cleaned))import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(data, column, threshold=1.5):
+    """
+    Remove outliers from a DataFrame column using the IQR method.
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    Q1 = data[column].quantile(0.25)
+    Q3 = data[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - threshold * IQR
+    upper_bound = Q3 + threshold * IQR
+    
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    return filtered_data
+
+def z_score_normalize(data, column):
+    """
+    Normalize a DataFrame column using Z-score normalization.
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    mean_val = data[column].mean()
+    std_val = data[column].std()
+    
+    if std_val == 0:
+        return data[column].apply(lambda x: 0)
+    
+    normalized = (data[column] - mean_val) / std_val
+    return normalized
+
+def min_max_normalize(data, column, feature_range=(0, 1)):
+    """
+    Normalize a DataFrame column using Min-Max scaling.
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    min_val = data[column].min()
+    max_val = data[column].max()
+    
+    if max_val == min_val:
+        return data[column].apply(lambda x: feature_range[0])
+    
+    normalized = (data[column] - min_val) / (max_val - min_val)
+    normalized = normalized * (feature_range[1] - feature_range[0]) + feature_range[0]
+    return normalized
+
+def clean_dataset(df, numeric_columns, outlier_threshold=1.5, normalize_method='zscore'):
+    """
+    Clean dataset by removing outliers and normalizing numeric columns.
+    """
+    cleaned_df = df.copy()
+    
+    for col in numeric_columns:
+        if col in cleaned_df.columns:
+            cleaned_df = remove_outliers_iqr(cleaned_df, col, outlier_threshold)
+    
+    for col in numeric_columns:
+        if col in cleaned_df.columns:
+            if normalize_method == 'zscore':
+                cleaned_df[f'{col}_normalized'] = z_score_normalize(cleaned_df, col)
+            elif normalize_method == 'minmax':
+                cleaned_df[f'{col}_normalized'] = min_max_normalize(cleaned_df, col)
+            else:
+                raise ValueError("Normalization method must be 'zscore' or 'minmax'")
+    
+    return cleaned_df
+
+def validate_dataframe(df, required_columns):
+    """
+    Validate that DataFrame contains all required columns and has no null values.
+    """
+    missing_columns = [col for col in required_columns if col not in df.columns]
+    if missing_columns:
+        raise ValueError(f"Missing required columns: {missing_columns}")
+    
+    null_counts = df[required_columns].isnull().sum()
+    if null_counts.any():
+        raise ValueError(f"Null values found in columns: {null_counts[null_counts > 0].to_dict()}")
+    
+    return True
+
+def example_usage():
+    """
+    Example usage of the data cleaning functions.
+    """
+    np.random.seed(42)
+    sample_data = {
+        'id': range(100),
+        'feature_a': np.random.normal(50, 15, 100),
+        'feature_b': np.random.uniform(0, 100, 100),
+        'category': np.random.choice(['A', 'B', 'C'], 100)
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print(f"Original dataset shape: {df.shape}")
+    
+    numeric_cols = ['feature_a', 'feature_b']
+    
+    try:
+        cleaned_df = clean_dataset(df, numeric_cols, outlier_threshold=1.5, normalize_method='zscore')
+        print(f"Cleaned dataset shape: {cleaned_df.shape}")
+        print(f"Normalized columns: {[col for col in cleaned_df.columns if 'normalized' in col]}")
+        
+        validation_result = validate_dataframe(cleaned_df, ['feature_a', 'feature_b'])
+        print(f"Data validation passed: {validation_result}")
+        
+    except ValueError as e:
+        print(f"Error during data cleaning: {e}")
+
+if __name__ == "__main__":
+    example_usage()
