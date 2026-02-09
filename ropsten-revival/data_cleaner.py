@@ -1,45 +1,56 @@
 import pandas as pd
+import re
 
-def clean_dataset(df, drop_duplicates=True, fill_missing=True, fill_value=0):
+def clean_dataframe(df, text_columns=None):
     """
-    Clean a pandas DataFrame by removing duplicates and handling missing values.
-    
-    Args:
-        df (pd.DataFrame): Input DataFrame to clean.
-        drop_duplicates (bool): Whether to drop duplicate rows.
-        fill_missing (bool): Whether to fill missing values.
-        fill_value: Value to use for filling missing data.
-    
-    Returns:
-        pd.DataFrame: Cleaned DataFrame.
+    Remove duplicate rows and standardize text in specified columns.
     """
-    cleaned_df = df.copy()
+    # Remove duplicates
+    df_clean = df.drop_duplicates().reset_index(drop=True)
     
-    if drop_duplicates:
-        cleaned_df = cleaned_df.drop_duplicates()
+    if text_columns:
+        for col in text_columns:
+            if col in df_clean.columns:
+                df_clean[col] = df_clean[col].apply(standardize_text)
     
-    if fill_missing:
-        cleaned_df = cleaned_df.fillna(fill_value)
-    
-    return cleaned_df
+    return df_clean
 
-def validate_dataframe(df, required_columns=None):
+def standardize_text(text):
     """
-    Validate that a DataFrame meets basic requirements.
-    
-    Args:
-        df (pd.DataFrame): DataFrame to validate.
-        required_columns (list): List of column names that must be present.
-    
-    Returns:
-        tuple: (is_valid, error_message)
+    Standardize text: lowercase, remove extra whitespace, and special characters.
     """
-    if df.empty:
-        return False, "DataFrame is empty"
+    if pd.isna(text):
+        return text
     
-    if required_columns:
-        missing_columns = [col for col in required_columns if col not in df.columns]
-        if missing_columns:
-            return False, f"Missing required columns: {missing_columns}"
+    # Convert to string and lowercase
+    text = str(text).lower()
     
-    return True, "DataFrame is valid"
+    # Remove special characters except alphanumeric and spaces
+    text = re.sub(r'[^a-z0-9\s]', '', text)
+    
+    # Remove extra whitespace
+    text = ' '.join(text.split())
+    
+    return text
+
+def validate_email(email):
+    """
+    Validate email format using regex.
+    """
+    if pd.isna(email):
+        return False
+    
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return bool(re.match(pattern, str(email)))
+
+def get_data_summary(df):
+    """
+    Generate summary statistics for the dataframe.
+    """
+    summary = {
+        'total_rows': len(df),
+        'total_columns': len(df.columns),
+        'missing_values': df.isnull().sum().to_dict(),
+        'data_types': df.dtypes.astype(str).to_dict()
+    }
+    return summary
