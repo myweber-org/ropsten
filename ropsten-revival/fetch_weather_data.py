@@ -318,3 +318,100 @@ if __name__ == "__main__":
         save_weather_to_file(weather)
     else:
         print("Failed to fetch weather data.")
+import requests
+import json
+import os
+from datetime import datetime
+
+def get_weather_data(city_name, api_key=None):
+    """
+    Fetch current weather data for a given city using OpenWeatherMap API.
+    Returns a dictionary containing temperature, humidity, and description.
+    """
+    if api_key is None:
+        api_key = os.environ.get('OPENWEATHER_API_KEY')
+        if api_key is None:
+            raise ValueError("API key not provided and OPENWEATHER_API_KEY environment variable not set")
+
+    base_url = "http://api.openweathermap.org/data/2.5/weather"
+    params = {
+        'q': city_name,
+        'appid': api_key,
+        'units': 'metric'
+    }
+
+    try:
+        response = requests.get(base_url, params=params, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+
+        if data['cod'] != 200:
+            raise Exception(f"API Error: {data.get('message', 'Unknown error')}")
+
+        weather_info = {
+            'city': data['name'],
+            'country': data['sys']['country'],
+            'temperature': data['main']['temp'],
+            'feels_like': data['main']['feels_like'],
+            'humidity': data['main']['humidity'],
+            'pressure': data['main']['pressure'],
+            'weather_description': data['weather'][0]['description'],
+            'wind_speed': data['wind']['speed'],
+            'wind_direction': data['wind'].get('deg', 'N/A'),
+            'visibility': data.get('visibility', 'N/A'),
+            'cloudiness': data['clouds']['all'],
+            'sunrise': datetime.fromtimestamp(data['sys']['sunrise']).strftime('%H:%M:%S'),
+            'sunset': datetime.fromtimestamp(data['sys']['sunset']).strftime('%H:%M:%S'),
+            'timestamp': datetime.fromtimestamp(data['dt']).strftime('%Y-%m-%d %H:%M:%S'),
+            'timezone_offset': data['timezone']
+        }
+
+        return weather_info
+
+    except requests.exceptions.RequestException as e:
+        raise Exception(f"Network error occurred: {str(e)}")
+    except (KeyError, IndexError, json.JSONDecodeError) as e:
+        raise Exception(f"Error parsing API response: {str(e)}")
+
+def display_weather_info(weather_data):
+    """
+    Display weather information in a formatted way.
+    """
+    if not weather_data:
+        print("No weather data available.")
+        return
+
+    print("\n" + "="*50)
+    print(f"Weather Report for {weather_data['city']}, {weather_data['country']}")
+    print("="*50)
+    print(f"Current Time: {weather_data['timestamp']}")
+    print(f"Temperature: {weather_data['temperature']}°C (Feels like: {weather_data['feels_like']}°C)")
+    print(f"Weather: {weather_data['weather_description'].title()}")
+    print(f"Humidity: {weather_data['humidity']}%")
+    print(f"Pressure: {weather_data['pressure']} hPa")
+    print(f"Wind: {weather_data['wind_speed']} m/s at {weather_data['wind_direction']}°")
+    print(f"Visibility: {weather_data['visibility']} meters")
+    print(f"Cloudiness: {weather_data['cloudiness']}%")
+    print(f"Sunrise: {weather_data['sunrise']}")
+    print(f"Sunset: {weather_data['sunset']}")
+    print("="*50)
+
+if __name__ == "__main__":
+    # Example usage
+    try:
+        # For testing, you can set your API key here or set OPENWEATHER_API_KEY environment variable
+        # api_key = "your_api_key_here"
+        
+        city = input("Enter city name: ").strip()
+        if not city:
+            city = "London"  # Default city
+        
+        weather = get_weather_data(city)
+        display_weather_info(weather)
+        
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        print("\nNote: To use this script, you need to:")
+        print("1. Sign up for a free API key at https://openweathermap.org/api")
+        print("2. Set your API key as environment variable: OPENWEATHER_API_KEY")
+        print("3. Or modify the script to include your API key directly")
