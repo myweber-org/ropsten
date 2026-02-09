@@ -1,21 +1,23 @@
 import requests
-import json
 
-def fetch_github_repos(username):
-    """Fetch public repositories for a given GitHub username."""
+def get_github_repos(username):
     url = f"https://api.github.com/users/{username}/repos"
     response = requests.get(url)
     
     if response.status_code == 200:
         repos = response.json()
-        print(f"Public repositories for user '{username}':")
-        for repo in repos:
-            print(f"- {repo['name']}: {repo['description'] or 'No description'}")
-        return repos
+        repo_list = [repo['name'] for repo in repos]
+        return repo_list
     else:
-        print(f"Failed to fetch repositories. Status code: {response.status_code}")
-        return None
+        return f"Error: Unable to fetch repositories (Status code: {response.status_code})"
 
 if __name__ == "__main__":
-    user = input("Enter a GitHub username: ")
-    fetch_github_repos(user)
+    user = input("Enter GitHub username: ")
+    repositories = get_github_repos(user)
+    
+    if isinstance(repositories, list):
+        print(f"Public repositories for {user}:")
+        for repo in repositories:
+            print(f" - {repo}")
+    else:
+        print(repositories)
