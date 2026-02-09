@@ -123,3 +123,123 @@ def remove_duplicates_preserve_order(iterable):
             seen.add(item)
             result.append(item)
     return result
+import pandas as pd
+import numpy as np
+from pathlib import Path
+
+class DataCleaner:
+    def __init__(self, file_path):
+        self.file_path = Path(file_path)
+        self.df = None
+        
+    def load_data(self):
+        try:
+            self.df = pd.read_csv(self.file_path)
+            print(f"Loaded data with shape: {self.df.shape}")
+            return True
+        except FileNotFoundError:
+            print(f"File not found: {self.file_path}")
+            return False
+        except Exception as e:
+            print(f"Error loading file: {e}")
+            return False
+    
+    def remove_duplicates(self):
+        if self.df is not None:
+            initial_rows = len(self.df)
+            self.df.drop_duplicates(inplace=True)
+            removed = initial_rows - len(self.df)
+            print(f"Removed {removed} duplicate rows")
+    
+    def fill_missing_values(self, strategy='mean', fill_value=None):
+        if self.df is not None:
+            numeric_cols = self.df.select_dtypes(include=[np.number]).columns
+            
+            if strategy == 'mean':
+                self.df[numeric_cols] = self.df[numeric_cols].fillna(self.df[numeric_cols].mean())
+            elif strategy == 'median':
+                self.df[numeric_cols] = self.df[numeric_cols].fillna(self.df[numeric_cols].median())
+            elif strategy == 'mode':
+                self.df[numeric_cols] = self.df[numeric_cols].fillna(self.df[numeric_cols].mode().iloc[0])
+            elif strategy == 'constant' and fill_value is not None:
+                self.df[numeric_cols] = self.df[numeric_cols].fillna(fill_value)
+            
+            print(f"Filled missing values using {strategy} strategy")
+    
+    def remove_outliers(self, method='iqr', threshold=1.5):
+        if self.df is not None:
+            numeric_cols = self.df.select_dtypes(include=[np.number]).columns
+            initial_rows = len(self.df)
+            
+            if method == 'iqr':
+                for col in numeric_cols:
+                    Q1 = self.df[col].quantile(0.25)
+                    Q3 = self.df[col].quantile(0.75)
+                    IQR = Q3 - Q1
+                    lower_bound = Q1 - threshold * IQR
+                    upper_bound = Q3 + threshold * IQR
+                    self.df = self.df[(self.df[col] >= lower_bound) & (self.df[col] <= upper_bound)]
+            
+            removed = initial_rows - len(self.df)
+            print(f"Removed {removed} outlier rows using {method} method")
+    
+    def standardize_columns(self):
+        if self.df is not None:
+            self.df.columns = self.df.columns.str.strip().str.lower().str.replace(' ', '_')
+            print("Standardized column names")
+    
+    def save_cleaned_data(self, output_path=None):
+        if self.df is not None:
+            if output_path is None:
+                output_path = self.file_path.parent / f"cleaned_{self.file_path.name}"
+            
+            self.df.to_csv(output_path, index=False)
+            print(f"Saved cleaned data to: {output_path}")
+            return output_path
+    
+    def get_summary(self):
+        if self.df is not None:
+            summary = {
+                'rows': len(self.df),
+                'columns': len(self.df.columns),
+                'missing_values': self.df.isnull().sum().sum(),
+                'duplicates': self.df.duplicated().sum(),
+                'data_types': self.df.dtypes.to_dict()
+            }
+            return summary
+
+def clean_csv_file(input_file, output_file=None):
+    cleaner = DataCleaner(input_file)
+    
+    if cleaner.load_data():
+        cleaner.standardize_columns()
+        cleaner.remove_duplicates()
+        cleaner.fill_missing_values(strategy='median')
+        cleaner.remove_outliers()
+        
+        summary = cleaner.get_summary()
+        print(f"Cleaning complete. Final shape: {summary['rows']} rows, {summary['columns']} columns")
+        
+        return cleaner.save_cleaned_data(output_file)
+    
+    return None
+
+if __name__ == "__main__":
+    sample_data = {
+        'Name': ['Alice', 'Bob', 'Charlie', 'Alice', 'Eve', None],
+        'Age': [25, 30, 35, 25, 150, 28],
+        'Salary': [50000, 60000, None, 50000, 1000000, 45000],
+        'Department': ['IT', 'HR', 'IT', 'IT', 'Finance', 'HR']
+    }
+    
+    test_df = pd.DataFrame(sample_data)
+    test_file = 'test_data.csv'
+    test_df.to_csv(test_file, index=False)
+    
+    cleaned_file = clean_csv_file(test_file)
+    
+    import os
+    if os.path.exists(test_file):
+        os.remove(test_file)
+    if cleaned_file and os.path.exists(cleaned_file):
+        os.remove(cleaned_file)
