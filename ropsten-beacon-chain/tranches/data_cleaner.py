@@ -1,72 +1,65 @@
-
+import numpy as np
 import pandas as pd
+from scipy import stats
 
-def remove_duplicates(dataframe, subset=None, keep='first'):
+def remove_outliers_iqr(data, column):
     """
-    Remove duplicate rows from a pandas DataFrame.
-    
-    Args:
-        dataframe: Input pandas DataFrame
-        subset: Column label or sequence of labels to consider for identifying duplicates
-        keep: Determines which duplicates to mark ('first', 'last', False)
-    
-    Returns:
-        Cleaned DataFrame with duplicates removed
+    Remove outliers using the Interquartile Range method.
     """
-    if dataframe.empty:
-        return dataframe
-    
-    cleaned_df = dataframe.drop_duplicates(subset=subset, keep=keep)
-    
-    removed_count = len(dataframe) - len(cleaned_df)
-    if removed_count > 0:
-        print(f"Removed {removed_count} duplicate row(s)")
-    
-    return cleaned_df
+    Q1 = data[column].quantile(0.25)
+    Q3 = data[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    return filtered_data
 
-def validate_dataframe(dataframe, required_columns=None):
+def remove_outliers_zscore(data, column, threshold=3):
     """
-    Validate DataFrame structure and content.
-    
-    Args:
-        dataframe: Input pandas DataFrame
-        required_columns: List of column names that must be present
-    
-    Returns:
-        Boolean indicating if DataFrame is valid
+    Remove outliers using Z-score method.
     """
-    if not isinstance(dataframe, pd.DataFrame):
-        raise TypeError("Input must be a pandas DataFrame")
-    
-    if dataframe.empty:
-        print("Warning: DataFrame is empty")
-        return True
-    
-    if required_columns:
-        missing_columns = [col for col in required_columns if col not in dataframe.columns]
-        if missing_columns:
-            raise ValueError(f"Missing required columns: {missing_columns}")
-    
-    return True
+    z_scores = np.abs(stats.zscore(data[column]))
+    filtered_data = data[z_scores < threshold]
+    return filtered_data
 
-def clean_numeric_columns(dataframe, columns=None):
+def normalize_minmax(data, column):
     """
-    Clean numeric columns by converting to appropriate types and handling errors.
-    
-    Args:
-        dataframe: Input pandas DataFrame
-        columns: List of column names to clean (defaults to all numeric columns)
-    
-    Returns:
-        DataFrame with cleaned numeric columns
+    Normalize data to [0, 1] range using Min-Max scaling.
     """
-    if columns is None:
-        columns = dataframe.select_dtypes(include=['number']).columns
+    min_val = data[column].min()
+    max_val = data[column].max()
+    data[column + '_normalized'] = (data[column] - min_val) / (max_val - min_val)
+    return data
+
+def normalize_standard(data, column):
+    """
+    Normalize data using Standardization (Z-score normalization).
+    """
+    mean_val = data[column].mean()
+    std_val = data[column].std()
+    data[column + '_standardized'] = (data[column] - mean_val) / std_val
+    return data
+
+def clean_dataset(df, numeric_columns, outlier_method='iqr', normalize_method='standard'):
+    """
+    Main function to clean dataset by removing outliers and normalizing numeric columns.
+    """
+    cleaned_df = df.copy()
     
-    cleaned_df = dataframe.copy()
+    for col in numeric_columns:
+        if outlier_method == 'iqr':
+            cleaned_df = remove_outliers_iqr(cleaned_df, col)
+        elif outlier_method == 'zscore':
+            cleaned_df = remove_outliers_zscore(cleaned_df, col)
+        else:
+            raise ValueError("Outlier method must be 'iqr' or 'zscore'")
     
-    for column in columns:
-        if column in cleaned_df.columns:
-            cleaned_df[column] = pd.to_numeric(cleaned_df[column], errors='coerce')
+    for col in numeric_columns:
+        if normalize_method == 'minmax':
+            cleaned_df = normalize_minmax(cleaned_df, col)
+        elif normalize_method == 'standard':
+            cleaned_df = normalize_standard(cleaned_df, col)
+        else:
+            raise ValueError("Normalize method must be 'minmax' or 'standard'")
     
     return cleaned_df
