@@ -92,4 +92,64 @@ def remove_outliers(df, column, method='iqr', threshold=1.5):
     else:
         raise ValueError("Method must be 'iqr' or 'zscore'")
     
-    return df[mask]
+    return df[mask]import pandas as pd
+
+def clean_dataset(df, sort_column=None):
+    """
+    Clean a pandas DataFrame by removing duplicate rows and optionally sorting.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean.
+        sort_column (str, optional): Column name to sort by. Defaults to None.
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame.
+    """
+    # Remove duplicate rows
+    cleaned_df = df.drop_duplicates()
+    
+    # Sort by specified column if provided
+    if sort_column and sort_column in cleaned_df.columns:
+        cleaned_df = cleaned_df.sort_values(by=sort_column)
+    
+    # Reset index after cleaning
+    cleaned_df = cleaned_df.reset_index(drop=True)
+    
+    return cleaned_df
+
+def validate_dataframe(df):
+    """
+    Perform basic validation on a DataFrame.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate.
+    
+    Returns:
+        dict: Dictionary containing validation results.
+    """
+    validation_results = {
+        'total_rows': len(df),
+        'total_columns': len(df.columns),
+        'missing_values': df.isnull().sum().to_dict(),
+        'duplicate_rows': df.duplicated().sum()
+    }
+    
+    return validation_results
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'id': [1, 2, 2, 3, 4, 4],
+        'name': ['Alice', 'Bob', 'Bob', 'Charlie', 'David', 'David'],
+        'score': [85, 92, 92, 78, 88, 88]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\nValidation Results:")
+    print(validate_dataframe(df))
+    
+    cleaned_df = clean_dataset(df, sort_column='score')
+    print("\nCleaned DataFrame (sorted by score):")
+    print(cleaned_df)
