@@ -346,3 +346,11 @@ if __name__ == "__main__":
     cleaned_df = clean_dataset('sample_data.csv', ['age', 'income', 'score'])
     cleaned_df.to_csv('cleaned_data.csv', index=False)
     print("Data cleaning completed. Cleaned data saved to 'cleaned_data.csv'")
+def remove_duplicates(seq):
+    seen = set()
+    result = []
+    for item in seq:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
