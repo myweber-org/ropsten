@@ -255,3 +255,103 @@ if __name__ == "__main__":
     validated = validate_email_column(cleaned, 'email')
     print("\nDataFrame with email validation:")
     print(validated[['name', 'email', 'email_valid', 'email_missing']])
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(dataframe, column, threshold=1.5):
+    """
+    Remove outliers from specified column using IQR method
+    """
+    if column not in dataframe.columns:
+        raise ValueError(f"Column '{column}' not found in dataframe")
+    
+    Q1 = dataframe[column].quantile(0.25)
+    Q3 = dataframe[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - threshold * IQR
+    upper_bound = Q3 + threshold * IQR
+    
+    filtered_df = dataframe[(dataframe[column] >= lower_bound) & 
+                           (dataframe[column] <= upper_bound)]
+    
+    return filtered_df.copy()
+
+def z_score_normalize(dataframe, columns):
+    """
+    Apply z-score normalization to specified columns
+    """
+    normalized_df = dataframe.copy()
+    
+    for col in columns:
+        if col not in normalized_df.columns:
+            raise ValueError(f"Column '{col}' not found in dataframe")
+        
+        mean_val = normalized_df[col].mean()
+        std_val = normalized_df[col].std()
+        
+        if std_val > 0:
+            normalized_df[col] = (normalized_df[col] - mean_val) / std_val
+        else:
+            normalized_df[col] = 0
+    
+    return normalized_df
+
+def min_max_normalize(dataframe, columns, feature_range=(0, 1)):
+    """
+    Apply min-max normalization to specified columns
+    """
+    normalized_df = dataframe.copy()
+    min_val, max_val = feature_range
+    
+    for col in columns:
+        if col not in normalized_df.columns:
+            raise ValueError(f"Column '{col}' not found in dataframe")
+        
+        col_min = normalized_df[col].min()
+        col_max = normalized_df[col].max()
+        col_range = col_max - col_min
+        
+        if col_range > 0:
+            normalized_df[col] = ((normalized_df[col] - col_min) / col_range) * (max_val - min_val) + min_val
+        else:
+            normalized_df[col] = min_val
+    
+    return normalized_df
+
+def detect_missing_patterns(dataframe, threshold=0.3):
+    """
+    Detect columns with high percentage of missing values
+    """
+    missing_stats = {}
+    total_rows = len(dataframe)
+    
+    for col in dataframe.columns:
+        missing_count = dataframe[col].isnull().sum()
+        missing_percentage = (missing_count / total_rows) * 100
+        
+        missing_stats[col] = {
+            'missing_count': missing_count,
+            'missing_percentage': missing_percentage,
+            'needs_attention': missing_percentage > threshold * 100
+        }
+    
+    return pd.DataFrame.from_dict(missing_stats, orient='index')
+
+def clean_dataset(dataframe, numeric_columns, outlier_threshold=1.5, normalize_method='zscore'):
+    """
+    Complete data cleaning pipeline
+    """
+    cleaned_df = dataframe.copy()
+    
+    for col in numeric_columns:
+        if col in cleaned_df.columns:
+            cleaned_df = remove_outliers_iqr(cleaned_df, col, outlier_threshold)
+    
+    if normalize_method == 'zscore':
+        cleaned_df = z_score_normalize(cleaned_df, numeric_columns)
+    elif normalize_method == 'minmax':
+        cleaned_df = min_max_normalize(cleaned_df, numeric_columns)
+    
+    return cleaned_df
