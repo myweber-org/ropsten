@@ -143,4 +143,152 @@ def validate_dataframe(df, required_columns=None):
         if missing_columns:
             raise ValueError(f"Missing required columns: {missing_columns}")
     
-    return True
+    return Trueimport pandas as pd
+import numpy as np
+from typing import Optional
+
+def remove_duplicates(df: pd.DataFrame, subset: Optional[list] = None) -> pd.DataFrame:
+    """
+    Remove duplicate rows from DataFrame.
+    
+    Args:
+        df: Input DataFrame
+        subset: Columns to consider for identifying duplicates
+    
+    Returns:
+        DataFrame with duplicates removed
+    """
+    return df.drop_duplicates(subset=subset, keep='first')
+
+def fill_missing_values(df: pd.DataFrame, strategy: str = 'mean', columns: Optional[list] = None) -> pd.DataFrame:
+    """
+    Fill missing values in DataFrame.
+    
+    Args:
+        df: Input DataFrame
+        strategy: Method to fill missing values ('mean', 'median', 'mode', 'zero')
+        columns: Specific columns to fill, if None fills all numeric columns
+    
+    Returns:
+        DataFrame with missing values filled
+    """
+    df_filled = df.copy()
+    
+    if columns is None:
+        columns = df_filled.select_dtypes(include=[np.number]).columns
+    
+    for col in columns:
+        if col in df_filled.columns:
+            if strategy == 'mean':
+                df_filled[col].fillna(df_filled[col].mean(), inplace=True)
+            elif strategy == 'median':
+                df_filled[col].fillna(df_filled[col].median(), inplace=True)
+            elif strategy == 'mode':
+                df_filled[col].fillna(df_filled[col].mode()[0], inplace=True)
+            elif strategy == 'zero':
+                df_filled[col].fillna(0, inplace=True)
+    
+    return df_filled
+
+def normalize_columns(df: pd.DataFrame, columns: Optional[list] = None) -> pd.DataFrame:
+    """
+    Normalize specified columns to range [0, 1].
+    
+    Args:
+        df: Input DataFrame
+        columns: Columns to normalize, if None normalizes all numeric columns
+    
+    Returns:
+        DataFrame with normalized columns
+    """
+    df_normalized = df.copy()
+    
+    if columns is None:
+        columns = df_normalized.select_dtypes(include=[np.number]).columns
+    
+    for col in columns:
+        if col in df_normalized.columns:
+            col_min = df_normalized[col].min()
+            col_max = df_normalized[col].max()
+            
+            if col_max != col_min:
+                df_normalized[col] = (df_normalized[col] - col_min) / (col_max - col_min)
+            else:
+                df_normalized[col] = 0
+    
+    return df_normalized
+
+def detect_outliers_iqr(df: pd.DataFrame, columns: Optional[list] = None, threshold: float = 1.5) -> dict:
+    """
+    Detect outliers using Interquartile Range method.
+    
+    Args:
+        df: Input DataFrame
+        columns: Columns to check for outliers
+        threshold: IQR multiplier threshold
+    
+    Returns:
+        Dictionary with outlier counts per column
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    outliers = {}
+    
+    for col in columns:
+        if col in df.columns:
+            Q1 = df[col].quantile(0.25)
+            Q3 = df[col].quantile(0.75)
+            IQR = Q3 - Q1
+            
+            lower_bound = Q1 - threshold * IQR
+            upper_bound = Q3 + threshold * IQR
+            
+            outlier_mask = (df[col] < lower_bound) | (df[col] > upper_bound)
+            outliers[col] = outlier_mask.sum()
+    
+    return outliers
+
+def clean_dataset(df: pd.DataFrame, 
+                  remove_dups: bool = True,
+                  fill_missing: bool = True,
+                  normalize: bool = False,
+                  outlier_threshold: Optional[float] = None) -> pd.DataFrame:
+    """
+    Comprehensive data cleaning pipeline.
+    
+    Args:
+        df: Input DataFrame
+        remove_dups: Whether to remove duplicates
+        fill_missing: Whether to fill missing values
+        normalize: Whether to normalize numeric columns
+        outlier_threshold: If provided, removes outliers using IQR method
+    
+    Returns:
+        Cleaned DataFrame
+    """
+    cleaned_df = df.copy()
+    
+    if remove_dups:
+        cleaned_df = remove_duplicates(cleaned_df)
+    
+    if fill_missing:
+        cleaned_df = fill_missing_values(cleaned_df, strategy='mean')
+    
+    if outlier_threshold is not None:
+        numeric_cols = cleaned_df.select_dtypes(include=[np.number]).columns
+        for col in numeric_cols:
+            Q1 = cleaned_df[col].quantile(0.25)
+            Q3 = cleaned_df[col].quantile(0.75)
+            IQR = Q3 - Q1
+            
+            lower_bound = Q1 - outlier_threshold * IQR
+            upper_bound = Q3 + outlier_threshold * IQR
+            
+            cleaned_df = cleaned_df[(cleaned_df[col] >= lower_bound) & 
+                                   (cleaned_df[col] <= upper_bound)]
+    
+    if normalize:
+        cleaned_df = normalize_columns(cleaned_df)
+    
+    return cleaned_df
