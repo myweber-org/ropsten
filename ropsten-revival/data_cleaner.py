@@ -149,4 +149,109 @@ def clean_dataset(file_path, output_path):
 if __name__ == "__main__":
     input_file = "raw_data.csv"
     output_file = "cleaned_data.csv"
-    clean_dataset(input_file, output_file)
+    clean_dataset(input_file, output_file)import pandas as pd
+
+def clean_dataset(df, column_names=None):
+    """
+    Clean a pandas DataFrame by removing duplicates and normalizing string columns.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean.
+        column_names (list, optional): List of column names to apply string normalization.
+                                      If None, applies to all object dtype columns.
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame.
+    """
+    cleaned_df = df.copy()
+    
+    # Remove duplicate rows
+    initial_rows = len(cleaned_df)
+    cleaned_df = cleaned_df.drop_duplicates()
+    removed_duplicates = initial_rows - len(cleaned_df)
+    
+    # Normalize string columns
+    if column_names is None:
+        # Select all object dtype columns
+        string_cols = cleaned_df.select_dtypes(include=['object']).columns
+    else:
+        # Use specified columns that exist in DataFrame
+        string_cols = [col for col in column_names if col in cleaned_df.columns]
+    
+    for col in string_cols:
+        if cleaned_df[col].dtype == 'object':
+            # Strip whitespace and convert to lowercase
+            cleaned_df[col] = cleaned_df[col].astype(str).str.strip().str.lower()
+            # Replace multiple spaces with single space
+            cleaned_df[col] = cleaned_df[col].str.replace(r'\s+', ' ', regex=True)
+    
+    # Reset index after cleaning
+    cleaned_df = cleaned_df.reset_index(drop=True)
+    
+    print(f"Removed {removed_duplicates} duplicate rows.")
+    print(f"Normalized {len(string_cols)} string columns.")
+    print(f"Final dataset shape: {cleaned_df.shape}")
+    
+    return cleaned_df
+
+def validate_email_column(df, email_column):
+    """
+    Validate email addresses in a specified column.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame.
+        email_column (str): Name of the column containing email addresses.
+    
+    Returns:
+        pd.DataFrame: DataFrame with additional validation columns.
+    """
+    if email_column not in df.columns:
+        raise ValueError(f"Column '{email_column}' not found in DataFrame.")
+    
+    validation_df = df.copy()
+    
+    # Basic email validation regex
+    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    
+    # Check if emails match pattern
+    validation_df['email_valid'] = validation_df[email_column].str.match(email_pattern)
+    
+    # Check for missing emails
+    validation_df['email_missing'] = validation_df[email_column].isna() | (validation_df[email_column].str.strip() == '')
+    
+    # Count valid emails
+    valid_count = validation_df['email_valid'].sum()
+    total_count = len(validation_df)
+    
+    print(f"Email validation complete:")
+    print(f"  Total emails: {total_count}")
+    print(f"  Valid emails: {valid_count} ({valid_count/total_count*100:.1f}%)")
+    print(f"  Invalid emails: {total_count - valid_count}")
+    
+    return validation_df
+
+# Example usage
+if __name__ == "__main__":
+    # Create sample data
+    sample_data = {
+        'name': ['John Doe', 'Jane Smith', 'John Doe', 'Bob Johnson', 'alice brown'],
+        'email': ['john@example.com', 'jane@test.org', 'invalid-email', 'bob@company.com', ''],
+        'age': [25, 30, 25, 35, 28],
+        'city': ['New York', 'Los Angeles', 'New York', 'Chicago', 'boston']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\n" + "="*50 + "\n")
+    
+    # Clean the dataset
+    cleaned = clean_dataset(df)
+    print("\nCleaned DataFrame:")
+    print(cleaned)
+    
+    # Validate emails
+    print("\n" + "="*50 + "\n")
+    validated = validate_email_column(cleaned, 'email')
+    print("\nDataFrame with email validation:")
+    print(validated[['name', 'email', 'email_valid', 'email_missing']])
