@@ -405,3 +405,43 @@ def validate_dataframe(df, required_columns=None):
             return False, f"Missing required columns: {missing_columns}"
     
     return True, "DataFrame is valid"
+import pandas as pd
+
+def clean_dataset(df, column_name):
+    """
+    Remove duplicate rows based on a specified column and sort the dataframe.
+    
+    Args:
+        df (pd.DataFrame): Input dataframe to clean.
+        column_name (str): Column name to check for duplicates and sort by.
+    
+    Returns:
+        pd.DataFrame: Cleaned dataframe with duplicates removed and sorted.
+    """
+    if column_name not in df.columns:
+        raise ValueError(f"Column '{column_name}' not found in dataframe")
+    
+    cleaned_df = df.drop_duplicates(subset=[column_name], keep='first')
+    cleaned_df = cleaned_df.sort_values(by=column_name, ascending=True)
+    cleaned_df = cleaned_df.reset_index(drop=True)
+    
+    return cleaned_df
+
+def filter_numeric_range(df, column_name, min_val, max_val):
+    """
+    Filter dataframe rows where column values are within specified numeric range.
+    
+    Args:
+        df (pd.DataFrame): Input dataframe.
+        column_name (str): Numeric column to filter.
+        min_val (float): Minimum value (inclusive).
+        max_val (float): Maximum value (inclusive).
+    
+    Returns:
+        pd.DataFrame: Filtered dataframe.
+    """
+    if column_name not in df.columns:
+        raise ValueError(f"Column '{column_name}' not found in dataframe")
+    
+    filtered_df = df[(df[column_name] >= min_val) & (df[column_name] <= max_val)]
+    return filtered_df.reset_index(drop=True)
