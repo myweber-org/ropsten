@@ -645,4 +645,52 @@ if __name__ == "__main__":
     print(cleaned)
     
     is_valid, message = validate_dataframe(cleaned, required_columns=['A', 'B'])
-    print(f"\nValidation: {message}")
+    print(f"\nValidation: {message}")import pandas as pd
+import sys
+
+def remove_duplicates(input_file, output_file=None):
+    """
+    Remove duplicate rows from a CSV file.
+    
+    Args:
+        input_file: Path to the input CSV file
+        output_file: Path to save the cleaned CSV file. 
+                    If None, uses input_file with '_cleaned' suffix
+    """
+    try:
+        df = pd.read_csv(input_file)
+        initial_rows = len(df)
+        
+        df_cleaned = df.drop_duplicates()
+        final_rows = len(df_cleaned)
+        
+        if output_file is None:
+            output_file = input_file.replace('.csv', '_cleaned.csv')
+        
+        df_cleaned.to_csv(output_file, index=False)
+        
+        duplicates_removed = initial_rows - final_rows
+        print(f"Successfully processed {input_file}")
+        print(f"Initial rows: {initial_rows}")
+        print(f"Final rows: {final_rows}")
+        print(f"Duplicates removed: {duplicates_removed}")
+        print(f"Cleaned file saved to: {output_file}")
+        
+        return duplicates_removed
+        
+    except FileNotFoundError:
+        print(f"Error: File '{input_file}' not found.")
+        return None
+    except Exception as e:
+        print(f"Error processing file: {str(e)}")
+        return None
+
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        print("Usage: python data_cleaner.py <input_file.csv> [output_file.csv]")
+        sys.exit(1)
+    
+    input_file = sys.argv[1]
+    output_file = sys.argv[2] if len(sys.argv) > 2 else None
+    
+    remove_duplicates(input_file, output_file)
