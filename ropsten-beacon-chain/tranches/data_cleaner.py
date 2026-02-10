@@ -258,3 +258,105 @@ def process_dataframe(df, numeric_columns=None, outlier_removal=True, normalizat
                 processed_df = normalize_column(processed_df, col)
     
     return processed_df
+import pandas as pd
+import numpy as np
+
+def clean_csv_data(file_path, missing_strategy='mean'):
+    """
+    Load and clean CSV data by handling missing values.
+    
+    Args:
+        file_path (str): Path to the CSV file
+        missing_strategy (str): Strategy for handling missing values.
+            Options: 'mean', 'median', 'drop', 'zero'
+    
+    Returns:
+        pandas.DataFrame: Cleaned dataframe
+    """
+    try:
+        df = pd.read_csv(file_path)
+        print(f"Loaded data with shape: {df.shape}")
+        
+        # Check for missing values
+        missing_count = df.isnull().sum().sum()
+        if missing_count > 0:
+            print(f"Found {missing_count} missing values")
+            
+            if missing_strategy == 'mean':
+                df = df.fillna(df.mean(numeric_only=True))
+            elif missing_strategy == 'median':
+                df = df.fillna(df.median(numeric_only=True))
+            elif missing_strategy == 'drop':
+                df = df.dropna()
+            elif missing_strategy == 'zero':
+                df = df.fillna(0)
+            else:
+                raise ValueError(f"Unknown strategy: {missing_strategy}")
+        
+        # Remove duplicate rows
+        initial_rows = len(df)
+        df = df.drop_duplicates()
+        removed_duplicates = initial_rows - len(df)
+        if removed_duplicates > 0:
+            print(f"Removed {removed_duplicates} duplicate rows")
+        
+        # Convert object columns to appropriate types
+        for col in df.select_dtypes(include=['object']).columns:
+            try:
+                df[col] = pd.to_numeric(df[col], errors='ignore')
+            except:
+                pass
+        
+        print(f"Final data shape: {df.shape}")
+        return df
+        
+    except FileNotFoundError:
+        print(f"Error: File not found at {file_path}")
+        return None
+    except Exception as e:
+        print(f"Error during data cleaning: {str(e)}")
+        return None
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate dataframe structure and content.
+    
+    Args:
+        df (pandas.DataFrame): Dataframe to validate
+        required_columns (list): List of required column names
+    
+    Returns:
+        bool: True if validation passes, False otherwise
+    """
+    if df is None or df.empty:
+        print("Error: Dataframe is empty or None")
+        return False
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            print(f"Error: Missing required columns: {missing_cols}")
+            return False
+    
+    # Check for infinite values
+    if np.any(np.isinf(df.select_dtypes(include=[np.number]))):
+        print("Warning: Dataframe contains infinite values")
+    
+    return True
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'A': [1, 2, np.nan, 4, 5],
+        'B': [5, np.nan, 7, 8, 9],
+        'C': ['x', 'y', 'z', 'x', 'y']
+    }
+    
+    test_df = pd.DataFrame(sample_data)
+    test_df.to_csv('test_data.csv', index=False)
+    
+    cleaned_df = clean_csv_data('test_data.csv', missing_strategy='mean')
+    
+    if validate_dataframe(cleaned_df, required_columns=['A', 'B', 'C']):
+        print("Data validation passed")
+        print(cleaned_df.head())
