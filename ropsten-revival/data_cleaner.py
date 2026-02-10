@@ -880,3 +880,11 @@ def clean_dataset(data, numeric_columns=None, outlier_factor=1.5, normalize_meth
     cleaned_data = handle_missing_values(cleaned_data, strategy='mean', columns=numeric_columns)
     
     return cleaned_data
+def remove_duplicates(sequence):
+    seen = set()
+    result = []
+    for item in sequence:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
