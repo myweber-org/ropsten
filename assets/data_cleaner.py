@@ -317,3 +317,57 @@ def validate_dataframe(df, required_columns=None, min_rows=1):
             return False, f"Missing required columns: {missing_cols}"
     
     return True, "DataFrame is valid"
+import pandas as pd
+import numpy as np
+
+def clean_dataframe(df, column_mapping=None, drop_duplicates=True, normalize_text=True):
+    """
+    Clean a pandas DataFrame by removing duplicates, normalizing text columns,
+    and optionally renaming columns.
+    """
+    df_clean = df.copy()
+    
+    if column_mapping:
+        df_clean = df_clean.rename(columns=column_mapping)
+    
+    if drop_duplicates:
+        df_clean = df_clean.drop_duplicates()
+    
+    if normalize_text:
+        text_columns = df_clean.select_dtypes(include=['object']).columns
+        for col in text_columns:
+            df_clean[col] = df_clean[col].astype(str).str.strip().str.lower()
+    
+    return df_clean
+
+def validate_numeric_range(df, column, min_val=None, max_val=None):
+    """
+    Validate numeric column values against specified range.
+    Returns indices of rows that fail validation.
+    """
+    invalid_indices = []
+    
+    if column in df.columns and pd.api.types.is_numeric_dtype(df[column]):
+        if min_val is not None:
+            invalid_indices.extend(df[df[column] < min_val].index.tolist())
+        if max_val is not None:
+            invalid_indices.extend(df[df[column] > max_val].index.tolist())
+    
+    return list(set(invalid_indices))
+
+def handle_missing_values(df, strategy='drop', fill_value=None):
+    """
+    Handle missing values in DataFrame using specified strategy.
+    """
+    if strategy == 'drop':
+        return df.dropna()
+    elif strategy == 'fill':
+        if fill_value is not None:
+            return df.fillna(fill_value)
+        else:
+            numeric_cols = df.select_dtypes(include=[np.number]).columns
+            df_filled = df.copy()
+            df_filled[numeric_cols] = df_filled[numeric_cols].fillna(df_filled[numeric_cols].mean())
+            return df_filled
+    else:
+        return df
