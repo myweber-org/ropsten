@@ -195,3 +195,76 @@ def clean_dataset(input_file, output_file):
 
 if __name__ == "__main__":
     cleaned_df = clean_dataset('raw_data.csv', 'cleaned_data.csv')
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df, missing_strategy='mean', outlier_threshold=3):
+    """
+    Clean a dataset by handling missing values and removing outliers.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame to clean.
+    missing_strategy (str): Strategy for handling missing values.
+                            Options: 'mean', 'median', 'drop'.
+    outlier_threshold (float): Z-score threshold for outlier detection.
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame.
+    """
+    cleaned_df = df.copy()
+    
+    # Handle missing values
+    if missing_strategy == 'mean':
+        cleaned_df = cleaned_df.fillna(cleaned_df.mean())
+    elif missing_strategy == 'median':
+        cleaned_df = cleaned_df.fillna(cleaned_df.median())
+    elif missing_strategy == 'drop':
+        cleaned_df = cleaned_df.dropna()
+    
+    # Remove outliers using Z-score method
+    numeric_cols = cleaned_df.select_dtypes(include=[np.number]).columns
+    z_scores = np.abs((cleaned_df[numeric_cols] - cleaned_df[numeric_cols].mean()) / cleaned_df[numeric_cols].std())
+    outlier_mask = (z_scores < outlier_threshold).all(axis=1)
+    cleaned_df = cleaned_df[outlier_mask]
+    
+    return cleaned_df.reset_index(drop=True)
+
+def validate_data(df, required_columns):
+    """
+    Validate that DataFrame contains required columns and has no infinite values.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate.
+    required_columns (list): List of required column names.
+    
+    Returns:
+    bool: True if validation passes, False otherwise.
+    """
+    # Check required columns
+    if not all(col in df.columns for col in required_columns):
+        return False
+    
+    # Check for infinite values
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    if df[numeric_cols].replace([np.inf, -np.inf], np.nan).isna().any().any():
+        return False
+    
+    return True
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = pd.DataFrame({
+        'A': [1, 2, np.nan, 4, 100],
+        'B': [5, 6, 7, np.nan, 8],
+        'C': [9, 10, 11, 12, 13]
+    })
+    
+    print("Original data:")
+    print(sample_data)
+    
+    cleaned = clean_dataset(sample_data, missing_strategy='mean', outlier_threshold=2)
+    print("\nCleaned data:")
+    print(cleaned)
+    
+    is_valid = validate_data(cleaned, ['A', 'B', 'C'])
+    print(f"\nData validation passed: {is_valid}")
