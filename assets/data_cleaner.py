@@ -272,3 +272,91 @@ def deduplicate_list(input_list):
             seen.add(item)
             result.append(item)
     return result
+import pandas as pd
+
+def clean_dataset(df):
+    """
+    Remove null values and duplicate rows from a pandas DataFrame.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame to be cleaned
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame
+    """
+    # Remove rows with any null values
+    df_cleaned = df.dropna()
+    
+    # Remove duplicate rows
+    df_cleaned = df_cleaned.drop_duplicates()
+    
+    # Reset index after cleaning
+    df_cleaned = df_cleaned.reset_index(drop=True)
+    
+    return df_cleaned
+
+def validate_dataframe(df):
+    """
+    Validate that input is a pandas DataFrame and not empty.
+    
+    Parameters:
+    df: Object to validate
+    
+    Returns:
+    bool: True if valid DataFrame, False otherwise
+    """
+    if not isinstance(df, pd.DataFrame):
+        print("Error: Input must be a pandas DataFrame")
+        return False
+    
+    if df.empty:
+        print("Warning: DataFrame is empty")
+        return False
+    
+    return True
+
+def get_cleaning_report(original_df, cleaned_df):
+    """
+    Generate a report of cleaning operations performed.
+    
+    Parameters:
+    original_df (pd.DataFrame): Original DataFrame before cleaning
+    cleaned_df (pd.DataFrame): DataFrame after cleaning
+    
+    Returns:
+    dict: Dictionary containing cleaning statistics
+    """
+    report = {
+        'original_rows': len(original_df),
+        'cleaned_rows': len(cleaned_df),
+        'null_rows_removed': len(original_df) - len(original_df.dropna()),
+        'duplicate_rows_removed': len(original_df.dropna()) - len(original_df.dropna().drop_duplicates()),
+        'total_rows_removed': len(original_df) - len(cleaned_df)
+    }
+    
+    return report
+
+# Example usage
+if __name__ == "__main__":
+    # Create sample data with nulls and duplicates
+    data = {
+        'A': [1, 2, None, 4, 2, 4],
+        'B': [5, 6, 7, None, 6, 8],
+        'C': [9, 10, 11, 12, 10, 12]
+    }
+    
+    df = pd.DataFrame(data)
+    print("Original DataFrame:")
+    print(df)
+    print("\n")
+    
+    if validate_dataframe(df):
+        cleaned_df = clean_dataset(df)
+        print("Cleaned DataFrame:")
+        print(cleaned_df)
+        print("\n")
+        
+        report = get_cleaning_report(df, cleaned_df)
+        print("Cleaning Report:")
+        for key, value in report.items():
+            print(f"{key}: {value}")
