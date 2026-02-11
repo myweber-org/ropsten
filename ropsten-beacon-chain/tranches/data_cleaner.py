@@ -383,3 +383,153 @@ if __name__ == "__main__":
     summary = cleaner.get_summary()
     for key, value in summary.items():
         print(f"{key}: {value}")
+import numpy as np
+import pandas as pd
+
+def remove_outliers_iqr(data, column, factor=1.5):
+    """
+    Remove outliers using the Interquartile Range method.
+    
+    Args:
+        data: pandas DataFrame
+        column: column name to process
+        factor: IQR multiplier (default 1.5)
+    
+    Returns:
+        DataFrame with outliers removed
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    q1 = data[column].quantile(0.25)
+    q3 = data[column].quantile(0.75)
+    iqr = q3 - q1
+    
+    lower_bound = q1 - factor * iqr
+    upper_bound = q3 + factor * iqr
+    
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    return filtered_data
+
+def normalize_minmax(data, column):
+    """
+    Normalize data using min-max scaling to [0, 1] range.
+    
+    Args:
+        data: pandas DataFrame
+        column: column name to normalize
+    
+    Returns:
+        Series with normalized values
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    min_val = data[column].min()
+    max_val = data[column].max()
+    
+    if max_val == min_val:
+        return pd.Series([0.5] * len(data), index=data.index)
+    
+    normalized = (data[column] - min_val) / (max_val - min_val)
+    return normalized
+
+def standardize_zscore(data, column):
+    """
+    Standardize data using z-score normalization.
+    
+    Args:
+        data: pandas DataFrame
+        column: column name to standardize
+    
+    Returns:
+        Series with standardized values
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    mean_val = data[column].mean()
+    std_val = data[column].std()
+    
+    if std_val == 0:
+        return pd.Series([0] * len(data), index=data.index)
+    
+    standardized = (data[column] - mean_val) / std_val
+    return standardized
+
+def handle_missing_values(data, strategy='mean', columns=None):
+    """
+    Handle missing values in specified columns.
+    
+    Args:
+        data: pandas DataFrame
+        strategy: imputation strategy ('mean', 'median', 'mode', 'drop')
+        columns: list of columns to process (None for all numeric columns)
+    
+    Returns:
+        DataFrame with missing values handled
+    """
+    if columns is None:
+        columns = data.select_dtypes(include=[np.number]).columns
+    
+    data_copy = data.copy()
+    
+    for col in columns:
+        if col not in data_copy.columns:
+            continue
+            
+        if strategy == 'drop':
+            data_copy = data_copy.dropna(subset=[col])
+        elif strategy == 'mean':
+            data_copy[col].fillna(data_copy[col].mean(), inplace=True)
+        elif strategy == 'median':
+            data_copy[col].fillna(data_copy[col].median(), inplace=True)
+        elif strategy == 'mode':
+            data_copy[col].fillna(data_copy[col].mode()[0], inplace=True)
+        else:
+            raise ValueError(f"Unknown strategy: {strategy}")
+    
+    return data_copy
+
+def create_sample_data():
+    """
+    Create sample data for testing the cleaning functions.
+    
+    Returns:
+        DataFrame with sample data containing outliers and missing values
+    """
+    np.random.seed(42)
+    
+    data = {
+        'temperature': np.random.normal(25, 5, 100),
+        'humidity': np.random.normal(60, 15, 100),
+        'pressure': np.random.normal(1013, 10, 100)
+    }
+    
+    df = pd.DataFrame(data)
+    
+    df.loc[10:15, 'temperature'] = np.nan
+    df.loc[95, 'humidity'] = 150
+    df.loc[96, 'humidity'] = -10
+    df.loc[20:25, 'pressure'] = np.nan
+    
+    return df
+
+if __name__ == "__main__":
+    sample_data = create_sample_data()
+    print("Original data shape:", sample_data.shape)
+    print("\nMissing values per column:")
+    print(sample_data.isnull().sum())
+    
+    cleaned_data = handle_missing_values(sample_data, strategy='mean')
+    print("\nAfter handling missing values:", cleaned_data.shape)
+    
+    filtered_data = remove_outliers_iqr(cleaned_data, 'humidity')
+    print("After removing outliers:", filtered_data.shape)
+    
+    normalized_temp = normalize_minmax(filtered_data, 'temperature')
+    standardized_pressure = standardize_zscore(filtered_data, 'pressure')
+    
+    print("\nNormalization complete.")
+    print("Temperature range:", normalized_temp.min(), "to", normalized_temp.max())
+    print("Pressure mean:", standardized_pressure.mean(), "std:", standardized_pressure.std())
