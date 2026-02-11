@@ -423,3 +423,104 @@ def validate_dataframe(df, required_columns=None):
             return False, f"Missing required columns: {missing_columns}"
     
     return True, "DataFrame is valid"
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+class DataCleaner:
+    def __init__(self, df):
+        self.df = df.copy()
+        self.original_shape = df.shape
+        
+    def detect_outliers_iqr(self, column, threshold=1.5):
+        Q1 = self.df[column].quantile(0.25)
+        Q3 = self.df[column].quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - threshold * IQR
+        upper_bound = Q3 + threshold * IQR
+        outliers = self.df[(self.df[column] < lower_bound) | (self.df[column] > upper_bound)]
+        return outliers.index.tolist()
+    
+    def remove_outliers(self, columns, method='iqr', threshold=1.5):
+        outlier_indices = set()
+        for col in columns:
+            if method == 'iqr':
+                indices = self.detect_outliers_iqr(col, threshold)
+                outlier_indices.update(indices)
+        
+        self.df = self.df.drop(index=list(outlier_indices))
+        removed_count = len(outlier_indices)
+        return removed_count
+    
+    def normalize_column(self, column, method='zscore'):
+        if method == 'zscore':
+            self.df[f'{column}_normalized'] = stats.zscore(self.df[column])
+        elif method == 'minmax':
+            min_val = self.df[column].min()
+            max_val = self.df[column].max()
+            self.df[f'{column}_normalized'] = (self.df[column] - min_val) / (max_val - min_val)
+        return self.df[f'{column}_normalized']
+    
+    def fill_missing(self, column, method='mean'):
+        if method == 'mean':
+            fill_value = self.df[column].mean()
+        elif method == 'median':
+            fill_value = self.df[column].median()
+        elif method == 'mode':
+            fill_value = self.df[column].mode()[0]
+        else:
+            fill_value = method
+            
+        self.df[column] = self.df[column].fillna(fill_value)
+        return fill_value
+    
+    def get_cleaned_data(self):
+        return self.df
+    
+    def get_cleaning_report(self):
+        final_shape = self.df.shape
+        rows_removed = self.original_shape[0] - final_shape[0]
+        cols_added = final_shape[1] - self.original_shape[1]
+        
+        report = {
+            'original_rows': self.original_shape[0],
+            'original_columns': self.original_shape[1],
+            'final_rows': final_shape[0],
+            'final_columns': final_shape[1],
+            'rows_removed': rows_removed,
+            'columns_added': cols_added
+        }
+        return report
+
+def create_sample_data():
+    np.random.seed(42)
+    data = {
+        'age': np.random.normal(35, 10, 100),
+        'income': np.random.exponential(50000, 100),
+        'score': np.random.uniform(0, 100, 100)
+    }
+    df = pd.DataFrame(data)
+    df.loc[10:15, 'age'] = np.nan
+    df.loc[5, 'income'] = 1000000
+    df.loc[95, 'score'] = 150
+    return df
+
+if __name__ == "__main__":
+    sample_df = create_sample_data()
+    cleaner = DataCleaner(sample_df)
+    
+    print("Original data shape:", cleaner.original_shape)
+    
+    removed = cleaner.remove_outliers(['income', 'score'])
+    print(f"Removed {removed} outliers")
+    
+    cleaner.fill_missing('age', 'median')
+    cleaner.normalize_column('score', 'minmax')
+    
+    cleaned_df = cleaner.get_cleaned_data()
+    report = cleaner.get_cleaning_report()
+    
+    print("Cleaning report:", report)
+    print("Cleaned data shape:", cleaned_df.shape)
+    print("First 5 rows of cleaned data:")
+    print(cleaned_df.head())
