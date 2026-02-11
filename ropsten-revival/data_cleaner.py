@@ -295,3 +295,41 @@ def validate_dataframe(data, required_columns=None, numeric_columns=None):
         validation_result['messages'].append('Dataframe is empty')
     
     return validation_result
+import pandas as pd
+import re
+
+def clean_dataframe(df, text_column):
+    """
+    Clean a DataFrame by removing duplicates and normalizing text in a specified column.
+    """
+    # Remove duplicate rows
+    df_clean = df.drop_duplicates().reset_index(drop=True)
+    
+    # Normalize text: lowercase and remove extra whitespace
+    if text_column in df_clean.columns:
+        df_clean[text_column] = df_clean[text_column].astype(str).apply(
+            lambda x: re.sub(r'\s+', ' ', x.strip().lower())
+        )
+    
+    return df_clean
+
+def save_cleaned_data(df, output_path):
+    """
+    Save the cleaned DataFrame to a CSV file.
+    """
+    df.to_csv(output_path, index=False)
+    print(f"Cleaned data saved to {output_path}")
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'id': [1, 2, 2, 3, 4],
+        'comment': ['Hello World', '  Python Code  ', 'python code', 'TEST', '   multiple   spaces   ']
+    }
+    df = pd.DataFrame(sample_data)
+    
+    cleaned_df = clean_dataframe(df, 'comment')
+    print("Cleaned DataFrame:")
+    print(cleaned_df)
+    
+    save_cleaned_data(cleaned_df, 'cleaned_data.csv')
