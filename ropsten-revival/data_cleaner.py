@@ -355,3 +355,11 @@ def clean_dataset(dataframe, numeric_columns, outlier_threshold=1.5, normalize_m
         cleaned_df = min_max_normalize(cleaned_df, numeric_columns)
     
     return cleaned_df
+def remove_duplicates(sequence):
+    seen = set()
+    result = []
+    for item in sequence:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
