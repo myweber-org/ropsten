@@ -144,3 +144,96 @@ def clean_dataset(input_file, output_file):
 
 if __name__ == "__main__":
     clean_dataset('raw_data.csv', 'cleaned_data.csv')
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(dataframe, column, multiplier=1.5):
+    """
+    Remove outliers using IQR method
+    """
+    Q1 = dataframe[column].quantile(0.25)
+    Q3 = dataframe[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - multiplier * IQR
+    upper_bound = Q3 + multiplier * IQR
+    
+    filtered_df = dataframe[(dataframe[column] >= lower_bound) & 
+                           (dataframe[column] <= upper_bound)]
+    return filtered_df
+
+def normalize_minmax(dataframe, columns):
+    """
+    Normalize specified columns using min-max scaling
+    """
+    df_normalized = dataframe.copy()
+    for col in columns:
+        if col in df_normalized.columns:
+            min_val = df_normalized[col].min()
+            max_val = df_normalized[col].max()
+            if max_val != min_val:
+                df_normalized[col] = (df_normalized[col] - min_val) / (max_val - min_val)
+    return df_normalized
+
+def standardize_zscore(dataframe, columns):
+    """
+    Standardize specified columns using z-score normalization
+    """
+    df_standardized = dataframe.copy()
+    for col in columns:
+        if col in df_standardized.columns:
+            mean_val = df_standardized[col].mean()
+            std_val = df_standardized[col].std()
+            if std_val > 0:
+                df_standardized[col] = (df_standardized[col] - mean_val) / std_val
+    return df_standardized
+
+def handle_missing_values(dataframe, strategy='mean', columns=None):
+    """
+    Handle missing values with specified strategy
+    """
+    df_processed = dataframe.copy()
+    
+    if columns is None:
+        columns = df_processed.columns
+    
+    for col in columns:
+        if col in df_processed.columns and df_processed[col].isnull().any():
+            if strategy == 'mean':
+                fill_value = df_processed[col].mean()
+            elif strategy == 'median':
+                fill_value = df_processed[col].median()
+            elif strategy == 'mode':
+                fill_value = df_processed[col].mode()[0]
+            elif strategy == 'drop':
+                df_processed = df_processed.dropna(subset=[col])
+                continue
+            else:
+                fill_value = 0
+            
+            df_processed[col] = df_processed[col].fillna(fill_value)
+    
+    return df_processed
+
+def detect_skewed_columns(dataframe, threshold=0.5):
+    """
+    Detect columns with skewness above threshold
+    """
+    skewed_cols = []
+    for col in dataframe.select_dtypes(include=[np.number]).columns:
+        skewness = abs(dataframe[col].skew())
+        if skewness > threshold:
+            skewed_cols.append((col, skewness))
+    
+    return sorted(skewed_cols, key=lambda x: x[1], reverse=True)
+
+def apply_log_transform(dataframe, columns):
+    """
+    Apply log transformation to specified columns
+    """
+    df_transformed = dataframe.copy()
+    for col in columns:
+        if col in df_transformed.columns:
+            # Add small constant to handle zero values
+            df_transformed[col] = np.log1p(df_transformed[col])
+    return df_transformed
