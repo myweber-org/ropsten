@@ -264,3 +264,11 @@ def clean_dataset(file_path, output_path, numeric_columns):
 
 if __name__ == "__main__":
     cleaned_data = clean_dataset('raw_data.csv', 'cleaned_data.csv', ['age', 'income', 'score'])
+def deduplicate_list(input_list):
+    seen = set()
+    result = []
+    for item in input_list:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
