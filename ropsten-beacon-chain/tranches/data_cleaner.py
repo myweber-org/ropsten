@@ -660,3 +660,30 @@ def clean_dataset(df, method='iqr', normalize=False, fill_missing=True):
         cleaner.normalize_minmax()
     
     return cleaner.get_cleaned_data(), cleaner.get_summary()
+import pandas as pd
+import numpy as np
+
+def clean_csv_data(input_file, output_file):
+    df = pd.read_csv(input_file)
+    
+    df.replace('', np.nan, inplace=True)
+    df.dropna(subset=['critical_column'], inplace=True)
+    
+    numeric_columns = df.select_dtypes(include=[np.number]).columns
+    for col in numeric_columns:
+        df[col].fillna(df[col].median(), inplace=True)
+    
+    categorical_columns = df.select_dtypes(include=['object']).columns
+    for col in categorical_columns:
+        df[col].fillna(df[col].mode()[0] if not df[col].mode().empty else 'Unknown', inplace=True)
+    
+    df['date_column'] = pd.to_datetime(df['date_column'], errors='coerce')
+    
+    df.to_csv(output_file, index=False)
+    return df.shape
+
+if __name__ == "__main__":
+    input_path = "raw_data.csv"
+    output_path = "cleaned_data.csv"
+    cleaned_shape = clean_csv_data(input_path, output_path)
+    print(f"Data cleaned. Shape: {cleaned_shape}")
