@@ -287,3 +287,123 @@ def clean_dataset(df, columns_to_clean):
             all_stats[column] = stats
     
     return cleaned_df, all_stats
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df, drop_duplicates=True, fill_missing='mean'):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    
+    Args:
+        df: pandas DataFrame to clean
+        drop_duplicates: Boolean, whether to remove duplicate rows
+        fill_missing: Strategy for filling missing values ('mean', 'median', 'mode', or 'drop')
+    
+    Returns:
+        Cleaned pandas DataFrame
+    """
+    df_clean = df.copy()
+    
+    if drop_duplicates:
+        df_clean = df_clean.drop_duplicates()
+    
+    if fill_missing == 'drop':
+        df_clean = df_clean.dropna()
+    else:
+        for column in df_clean.columns:
+            if df_clean[column].dtype in [np.float64, np.int64]:
+                if fill_missing == 'mean':
+                    fill_value = df_clean[column].mean()
+                elif fill_missing == 'median':
+                    fill_value = df_clean[column].median()
+                elif fill_missing == 'mode':
+                    fill_value = df_clean[column].mode()[0]
+                else:
+                    continue
+                
+                df_clean[column] = df_clean[column].fillna(fill_value)
+    
+    return df_clean
+
+def remove_outliers(df, columns=None, method='iqr', threshold=1.5):
+    """
+    Remove outliers from specified columns using IQR or z-score method.
+    
+    Args:
+        df: pandas DataFrame
+        columns: List of column names to process (None for all numeric columns)
+        method: 'iqr' for interquartile range or 'zscore' for standard deviations
+        threshold: Threshold multiplier for IQR or number of std deviations for z-score
+    
+    Returns:
+        DataFrame with outliers removed
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    df_clean = df.copy()
+    
+    for column in columns:
+        if method == 'iqr':
+            Q1 = df_clean[column].quantile(0.25)
+            Q3 = df_clean[column].quantile(0.75)
+            IQR = Q3 - Q1
+            lower_bound = Q1 - threshold * IQR
+            upper_bound = Q3 + threshold * IQR
+            df_clean = df_clean[(df_clean[column] >= lower_bound) & (df_clean[column] <= upper_bound)]
+        
+        elif method == 'zscore':
+            mean = df_clean[column].mean()
+            std = df_clean[column].std()
+            df_clean = df_clean[np.abs((df_clean[column] - mean) / std) < threshold]
+    
+    return df_clean
+
+def standardize_columns(df, columns=None):
+    """
+    Standardize numeric columns to have zero mean and unit variance.
+    
+    Args:
+        df: pandas DataFrame
+        columns: List of column names to standardize (None for all numeric columns)
+    
+    Returns:
+        DataFrame with standardized columns
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    df_standardized = df.copy()
+    
+    for column in columns:
+        mean = df_standardized[column].mean()
+        std = df_standardized[column].std()
+        if std > 0:
+            df_standardized[column] = (df_standardized[column] - mean) / std
+    
+    return df_standardized
+
+def validate_dataframe(df, required_columns=None, min_rows=1):
+    """
+    Validate DataFrame structure and content.
+    
+    Args:
+        df: pandas DataFrame to validate
+        required_columns: List of column names that must be present
+        min_rows: Minimum number of rows required
+    
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    if not isinstance(df, pd.DataFrame):
+        return False, "Input is not a pandas DataFrame"
+    
+    if len(df) < min_rows:
+        return False, f"DataFrame has fewer than {min_rows} rows"
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            return False, f"Missing required columns: {missing_columns}"
+    
+    return True, "DataFrame is valid"
