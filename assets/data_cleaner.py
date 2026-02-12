@@ -433,3 +433,99 @@ if __name__ == "__main__":
     # Validate
     is_valid, message = validate_dataframe(cleaned, required_columns=['A', 'B', 'C'])
     print(f"\nValidation: {is_valid} - {message}")
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+def detect_outliers_iqr(data, column, threshold=1.5):
+    """
+    Detect outliers using Interquartile Range method.
+    Returns boolean mask for outliers.
+    """
+    q1 = data[column].quantile(0.25)
+    q3 = data[column].quantile(0.75)
+    iqr = q3 - q1
+    lower_bound = q1 - threshold * iqr
+    upper_bound = q3 + threshold * iqr
+    return (data[column] < lower_bound) | (data[column] > upper_bound)
+
+def remove_outliers(data, columns, threshold=1.5):
+    """
+    Remove outliers from specified columns using IQR method.
+    """
+    clean_data = data.copy()
+    for col in columns:
+        if col in clean_data.columns:
+            outliers = detect_outliers_iqr(clean_data, col, threshold)
+            clean_data = clean_data[~outliers]
+    return clean_data.reset_index(drop=True)
+
+def normalize_minmax(data, columns):
+    """
+    Apply Min-Max normalization to specified columns.
+    Returns normalized DataFrame.
+    """
+    normalized_data = data.copy()
+    for col in columns:
+        if col in normalized_data.columns and normalized_data[col].dtype in [np.float64, np.int64]:
+            min_val = normalized_data[col].min()
+            max_val = normalized_data[col].max()
+            if max_val != min_val:
+                normalized_data[col] = (normalized_data[col] - min_val) / (max_val - min_val)
+    return normalized_data
+
+def standardize_zscore(data, columns):
+    """
+    Apply Z-score standardization to specified columns.
+    Returns standardized DataFrame.
+    """
+    standardized_data = data.copy()
+    for col in columns:
+        if col in standardized_data.columns and standardized_data[col].dtype in [np.float64, np.int64]:
+            mean_val = standardized_data[col].mean()
+            std_val = standardized_data[col].std()
+            if std_val > 0:
+                standardized_data[col] = (standardized_data[col] - mean_val) / std_val
+    return standardized_data
+
+def handle_missing_values(data, strategy='mean', columns=None):
+    """
+    Handle missing values using specified strategy.
+    Supported strategies: 'mean', 'median', 'mode', 'drop'
+    """
+    if columns is None:
+        columns = data.columns
+    
+    processed_data = data.copy()
+    
+    if strategy == 'drop':
+        return processed_data.dropna(subset=columns)
+    
+    for col in columns:
+        if col in processed_data.columns and processed_data[col].isnull().any():
+            if strategy == 'mean' and processed_data[col].dtype in [np.float64, np.int64]:
+                processed_data[col].fillna(processed_data[col].mean(), inplace=True)
+            elif strategy == 'median' and processed_data[col].dtype in [np.float64, np.int64]:
+                processed_data[col].fillna(processed_data[col].median(), inplace=True)
+            elif strategy == 'mode':
+                processed_data[col].fillna(processed_data[col].mode()[0], inplace=True)
+    
+    return processed_data
+
+def validate_dataframe(df, required_columns=None, min_rows=1):
+    """
+    Validate DataFrame structure and content.
+    Returns tuple of (is_valid, error_message)
+    """
+    if not isinstance(df, pd.DataFrame):
+        return False, "Input is not a pandas DataFrame"
+    
+    if len(df) < min_rows:
+        return False, f"DataFrame has fewer than {min_rows} rows"
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            return False, f"Missing required columns: {missing_cols}"
+    
+    return True, "DataFrame is valid"
