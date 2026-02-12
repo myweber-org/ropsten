@@ -198,3 +198,23 @@ if __name__ == "__main__":
         rename_files_sequentially(target_dir, prefix)
     else:
         print("Usage: python file_renamer.py <directory> [prefix]")
+import os
+import glob
+from pathlib import Path
+
+def rename_files_sequential(directory, prefix="file", extension=".txt"):
+    files = list(Path(directory).glob(f"*{extension}"))
+    files.sort(key=lambda x: x.stat().st_ctime)
+    
+    for index, file_path in enumerate(files, start=1):
+        new_name = f"{prefix}_{index:03d}{extension}"
+        new_path = file_path.parent / new_name
+        file_path.rename(new_path)
+        print(f"Renamed: {file_path.name} -> {new_name}")
+
+if __name__ == "__main__":
+    target_dir = input("Enter directory path: ").strip()
+    if os.path.isdir(target_dir):
+        rename_files_sequential(target_dir)
+    else:
+        print("Invalid directory path")
