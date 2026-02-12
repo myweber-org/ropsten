@@ -37,4 +37,18 @@ if __name__ == "__main__":
     
     owner = sys.argv[1]
     repo = sys.argv[2]
-    get_top_contributors(owner, repo)
+    get_top_contributors(owner, repo)import requests
+
+def fetch_contributors(repo_owner, repo_name):
+    url = f"https://api.github.com/repos/{repo_owner}/{repo_name}/contributors"
+    response = requests.get(url)
+    
+    if response.status_code == 200:
+        contributors = response.json()
+        for contributor in contributors:
+            print(f"Username: {contributor['login']}, Contributions: {contributor['contributions']}")
+    else:
+        print(f"Failed to fetch contributors. Status code: {response.status_code}")
+
+if __name__ == "__main__":
+    fetch_contributors("torvalds", "linux")
