@@ -493,3 +493,74 @@ if __name__ == "__main__":
     
     filled_df = cleaner.fill_missing_mean()
     print(f"\nMissing values after filling: {filled_df.isnull().sum().sum()}")
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df, drop_duplicates=True, fill_missing='mean'):
+    """
+    Cleans a pandas DataFrame by removing duplicates and handling missing values.
+    """
+    original_shape = df.shape
+    print(f"Original dataset shape: {original_shape}")
+
+    if drop_duplicates:
+        df = df.drop_duplicates()
+        print(f"Removed {original_shape[0] - df.shape[0]} duplicate rows.")
+
+    if fill_missing is not None:
+        missing_before = df.isnull().sum().sum()
+        if fill_missing == 'mean':
+            numeric_cols = df.select_dtypes(include=[np.number]).columns
+            df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].mean())
+        elif fill_missing == 'median':
+            numeric_cols = df.select_dtypes(include=[np.number]).columns
+            df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].median())
+        elif fill_missing == 'mode':
+            for col in df.columns:
+                df[col] = df[col].fillna(df[col].mode()[0] if not df[col].mode().empty else None)
+        elif fill_missing == 'drop':
+            df = df.dropna()
+        missing_after = df.isnull().sum().sum()
+        print(f"Handled {missing_before - missing_after} missing values using method: {fill_missing}")
+
+    print(f"Cleaned dataset shape: {df.shape}")
+    return df
+
+def validate_data(df, required_columns=None, unique_constraints=None):
+    """
+    Validates the DataFrame for required columns and unique constraints.
+    """
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            raise ValueError(f"Missing required columns: {missing_cols}")
+
+    if unique_constraints:
+        for constraint in unique_constraints:
+            if constraint in df.columns:
+                if df[constraint].duplicated().any():
+                    print(f"Warning: Column '{constraint}' has duplicate values.")
+            else:
+                print(f"Warning: Constraint column '{constraint}' not found in dataset.")
+
+    print("Data validation completed.")
+    return True
+
+if __name__ == "__main__":
+    sample_data = {
+        'id': [1, 2, 2, 4, 5],
+        'value': [10, 20, 20, None, 50],
+        'category': ['A', 'B', 'B', 'A', None]
+    }
+    df = pd.DataFrame(sample_data)
+    print("Sample dataset before cleaning:")
+    print(df)
+
+    cleaned_df = clean_dataset(df, fill_missing='mean')
+    print("\nSample dataset after cleaning:")
+    print(cleaned_df)
+
+    try:
+        validate_data(cleaned_df, required_columns=['id', 'value'], unique_constraints=['id'])
+    except ValueError as e:
+        print(f"Validation error: {e}")
