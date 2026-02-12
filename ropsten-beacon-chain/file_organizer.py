@@ -174,3 +174,34 @@ if __name__ == "__main__":
     target_directory = input("Enter directory path to organize: ").strip()
     organize_files_by_extension(target_directory)
     print("File organization completed.")
+import os
+import shutil
+
+def organize_files(directory):
+    """
+    Organize files in the given directory by their extensions.
+    Creates subdirectories for each file type and moves files accordingly.
+    """
+    if not os.path.exists(directory):
+        print(f"Directory '{directory}' does not exist.")
+        return
+
+    for filename in os.listdir(directory):
+        file_path = os.path.join(directory, filename)
+
+        if os.path.isfile(file_path):
+            _, extension = os.path.splitext(filename)
+            extension = extension.lower()
+
+            if extension:
+                target_dir = os.path.join(directory, extension[1:])
+            else:
+                target_dir = os.path.join(directory, "no_extension")
+
+            os.makedirs(target_dir, exist_ok=True)
+            shutil.move(file_path, os.path.join(target_dir, filename))
+            print(f"Moved '{filename}' to '{target_dir}'")
+
+if __name__ == "__main__":
+    target_directory = input("Enter the directory path to organize: ").strip()
+    organize_files(target_directory)
