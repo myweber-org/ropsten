@@ -728,4 +728,33 @@ if __name__ == "__main__":
     # Normalize data
     normalized_df = normalize_column(cleaned_df, 'values', method='minmax')
     print(f"\nNormalized column sample:")
-    print(normalized_df[['values', 'values_normalized']].head())
+    print(normalized_df[['values', 'values_normalized']].head())import pandas as pd
+import re
+
+def clean_text_column(df, column_name):
+    """
+    Standardize text by converting to lowercase, removing extra whitespace,
+    and stripping special characters except alphanumeric and spaces.
+    """
+    if column_name not in df.columns:
+        raise ValueError(f"Column '{column_name}' not found in DataFrame")
+    
+    df[column_name] = df[column_name].astype(str).str.lower()
+    df[column_name] = df[column_name].apply(lambda x: re.sub(r'[^a-z0-9\s]', '', x))
+    df[column_name] = df[column_name].str.strip()
+    df[column_name] = df[column_name].str.replace(r'\s+', ' ', regex=True)
+    return df
+
+def remove_duplicates(df, subset=None, keep='first'):
+    """
+    Remove duplicate rows from DataFrame.
+    """
+    return df.drop_duplicates(subset=subset, keep=keep)
+
+def validate_email(df, email_column):
+    """
+    Validate email format and return DataFrame with valid emails only.
+    """
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    mask = df[email_column].str.match(pattern, na=False)
+    return df[mask].copy()
