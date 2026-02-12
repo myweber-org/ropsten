@@ -234,3 +234,100 @@ def validate_dataframe(df):
         if not check(df):
             raise ValueError(message)
     return True
+import pandas as pd
+import numpy as np
+from typing import Optional, Union, List
+
+class DataCleaner:
+    def __init__(self, df: pd.DataFrame):
+        self.df = df.copy()
+        self.original_shape = df.shape
+        
+    def remove_duplicates(self, subset: Optional[List[str]] = None, keep: str = 'first') -> 'DataCleaner':
+        self.df = self.df.drop_duplicates(subset=subset, keep=keep)
+        return self
+        
+    def convert_dtypes(self, column_type_map: dict) -> 'DataCleaner':
+        for column, dtype in column_type_map.items():
+            if column in self.df.columns:
+                try:
+                    if dtype == 'datetime':
+                        self.df[column] = pd.to_datetime(self.df[column])
+                    elif dtype == 'numeric':
+                        self.df[column] = pd.to_numeric(self.df[column], errors='coerce')
+                    elif dtype == 'category':
+                        self.df[column] = self.df[column].astype('category')
+                    else:
+                        self.df[column] = self.df[column].astype(dtype)
+                except Exception as e:
+                    print(f"Error converting column {column}: {e}")
+        return self
+        
+    def fill_missing(self, strategy: str = 'mean', custom_value: Optional[Union[int, float, str]] = None) -> 'DataCleaner':
+        numeric_cols = self.df.select_dtypes(include=[np.number]).columns
+        
+        if strategy == 'mean':
+            self.df[numeric_cols] = self.df[numeric_cols].fillna(self.df[numeric_cols].mean())
+        elif strategy == 'median':
+            self.df[numeric_cols] = self.df[numeric_cols].fillna(self.df[numeric_cols].median())
+        elif strategy == 'mode':
+            self.df[numeric_cols] = self.df[numeric_cols].fillna(self.df[numeric_cols].mode().iloc[0])
+        elif strategy == 'custom' and custom_value is not None:
+            self.df[numeric_cols] = self.df[numeric_cols].fillna(custom_value)
+            
+        return self
+        
+    def remove_outliers(self, column: str, method: str = 'iqr', threshold: float = 1.5) -> 'DataCleaner':
+        if column not in self.df.columns or not pd.api.types.is_numeric_dtype(self.df[column]):
+            return self
+            
+        if method == 'iqr':
+            Q1 = self.df[column].quantile(0.25)
+            Q3 = self.df[column].quantile(0.75)
+            IQR = Q3 - Q1
+            lower_bound = Q1 - threshold * IQR
+            upper_bound = Q3 + threshold * IQR
+            self.df = self.df[(self.df[column] >= lower_bound) & (self.df[column] <= upper_bound)]
+            
+        elif method == 'zscore':
+            from scipy import stats
+            z_scores = np.abs(stats.zscore(self.df[column]))
+            self.df = self.df[z_scores < threshold]
+            
+        return self
+        
+    def get_cleaned_data(self) -> pd.DataFrame:
+        return self.df
+        
+    def get_summary(self) -> dict:
+        return {
+            'original_rows': self.original_shape[0],
+            'original_columns': self.original_shape[1],
+            'cleaned_rows': self.df.shape[0],
+            'cleaned_columns': self.df.shape[1],
+            'rows_removed': self.original_shape[0] - self.df.shape[0],
+            'columns_removed': self.original_shape[1] - self.df.shape[1]
+        }
+
+def clean_dataset(df: pd.DataFrame, 
+                  deduplicate: bool = True,
+                  type_conversions: Optional[dict] = None,
+                  fill_na: bool = True,
+                  outlier_removal: Optional[dict] = None) -> pd.DataFrame:
+    
+    cleaner = DataCleaner(df)
+    
+    if deduplicate:
+        cleaner.remove_duplicates()
+        
+    if type_conversions:
+        cleaner.convert_dtypes(type_conversions)
+        
+    if fill_na:
+        cleaner.fill_missing(strategy='mean')
+        
+    if outlier_removal:
+        for col, params in outlier_removal.items():
+            cleaner.remove_outliers(column=col, **params)
+            
+    return cleaner.get_cleaned_data()
