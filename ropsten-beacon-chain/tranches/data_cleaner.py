@@ -284,4 +284,55 @@ if __name__ == "__main__":
     print("\nCleaned data:")
     print(cleaned_data)
     print("\nSummary statistics after cleaning:")
-    print(calculate_summary_stats(cleaned_data, 'values'))
+    print(calculate_summary_stats(cleaned_data, 'values'))import pandas as pd
+import argparse
+import sys
+
+def remove_duplicates(input_file, output_file, key_columns=None):
+    """
+    Remove duplicate rows from a CSV file based on specified columns.
+    
+    Args:
+        input_file (str): Path to input CSV file
+        output_file (str): Path to output CSV file
+        key_columns (list): List of column names to check for duplicates
+    """
+    try:
+        df = pd.read_csv(input_file)
+        
+        if key_columns:
+            missing_cols = [col for col in key_columns if col not in df.columns]
+            if missing_cols:
+                print(f"Error: Columns {missing_cols} not found in input file")
+                return False
+            df_clean = df.drop_duplicates(subset=key_columns, keep='first')
+        else:
+            df_clean = df.drop_duplicates(keep='first')
+        
+        df_clean.to_csv(output_file, index=False)
+        print(f"Successfully removed duplicates. Original: {len(df)} rows, Cleaned: {len(df_clean)} rows")
+        return True
+        
+    except FileNotFoundError:
+        print(f"Error: Input file '{input_file}' not found")
+        return False
+    except pd.errors.EmptyDataError:
+        print("Error: Input file is empty")
+        return False
+    except Exception as e:
+        print(f"Error processing file: {str(e)}")
+        return False
+
+def main():
+    parser = argparse.ArgumentParser(description='Remove duplicates from CSV files')
+    parser.add_argument('input', help='Input CSV file path')
+    parser.add_argument('output', help='Output CSV file path')
+    parser.add_argument('--columns', nargs='+', help='Column names to check for duplicates')
+    
+    args = parser.parse_args()
+    
+    success = remove_duplicates(args.input, args.output, args.columns)
+    sys.exit(0 if success else 1)
+
+if __name__ == '__main__':
+    main()
