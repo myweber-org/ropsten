@@ -88,4 +88,45 @@ if __name__ == "__main__":
     finally:
         # Clean up test directory
         shutil.rmtree(test_dir)
-        print(f"Removed test directory: {test_dir}")
+        print(f"Removed test directory: {test_dir}")import sys
+import os
+
+def clean_file(input_path, output_path=None):
+    if not os.path.exists(input_path):
+        print(f"Error: Input file '{input_path}' not found.")
+        return False
+    
+    if output_path is None:
+        output_path = input_path + ".cleaned"
+    
+    seen_lines = set()
+    cleaned_lines = []
+    
+    try:
+        with open(input_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                stripped = line.rstrip('\n')
+                if stripped not in seen_lines:
+                    seen_lines.add(stripped)
+                    cleaned_lines.append(stripped)
+        
+        with open(output_path, 'w', encoding='utf-8') as f:
+            for line in cleaned_lines:
+                f.write(line + '\n')
+        
+        print(f"Successfully cleaned file. Output: {output_path}")
+        print(f"Removed {len(seen_lines) - len(cleaned_lines)} duplicate lines.")
+        return True
+        
+    except Exception as e:
+        print(f"Error processing file: {e}")
+        return False
+
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        print("Usage: python file_cleaner.py <input_file> [output_file]")
+        sys.exit(1)
+    
+    input_file = sys.argv[1]
+    output_file = sys.argv[2] if len(sys.argv) > 2 else None
+    clean_file(input_file, output_file)
