@@ -647,3 +647,87 @@ def validate_dataframe(df, required_columns):
     if df.empty:
         raise ValueError("DataFrame is empty")
     return True
+import pandas as pd
+import numpy as np
+from scipy import stats
+
+def load_dataset(filepath):
+    """Load dataset from CSV file"""
+    return pd.read_csv(filepath)
+
+def remove_outliers_iqr(df, columns):
+    """Remove outliers using IQR method"""
+    df_clean = df.copy()
+    for col in columns:
+        Q1 = df_clean[col].quantile(0.25)
+        Q3 = df_clean[col].quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - 1.5 * IQR
+        upper_bound = Q3 + 1.5 * IQR
+        df_clean = df_clean[(df_clean[col] >= lower_bound) & (df_clean[col] <= upper_bound)]
+    return df_clean
+
+def normalize_data(df, columns, method='minmax'):
+    """Normalize data using specified method"""
+    df_norm = df.copy()
+    for col in columns:
+        if method == 'minmax':
+            df_norm[col] = (df_norm[col] - df_norm[col].min()) / (df_norm[col].max() - df_norm[col].min())
+        elif method == 'zscore':
+            df_norm[col] = (df_norm[col] - df_norm[col].mean()) / df_norm[col].std()
+    return df_norm
+
+def handle_missing_values(df, strategy='mean'):
+    """Handle missing values with specified strategy"""
+    df_filled = df.copy()
+    numeric_cols = df_filled.select_dtypes(include=[np.number]).columns
+    
+    for col in numeric_cols:
+        if strategy == 'mean':
+            df_filled[col].fillna(df_filled[col].mean(), inplace=True)
+        elif strategy == 'median':
+            df_filled[col].fillna(df_filled[col].median(), inplace=True)
+        elif strategy == 'mode':
+            df_filled[col].fillna(df_filled[col].mode()[0], inplace=True)
+    
+    return df_filled
+
+def clean_dataset(filepath, numeric_columns, outlier_removal=True, normalization='minmax', missing_strategy='mean'):
+    """Main function to clean dataset"""
+    df = load_dataset(filepath)
+    
+    print(f"Original dataset shape: {df.shape}")
+    
+    df = handle_missing_values(df, strategy=missing_strategy)
+    print(f"After handling missing values: {df.shape}")
+    
+    if outlier_removal:
+        df = remove_outliers_iqr(df, numeric_columns)
+        print(f"After outlier removal: {df.shape}")
+    
+    if normalization:
+        df = normalize_data(df, numeric_columns, method=normalization)
+        print("Data normalized")
+    
+    return df
+
+if __name__ == "__main__":
+    sample_data = {
+        'feature1': [1, 2, 3, 4, 5, 100, 6, 7, 8, 9],
+        'feature2': [10, 20, 30, 40, 50, 200, 60, 70, 80, 90],
+        'feature3': [100, 200, 300, 400, 500, 1000, 600, 700, 800, 900]
+    }
+    
+    df_sample = pd.DataFrame(sample_data)
+    df_sample.to_csv('sample_data.csv', index=False)
+    
+    cleaned_df = clean_dataset(
+        'sample_data.csv',
+        numeric_columns=['feature1', 'feature2', 'feature3'],
+        outlier_removal=True,
+        normalization='minmax',
+        missing_strategy='mean'
+    )
+    
+    print("\nCleaned dataset summary:")
+    print(cleaned_df.describe())
