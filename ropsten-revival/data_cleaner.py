@@ -866,3 +866,71 @@ def example_usage():
 
 if __name__ == "__main__":
     cleaned_data = example_usage()
+import pandas as pd
+
+def clean_dataset(df, drop_na=True, rename_columns=True):
+    """
+    Clean a pandas DataFrame by handling missing values and standardizing column names.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame to clean.
+    drop_na (bool): If True, drop rows with any null values.
+    rename_columns (bool): If True, rename columns to lowercase with underscores.
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame.
+    """
+    df_clean = df.copy()
+    
+    if drop_na:
+        df_clean = df_clean.dropna()
+    
+    if rename_columns:
+        df_clean.columns = (
+            df_clean.columns
+            .str.lower()
+            .str.replace(r'[^\w]', '_', regex=True)
+            .str.strip('_')
+        )
+    
+    return df_clean
+
+def remove_duplicates(df, subset=None, keep='first'):
+    """
+    Remove duplicate rows from a DataFrame.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame.
+    subset (list): Columns to consider for duplicates.
+    keep (str): Which duplicates to keep ('first', 'last', False).
+    
+    Returns:
+    pd.DataFrame: DataFrame with duplicates removed.
+    """
+    return df.drop_duplicates(subset=subset, keep=keep)
+
+def convert_dtypes(df, numeric_columns=None, datetime_columns=None):
+    """
+    Convert columns to appropriate data types.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame.
+    numeric_columns (list): Columns to convert to numeric.
+    datetime_columns (list): Columns to convert to datetime.
+    
+    Returns:
+    pd.DataFrame: DataFrame with converted dtypes.
+    """
+    df_converted = df.copy()
+    
+    if numeric_columns:
+        for col in numeric_columns:
+            if col in df_converted.columns:
+                df_converted[col] = pd.to_numeric(df_converted[col], errors='coerce')
+    
+    if datetime_columns:
+        for col in datetime_columns:
+            if col in df_converted.columns:
+                df_converted[col] = pd.to_datetime(df_converted[col], errors='coerce')
+    
+    return df_converted
