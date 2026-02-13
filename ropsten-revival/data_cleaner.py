@@ -624,3 +624,8 @@ def clean_dataframe(df: pd.DataFrame,
         cleaned_df = normalize_columns(cleaned_df)
     
     return cleaned_df
+def filter_none_values(input_list):
+    """
+    Return a new list with all None values removed.
+    """
+    return [item for item in input_list if item is not None]
