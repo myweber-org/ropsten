@@ -169,3 +169,121 @@ def main():
 
 if __name__ == "__main__":
     main()
+import pandas as pd
+import numpy as np
+from typing import List, Optional
+
+class DataCleaner:
+    def __init__(self, df: pd.DataFrame):
+        self.df = df.copy()
+        self.original_shape = df.shape
+        
+    def remove_duplicates(self, subset: Optional[List[str]] = None) -> pd.DataFrame:
+        initial_count = len(self.df)
+        self.df = self.df.drop_duplicates(subset=subset, keep='first')
+        removed = initial_count - len(self.df)
+        print(f"Removed {removed} duplicate rows")
+        return self.df
+    
+    def normalize_column(self, column: str, method: str = 'minmax') -> pd.DataFrame:
+        if column not in self.df.columns:
+            raise ValueError(f"Column '{column}' not found in DataFrame")
+            
+        if method == 'minmax':
+            col_min = self.df[column].min()
+            col_max = self.df[column].max()
+            if col_max != col_min:
+                self.df[f"{column}_normalized"] = (self.df[column] - col_min) / (col_max - col_min)
+            else:
+                self.df[f"{column}_normalized"] = 0.5
+                
+        elif method == 'zscore':
+            col_mean = self.df[column].mean()
+            col_std = self.df[column].std()
+            if col_std > 0:
+                self.df[f"{column}_normalized"] = (self.df[column] - col_mean) / col_std
+            else:
+                self.df[f"{column}_normalized"] = 0
+                
+        else:
+            raise ValueError(f"Unknown normalization method: {method}")
+            
+        return self.df
+    
+    def handle_missing_values(self, strategy: str = 'mean', columns: Optional[List[str]] = None) -> pd.DataFrame:
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns.tolist()
+            
+        for col in columns:
+            if col not in self.df.columns:
+                continue
+                
+            missing_count = self.df[col].isnull().sum()
+            if missing_count == 0:
+                continue
+                
+            if strategy == 'mean':
+                fill_value = self.df[col].mean()
+            elif strategy == 'median':
+                fill_value = self.df[col].median()
+            elif strategy == 'mode':
+                fill_value = self.df[col].mode()[0] if not self.df[col].mode().empty else 0
+            elif strategy == 'drop':
+                self.df = self.df.dropna(subset=[col])
+                print(f"Dropped {missing_count} rows with missing values in column '{col}'")
+                continue
+            else:
+                raise ValueError(f"Unknown strategy: {strategy}")
+                
+            self.df[col] = self.df[col].fillna(fill_value)
+            print(f"Filled {missing_count} missing values in column '{col}' with {strategy}: {fill_value}")
+            
+        return self.df
+    
+    def get_summary(self) -> dict:
+        return {
+            'original_rows': self.original_shape[0],
+            'current_rows': len(self.df),
+            'original_columns': self.original_shape[1],
+            'current_columns': len(self.df.columns),
+            'missing_values': self.df.isnull().sum().sum(),
+            'duplicates_removed': self.original_shape[0] - len(self.df)
+        }
+
+def clean_dataset(file_path: str, output_path: Optional[str] = None) -> pd.DataFrame:
+    df = pd.read_csv(file_path)
+    cleaner = DataCleaner(df)
+    
+    cleaner.remove_duplicates()
+    cleaner.handle_missing_values(strategy='median')
+    
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    for col in numeric_cols[:3]:
+        cleaner.normalize_column(col, method='minmax')
+    
+    summary = cleaner.get_summary()
+    print("Cleaning summary:", summary)
+    
+    if output_path:
+        cleaner.df.to_csv(output_path, index=False)
+        print(f"Cleaned data saved to: {output_path}")
+    
+    return cleaner.df
+
+if __name__ == "__main__":
+    sample_data = pd.DataFrame({
+        'id': [1, 2, 2, 3, 4, 5, 5],
+        'value': [10, 20, 20, np.nan, 40, 50, 50],
+        'score': [1.5, 2.3, 2.3, 3.1, 4.0, 5.5, 5.5]
+    })
+    
+    cleaner = DataCleaner(sample_data)
+    print("Original data shape:", cleaner.original_shape)
+    
+    cleaner.remove_duplicates(subset=['id'])
+    cleaner.handle_missing_values(strategy='mean', columns=['value'])
+    cleaner.normalize_column('score', method='minmax')
+    
+    print("Cleaned data shape:", cleaner.df.shape)
+    print("Cleaned data:")
+    print(cleaner.df)
