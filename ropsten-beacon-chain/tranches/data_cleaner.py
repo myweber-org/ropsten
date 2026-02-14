@@ -920,3 +920,60 @@ def validate_data(data, required_columns=None, check_missing=True, check_duplica
         validation_results['numeric_statistics'] = numeric_stats
     
     return validation_results
+import pandas as pd
+
+def remove_duplicates(df, subset=None, keep='first'):
+    """
+    Remove duplicate rows from a DataFrame.
+    
+    Args:
+        df: pandas DataFrame
+        subset: column label or sequence of labels to consider for identifying duplicates
+        keep: determines which duplicates to keep ('first', 'last', False)
+    
+    Returns:
+        DataFrame with duplicates removed
+    """
+    if subset is None:
+        return df.drop_duplicates(keep=keep)
+    else:
+        return df.drop_duplicates(subset=subset, keep=keep)
+
+def clean_numeric_column(df, column_name):
+    """
+    Clean a numeric column by removing non-numeric values and converting to float.
+    
+    Args:
+        df: pandas DataFrame
+        column_name: name of the column to clean
+    
+    Returns:
+        DataFrame with cleaned column
+    """
+    if column_name not in df.columns:
+        raise ValueError(f"Column '{column_name}' not found in DataFrame")
+    
+    df_clean = df.copy()
+    df_clean[column_name] = pd.to_numeric(df_clean[column_name], errors='coerce')
+    return df_clean
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Args:
+        df: pandas DataFrame to validate
+        required_columns: list of column names that must be present
+    
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    if df.empty:
+        return False, "DataFrame is empty"
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            return False, f"Missing required columns: {missing_columns}"
+    
+    return True, "DataFrame is valid"
