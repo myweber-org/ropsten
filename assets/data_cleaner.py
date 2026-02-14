@@ -480,3 +480,11 @@ if __name__ == "__main__":
     input_path = "raw_data.csv"
     output_path = "cleaned_data.csv"
     cleaned_df = clean_dataset(input_path, output_path)
+def remove_duplicates(seq):
+    seen = set()
+    result = []
+    for item in seq:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
