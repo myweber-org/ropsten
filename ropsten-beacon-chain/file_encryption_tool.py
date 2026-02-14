@@ -59,3 +59,57 @@ def main():
 
 if __name__ == "__main__":
     main()
+import os
+import sys
+
+def xor_cipher(data, key):
+    return bytes([b ^ key for b in data])
+
+def encrypt_file(input_path, output_path, key):
+    try:
+        with open(input_path, 'rb') as f:
+            data = f.read()
+        encrypted = xor_cipher(data, key)
+        with open(output_path, 'wb') as f:
+            f.write(encrypted)
+        return True
+    except Exception as e:
+        print(f"Error during encryption: {e}")
+        return False
+
+def decrypt_file(input_path, output_path, key):
+    return encrypt_file(input_path, output_path, key)
+
+def main():
+    if len(sys.argv) < 5:
+        print("Usage: python file_encryption_tool.py <encrypt|decrypt> <input_file> <output_file> <key>")
+        sys.exit(1)
+
+    operation = sys.argv[1].lower()
+    input_file = sys.argv[2]
+    output_file = sys.argv[3]
+
+    try:
+        key = int(sys.argv[4]) % 256
+    except ValueError:
+        print("Key must be an integer")
+        sys.exit(1)
+
+    if not os.path.exists(input_file):
+        print(f"Input file '{input_file}' does not exist")
+        sys.exit(1)
+
+    if operation == 'encrypt':
+        success = encrypt_file(input_file, output_file, key)
+        if success:
+            print(f"File encrypted successfully: {output_file}")
+    elif operation == 'decrypt':
+        success = decrypt_file(input_file, output_file, key)
+        if success:
+            print(f"File decrypted successfully: {output_file}")
+    else:
+        print("Operation must be 'encrypt' or 'decrypt'")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()
