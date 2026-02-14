@@ -480,3 +480,127 @@ if __name__ == "__main__":
     
     report = get_cleaning_report(df, cleaned_df)
     print(f"Cleaning report: {report}")
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+class DataCleaner:
+    def __init__(self, df):
+        self.df = df.copy()
+        self.original_df = df.copy()
+        
+    def remove_outliers_iqr(self, columns=None, factor=1.5):
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
+        
+        for col in columns:
+            if col in self.df.columns:
+                Q1 = self.df[col].quantile(0.25)
+                Q3 = self.df[col].quantile(0.75)
+                IQR = Q3 - Q1
+                lower_bound = Q1 - factor * IQR
+                upper_bound = Q3 + factor * IQR
+                
+                mask = (self.df[col] >= lower_bound) & (self.df[col] <= upper_bound)
+                self.df = self.df[mask]
+        
+        return self
+    
+    def remove_outliers_zscore(self, columns=None, threshold=3):
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
+        
+        for col in columns:
+            if col in self.df.columns:
+                z_scores = np.abs(stats.zscore(self.df[col].dropna()))
+                mask = z_scores < threshold
+                self.df = self.df[mask]
+        
+        return self
+    
+    def normalize_minmax(self, columns=None):
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
+        
+        for col in columns:
+            if col in self.df.columns:
+                min_val = self.df[col].min()
+                max_val = self.df[col].max()
+                if max_val != min_val:
+                    self.df[col] = (self.df[col] - min_val) / (max_val - min_val)
+        
+        return self
+    
+    def normalize_zscore(self, columns=None):
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
+        
+        for col in columns:
+            if col in self.df.columns:
+                mean_val = self.df[col].mean()
+                std_val = self.df[col].std()
+                if std_val > 0:
+                    self.df[col] = (self.df[col] - mean_val) / std_val
+        
+        return self
+    
+    def fill_missing_mean(self, columns=None):
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
+        
+        for col in columns:
+            if col in self.df.columns:
+                self.df[col] = self.df[col].fillna(self.df[col].mean())
+        
+        return self
+    
+    def fill_missing_median(self, columns=None):
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
+        
+        for col in columns:
+            if col in self.df.columns:
+                self.df[col] = self.df[col].fillna(self.df[col].median())
+        
+        return self
+    
+    def get_cleaned_data(self):
+        return self.df
+    
+    def get_removed_count(self):
+        return len(self.original_df) - len(self.df)
+    
+    def reset(self):
+        self.df = self.original_df.copy()
+        return self
+
+def create_sample_data():
+    np.random.seed(42)
+    data = {
+        'feature_a': np.random.normal(100, 15, 1000),
+        'feature_b': np.random.exponential(50, 1000),
+        'feature_c': np.random.uniform(0, 200, 1000),
+        'category': np.random.choice(['A', 'B', 'C'], 1000)
+    }
+    
+    data['feature_a'][np.random.choice(1000, 20)] = np.nan
+    data['feature_b'][np.random.choice(1000, 15)] = np.nan
+    
+    outliers = np.random.choice(1000, 10)
+    data['feature_a'][outliers] = data['feature_a'][outliers] * 5
+    
+    return pd.DataFrame(data)
+
+if __name__ == "__main__":
+    df = create_sample_data()
+    print(f"Original data shape: {df.shape}")
+    print(f"Missing values:\n{df.isnull().sum()}")
+    
+    cleaner = DataCleaner(df)
+    cleaner.fill_missing_mean().remove_outliers_iqr().normalize_minmax()
+    
+    cleaned_df = cleaner.get_cleaned_data()
+    print(f"\nCleaned data shape: {cleaned_df.shape}")
+    print(f"Rows removed: {cleaner.get_removed_count()}")
+    print(f"\nCleaned data statistics:")
+    print(cleaned_df.describe())
