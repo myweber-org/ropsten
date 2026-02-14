@@ -604,3 +604,34 @@ if __name__ == "__main__":
     print(f"Rows removed: {cleaner.get_removed_count()}")
     print(f"\nCleaned data statistics:")
     print(cleaned_df.describe())
+import pandas as pd
+
+def remove_duplicates(input_file, output_file, subset=None, keep='first'):
+    """
+    Reads a CSV file, removes duplicate rows, and saves the cleaned data.
+    
+    Parameters:
+    input_file (str): Path to the input CSV file.
+    output_file (str): Path to save the cleaned CSV file.
+    subset (list, optional): Column labels to consider for identifying duplicates.
+                             If None, all columns are used.
+    keep (str, optional): Determines which duplicates to keep.
+                          'first' : Keep the first occurrence.
+                          'last'  : Keep the last occurrence.
+                          False   : Drop all duplicates.
+    """
+    try:
+        df = pd.read_csv(input_file)
+        cleaned_df = df.drop_duplicates(subset=subset, keep=keep)
+        cleaned_df.to_csv(output_file, index=False)
+        print(f"Cleaned data saved to {output_file}")
+        print(f"Removed {len(df) - len(cleaned_df)} duplicate rows.")
+    except FileNotFoundError:
+        print(f"Error: The file {input_file} was not found.")
+    except pd.errors.EmptyDataError:
+        print(f"Error: The file {input_file} is empty.")
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+
+if __name__ == "__main__":
+    remove_duplicates('input_data.csv', 'cleaned_data.csv')
