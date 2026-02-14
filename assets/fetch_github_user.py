@@ -102,3 +102,42 @@ if __name__ == "__main__":
         display_user_info(info)
     else:
         print("No username provided.")
+import requests
+
+def fetch_github_user(username):
+    """
+    Fetch public information for a given GitHub username.
+    Returns a dictionary with user details or None if not found.
+    """
+    url = f"https://api.github.com/users/{username}"
+    headers = {"Accept": "application/vnd.github.v3+json"}
+    
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching user data: {e}")
+        return None
+
+def display_user_info(user_data):
+    """Display key user information in a formatted way."""
+    if not user_data:
+        print("No user data to display.")
+        return
+    
+    print(f"GitHub User: {user_data.get('login')}")
+    print(f"Name: {user_data.get('name', 'Not provided')}")
+    print(f"Bio: {user_data.get('bio', 'Not provided')}")
+    print(f"Public Repos: {user_data.get('public_repos', 0)}")
+    print(f"Followers: {user_data.get('followers', 0)}")
+    print(f"Following: {user_data.get('following', 0)}")
+    print(f"Profile URL: {user_data.get('html_url')}")
+
+if __name__ == "__main__":
+    username = input("Enter a GitHub username: ").strip()
+    if username:
+        user_info = fetch_github_user(username)
+        display_user_info(user_info)
+    else:
+        print("No username entered.")
