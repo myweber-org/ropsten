@@ -836,3 +836,77 @@ if __name__ == "__main__":
     is_valid, message = validate_data(cleaned, required_columns=['A', 'B', 'C'], min_rows=2)
     print(f"Validation result: {is_valid}")
     print(f"Validation message: {message}")
+import pandas as pd
+import numpy as np
+from scipy import stats
+
+class DataCleaner:
+    def __init__(self, df):
+        self.df = df.copy()
+        self.numeric_columns = df.select_dtypes(include=[np.number]).columns.tolist()
+        self.categorical_columns = df.select_dtypes(exclude=[np.number]).columns.tolist()
+    
+    def handle_missing_values(self, strategy='mean', fill_value=None):
+        if strategy == 'mean':
+            for col in self.numeric_columns:
+                self.df[col].fillna(self.df[col].mean(), inplace=True)
+        elif strategy == 'median':
+            for col in self.numeric_columns:
+                self.df[col].fillna(self.df[col].median(), inplace=True)
+        elif strategy == 'mode':
+            for col in self.numeric_columns:
+                self.df[col].fillna(self.df[col].mode()[0], inplace=True)
+        elif strategy == 'constant' and fill_value is not None:
+            self.df.fillna(fill_value, inplace=True)
+        elif strategy == 'drop':
+            self.df.dropna(inplace=True)
+        
+        for col in self.categorical_columns:
+            self.df[col].fillna(self.df[col].mode()[0] if not self.df[col].mode().empty else 'Unknown', inplace=True)
+        
+        return self.df
+    
+    def remove_outliers(self, method='iqr', threshold=1.5):
+        if method == 'iqr':
+            for col in self.numeric_columns:
+                Q1 = self.df[col].quantile(0.25)
+                Q3 = self.df[col].quantile(0.75)
+                IQR = Q3 - Q1
+                lower_bound = Q1 - threshold * IQR
+                upper_bound = Q3 + threshold * IQR
+                self.df = self.df[(self.df[col] >= lower_bound) & (self.df[col] <= upper_bound)]
+        elif method == 'zscore':
+            for col in self.numeric_columns:
+                z_scores = np.abs(stats.zscore(self.df[col].dropna()))
+                self.df = self.df[(z_scores < threshold) | (self.df[col].isna())]
+        
+        return self.df
+    
+    def normalize_data(self, method='minmax'):
+        if method == 'minmax':
+            for col in self.numeric_columns:
+                min_val = self.df[col].min()
+                max_val = self.df[col].max()
+                if max_val > min_val:
+                    self.df[col] = (self.df[col] - min_val) / (max_val - min_val)
+        elif method == 'standard':
+            for col in self.numeric_columns:
+                mean_val = self.df[col].mean()
+                std_val = self.df[col].std()
+                if std_val > 0:
+                    self.df[col] = (self.df[col] - mean_val) / std_val
+        
+        return self.df
+    
+    def get_cleaned_data(self):
+        return self.df.copy()
+
+def clean_dataset(df, missing_strategy='mean', outlier_method='iqr', normalize=False):
+    cleaner = DataCleaner(df)
+    cleaner.handle_missing_values(strategy=missing_strategy)
+    cleaner.remove_outliers(method=outlier_method)
+    
+    if normalize:
+        cleaner.normalize_data()
+    
+    return cleaner.get_cleaned_data()
