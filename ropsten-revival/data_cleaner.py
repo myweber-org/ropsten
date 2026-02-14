@@ -278,4 +278,112 @@ def validate_dataframe(df, required_columns=None):
         if missing_columns:
             return False, f"Missing required columns: {missing_columns}"
     
-    return True, "DataFrame is valid"
+    return True, "DataFrame is valid"import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(data, column):
+    """
+    Remove outliers from a pandas Series using the IQR method.
+    Returns cleaned Series and outlier indices.
+    """
+    Q1 = data[column].quantile(0.25)
+    Q3 = data[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    outlier_mask = (data[column] < lower_bound) | (data[column] > upper_bound)
+    cleaned_data = data[~outlier_mask].copy()
+    
+    return cleaned_data, data[outlier_mask].index.tolist()
+
+def normalize_minmax(data, column):
+    """
+    Normalize data to [0,1] range using min-max scaling.
+    """
+    min_val = data[column].min()
+    max_val = data[column].max()
+    
+    if max_val == min_val:
+        return data[column].apply(lambda x: 0.5)
+    
+    normalized = (data[column] - min_val) / (max_val - min_val)
+    return normalized
+
+def z_score_normalize(data, column):
+    """
+    Normalize data using z-score standardization.
+    """
+    mean_val = data[column].mean()
+    std_val = data[column].std()
+    
+    if std_val == 0:
+        return data[column].apply(lambda x: 0)
+    
+    normalized = (data[column] - mean_val) / std_val
+    return normalized
+
+def detect_skewness(data, column, threshold=0.5):
+    """
+    Detect skewness in data distribution.
+    Returns skewness value and whether it exceeds threshold.
+    """
+    skew_val = stats.skew(data[column].dropna())
+    is_skewed = abs(skew_val) > threshold
+    
+    return skew_val, is_skewed
+
+def log_transform(data, column):
+    """
+    Apply log transformation to reduce skewness.
+    Handles zero and negative values by adding constant.
+    """
+    series = data[column].copy()
+    min_val = series.min()
+    
+    if min_val <= 0:
+        constant = abs(min_val) + 1
+        transformed = np.log(series + constant)
+    else:
+        transformed = np.log(series)
+    
+    return transformed
+
+def clean_dataset(df, numeric_columns):
+    """
+    Main cleaning pipeline for numeric columns.
+    Applies outlier removal and normalization.
+    """
+    cleaned_df = df.copy()
+    outlier_report = {}
+    
+    for col in numeric_columns:
+        if col in cleaned_df.columns:
+            cleaned_df, outliers = remove_outliers_iqr(cleaned_df, col)
+            outlier_report[col] = len(outliers)
+            
+            skew_val, is_skewed = detect_skewness(cleaned_df, col)
+            if is_skewed:
+                cleaned_df[f'{col}_log'] = log_transform(cleaned_df, col)
+            
+            cleaned_df[f'{col}_normalized'] = normalize_minmax(cleaned_df, col)
+    
+    return cleaned_df, outlier_report
+
+def validate_dataframe(df, required_columns):
+    """
+    Validate dataframe structure and data types.
+    """
+    missing_cols = [col for col in required_columns if col not in df.columns]
+    
+    if missing_cols:
+        raise ValueError(f"Missing required columns: {missing_cols}")
+    
+    validation_report = {
+        'total_rows': len(df),
+        'missing_values': df.isnull().sum().to_dict(),
+        'data_types': df.dtypes.to_dict()
+    }
+    
+    return validation_report
