@@ -564,4 +564,75 @@ if __name__ == "__main__":
     CITY = "London"
     
     weather = get_weather_data(API_KEY, CITY)
-    display_weather_data(weather)
+    display_weather_data(weather)import requests
+import json
+import os
+
+def get_current_weather(city_name, api_key=None):
+    """
+    Fetch current weather data for a given city from OpenWeatherMap API.
+    """
+    if api_key is None:
+        api_key = os.getenv("OPENWEATHER_API_KEY")
+        if api_key is None:
+            raise ValueError("API key not provided and OPENWEATHER_API_KEY environment variable not set.")
+
+    base_url = "http://api.openweathermap.org/data/2.5/weather"
+    params = {
+        'q': city_name,
+        'appid': api_key,
+        'units': 'metric'
+    }
+
+    try:
+        response = requests.get(base_url, params=params, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+
+        if data.get("cod") != 200:
+            raise Exception(f"API Error: {data.get('message', 'Unknown error')}")
+
+        weather_info = {
+            'city': data['name'],
+            'country': data['sys']['country'],
+            'temperature': data['main']['temp'],
+            'feels_like': data['main']['feels_like'],
+            'humidity': data['main']['humidity'],
+            'pressure': data['main']['pressure'],
+            'weather_description': data['weather'][0]['description'],
+            'wind_speed': data['wind']['speed'],
+            'wind_deg': data['wind']['deg']
+        }
+        return weather_info
+
+    except requests.exceptions.RequestException as e:
+        raise Exception(f"Network error occurred: {e}")
+    except (KeyError, IndexError, json.JSONDecodeError) as e:
+        raise Exception(f"Error parsing API response: {e}")
+
+def display_weather(weather_data):
+    """
+    Print formatted weather information.
+    """
+    if not weather_data:
+        print("No weather data to display.")
+        return
+
+    print(f"Weather in {weather_data['city']}, {weather_data['country']}:")
+    print(f"  Temperature: {weather_data['temperature']}°C")
+    print(f"  Feels like: {weather_data['feels_like']}°C")
+    print(f"  Conditions: {weather_data['weather_description'].capitalize()}")
+    print(f"  Humidity: {weather_data['humidity']}%")
+    print(f"  Pressure: {weather_data['pressure']} hPa")
+    print(f"  Wind: {weather_data['wind_speed']} m/s at {weather_data['wind_deg']}°")
+
+if __name__ == "__main__":
+    # Example usage
+    try:
+        # Replace with your actual API key or set OPENWEATHER_API_KEY environment variable
+        api_key = "your_api_key_here"
+        city = "London"
+        weather = get_current_weather(city, api_key)
+        display_weather(weather)
+    except Exception as e:
+        print(f"Failed to fetch weather data: {e}")
