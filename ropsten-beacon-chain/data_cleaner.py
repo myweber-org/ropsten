@@ -183,4 +183,11 @@ def validate_dataframe(df):
         raise TypeError("Input must be a pandas DataFrame")
     if df.empty:
         raise ValueError("DataFrame is empty")
-    return True
+    return Truedef remove_duplicates_preserve_order(sequence):
+    seen = set()
+    result = []
+    for item in sequence:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
