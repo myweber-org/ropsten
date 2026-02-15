@@ -1,127 +1,109 @@
 
 import pandas as pd
 import numpy as np
+from pathlib import Path
 
-def clean_dataset(df, columns_to_check=None, fill_strategy='mean'):
+def clean_csv_data(input_path, output_path=None, missing_strategy='mean'):
     """
-    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    Load and clean CSV data by handling missing values.
+    
+    Parameters:
+    input_path (str): Path to input CSV file
+    output_path (str, optional): Path for cleaned CSV output
+    missing_strategy (str): Strategy for handling missing values
+                           ('mean', 'median', 'drop', 'zero')
+    
+    Returns:
+    pandas.DataFrame: Cleaned dataframe
     """
-    # Create a copy to avoid modifying the original DataFrame
-    df_clean = df.copy()
+    
+    # Validate input file exists
+    input_file = Path(input_path)
+    if not input_file.exists():
+        raise FileNotFoundError(f"Input file not found: {input_path}")
+    
+    # Load data
+    df = pd.read_csv(input_path)
+    
+    # Report initial status
+    print(f"Original data shape: {df.shape}")
+    print(f"Missing values per column:")
+    print(df.isnull().sum())
+    
+    # Handle missing values based on strategy
+    if missing_strategy == 'drop':
+        df_clean = df.dropna()
+    elif missing_strategy == 'mean':
+        df_clean = df.fillna(df.mean(numeric_only=True))
+    elif missing_strategy == 'median':
+        df_clean = df.fillna(df.median(numeric_only=True))
+    elif missing_strategy == 'zero':
+        df_clean = df.fillna(0)
+    else:
+        raise ValueError(f"Unknown strategy: {missing_strategy}")
     
     # Remove duplicate rows
-    initial_rows = df_clean.shape[0]
     df_clean = df_clean.drop_duplicates()
-    removed_duplicates = initial_rows - df_clean.shape[0]
     
-    # Handle missing values
-    if columns_to_check is None:
-        columns_to_check = df_clean.columns
+    # Reset index after cleaning
+    df_clean = df_clean.reset_index(drop=True)
     
-    missing_counts = {}
-    for column in columns_to_check:
-        if column in df_clean.columns:
-            missing_count = df_clean[column].isnull().sum()
-            missing_counts[column] = missing_count
-            
-            if missing_count > 0:
-                if fill_strategy == 'mean' and pd.api.types.is_numeric_dtype(df_clean[column]):
-                    fill_value = df_clean[column].mean()
-                    df_clean[column].fillna(fill_value, inplace=True)
-                elif fill_strategy == 'median' and pd.api.types.is_numeric_dtype(df_clean[column]):
-                    fill_value = df_clean[column].median()
-                    df_clean[column].fillna(fill_value, inplace=True)
-                elif fill_strategy == 'mode':
-                    fill_value = df_clean[column].mode()[0] if not df_clean[column].mode().empty else None
-                    df_clean[column].fillna(fill_value, inplace=True)
-                elif fill_strategy == 'ffill':
-                    df_clean[column].fillna(method='ffill', inplace=True)
-                elif fill_strategy == 'bfill':
-                    df_clean[column].fillna(method='bfill', inplace=True)
-                else:
-                    df_clean[column].fillna(0, inplace=True)
+    # Report cleaning results
+    print(f"Cleaned data shape: {df_clean.shape}")
+    print(f"Remaining missing values: {df_clean.isnull().sum().sum()}")
     
-    # Log cleaning results
-    print(f"Removed {removed_duplicates} duplicate rows")
-    print(f"Missing values handled using '{fill_strategy}' strategy:")
-    for column, count in missing_counts.items():
-        print(f"  {column}: {count} missing values filled")
+    # Save cleaned data if output path provided
+    if output_path:
+        output_file = Path(output_path)
+        df_clean.to_csv(output_path, index=False)
+        print(f"Cleaned data saved to: {output_path}")
     
     return df_clean
 
-def validate_dataframe(df, required_columns=None):
+def validate_numeric_columns(df, columns=None):
     """
-    Validate that the DataFrame meets basic requirements.
-    """
-    if not isinstance(df, pd.DataFrame):
-        raise TypeError("Input must be a pandas DataFrame")
+    Validate that specified columns contain only numeric data.
     
-    if df.empty:
-        raise ValueError("DataFrame is empty")
-    
-    if required_columns:
-        missing_columns = [col for col in required_columns if col not in df.columns]
-        if missing_columns:
-            raise ValueError(f"Missing required columns: {missing_columns}")
-    
-    return True
-
-# Example usage
-if __name__ == "__main__":
-    # Create sample data with duplicates and missing values
-    data = {
-        'id': [1, 2, 3, 1, 5, 6, 7, 8],
-        'name': ['Alice', 'Bob', 'Charlie', 'Alice', 'Eve', 'Frank', None, 'Helen'],
-        'age': [25, 30, 35, 25, 28, None, 40, 32],
-        'score': [85.5, 92.0, 78.5, 85.5, None, 88.0, 95.5, 91.0]
-    }
-    
-    df = pd.DataFrame(data)
-    print("Original DataFrame:")
-    print(df)
-    print("\n" + "="*50 + "\n")
-    
-    # Clean the data
-    cleaned_df = clean_dataset(df, fill_strategy='mean')
-    
-    print("\nCleaned DataFrame:")
-    print(cleaned_df)
-    
-    # Validate the cleaned data
-    try:
-        validate_dataframe(cleaned_df, required_columns=['id', 'name', 'age', 'score'])
-        print("\nData validation passed!")
-    except Exception as e:
-        print(f"\nData validation failed: {e}")import pandas as pd
-
-def clean_dataset(df, drop_duplicates=True, fill_missing='mean'):
-    """
-    Clean a pandas DataFrame by removing duplicates and handling missing values.
-    
-    Args:
-        df (pd.DataFrame): Input DataFrame to clean.
-        drop_duplicates (bool): If True, remove duplicate rows.
-        fill_missing (str): Method to fill missing values. Options: 'mean', 'median', 'mode', or 'drop'.
+    Parameters:
+    df (pandas.DataFrame): Dataframe to validate
+    columns (list, optional): List of column names to check
     
     Returns:
-        pd.DataFrame: Cleaned DataFrame.
+    dict: Validation results for each column
     """
-    cleaned_df = df.copy()
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
     
-    if drop_duplicates:
-        cleaned_df = cleaned_df.drop_duplicates()
+    results = {}
+    for col in columns:
+        if col in df.columns:
+            non_numeric = pd.to_numeric(df[col], errors='coerce').isna().sum()
+            results[col] = {
+                'total_values': len(df[col]),
+                'non_numeric_count': non_numeric,
+                'is_valid': non_numeric == 0
+            }
     
-    if fill_missing == 'drop':
-        cleaned_df = cleaned_df.dropna()
-    elif fill_missing in ['mean', 'median']:
-        numeric_cols = cleaned_df.select_dtypes(include=['number']).columns
-        for col in numeric_cols:
-            if fill_missing == 'mean':
-                cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].mean())
-            elif fill_missing == 'median':
-                cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].median())
-    elif fill_missing == 'mode':
-        for col in cleaned_df.columns:
-            cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].mode()[0] if not cleaned_df[col].mode().empty else None)
+    return results
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'A': [1, 2, np.nan, 4, 5],
+        'B': [10.5, np.nan, 30.2, 40.1, 50.0],
+        'C': ['x', 'y', 'z', 'x', 'y']
+    }
     
-    return cleaned_df
+    df_sample = pd.DataFrame(sample_data)
+    df_sample.to_csv('sample_data.csv', index=False)
+    
+    # Clean the sample data
+    cleaned_df = clean_csv_data('sample_data.csv', 
+                               'cleaned_sample.csv',
+                               missing_strategy='mean')
+    
+    # Validate numeric columns
+    validation = validate_numeric_columns(cleaned_df)
+    print("\nColumn validation:")
+    for col, stats in validation.items():
+        print(f"{col}: {stats}")
