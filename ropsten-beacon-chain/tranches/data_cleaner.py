@@ -150,3 +150,116 @@ if __name__ == "__main__":
     # Validate the cleaned data
     is_valid, message = validate_data(cleaned, required_columns=['A', 'B', 'C'], min_rows=2)
     print(f"\nValidation: {is_valid} - {message}")
+import pandas as pd
+import numpy as np
+
+def clean_csv_data(file_path, output_path=None, fill_strategy='mean'):
+    """
+    Load a CSV file, clean missing values, and optionally save cleaned data.
+    
+    Args:
+        file_path (str): Path to input CSV file
+        output_path (str, optional): Path to save cleaned CSV. If None, returns DataFrame
+        fill_strategy (str): Method for filling missing values ('mean', 'median', 'mode', 'zero')
+    
+    Returns:
+        pd.DataFrame or None: Cleaned DataFrame if output_path is None, else None
+    """
+    try:
+        df = pd.read_csv(file_path)
+    except FileNotFoundError:
+        print(f"Error: File '{file_path}' not found.")
+        return None
+    except Exception as e:
+        print(f"Error reading file: {e}")
+        return None
+    
+    original_shape = df.shape
+    print(f"Original data shape: {original_shape}")
+    print(f"Missing values per column:\n{df.isnull().sum()}")
+    
+    if fill_strategy == 'mean':
+        df = df.fillna(df.mean(numeric_only=True))
+    elif fill_strategy == 'median':
+        df = df.fillna(df.median(numeric_only=True))
+    elif fill_strategy == 'mode':
+        df = df.fillna(df.mode().iloc[0])
+    elif fill_strategy == 'zero':
+        df = df.fillna(0)
+    else:
+        print(f"Warning: Unknown fill strategy '{fill_strategy}'. Using 'mean'.")
+        df = df.fillna(df.mean(numeric_only=True))
+    
+    df = df.dropna(axis=1, how='all')
+    
+    cleaned_shape = df.shape
+    print(f"Cleaned data shape: {cleaned_shape}")
+    print(f"Removed {original_shape[1] - cleaned_shape[1]} empty columns")
+    
+    if output_path:
+        try:
+            df.to_csv(output_path, index=False)
+            print(f"Cleaned data saved to: {output_path}")
+            return None
+        except Exception as e:
+            print(f"Error saving file: {e}")
+            return df
+    else:
+        return df
+
+def detect_outliers_iqr(df, column):
+    """
+    Detect outliers in a column using IQR method.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        column (str): Column name to analyze
+    
+    Returns:
+        pd.DataFrame: Rows identified as outliers
+    """
+    if column not in df.columns:
+        print(f"Error: Column '{column}' not found in DataFrame.")
+        return pd.DataFrame()
+    
+    if not np.issubdtype(df[column].dtype, np.number):
+        print(f"Error: Column '{column}' is not numeric.")
+        return pd.DataFrame()
+    
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    outliers = df[(df[column] < lower_bound) | (df[column] > upper_bound)]
+    
+    print(f"Column: {column}")
+    print(f"IQR: {IQR:.4f}")
+    print(f"Bounds: [{lower_bound:.4f}, {upper_bound:.4f}]")
+    print(f"Outliers detected: {len(outliers)}")
+    
+    return outliers
+
+if __name__ == "__main__":
+    sample_data = pd.DataFrame({
+        'A': [1, 2, np.nan, 4, 5, 100],
+        'B': [10, np.nan, 30, 40, 50, 60],
+        'C': [100, 200, 300, np.nan, np.nan, np.nan],
+        'D': [1, 1, 1, 1, 1, 1]
+    })
+    
+    sample_data.to_csv('sample_data.csv', index=False)
+    
+    cleaned_df = clean_csv_data('sample_data.csv', fill_strategy='median')
+    
+    if cleaned_df is not None:
+        outliers = detect_outliers_iqr(cleaned_df, 'A')
+        if not outliers.empty:
+            print("\nOutliers in column 'A':")
+            print(outliers)
+    
+    import os
+    if os.path.exists('sample_data.csv'):
+        os.remove('sample_data.csv')
