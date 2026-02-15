@@ -98,3 +98,32 @@ def sample_data_processing():
 
 if __name__ == "__main__":
     sample_data_processing()
+import pandas as pd
+
+def clean_dataframe(df, column, threshold, keep_above=True):
+    """
+    Filters a DataFrame based on a numeric threshold in a specified column.
+    Returns a new DataFrame.
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame.")
+
+    if keep_above:
+        filtered_df = df[df[column] > threshold].copy()
+    else:
+        filtered_df = df[df[column] <= threshold].copy()
+
+    filtered_df.reset_index(drop=True, inplace=True)
+    return filtered_df
+
+def remove_duplicates_by_column(df, column):
+    """
+    Removes duplicate rows based on values in a specified column,
+    keeping the first occurrence.
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame.")
+
+    cleaned_df = df.drop_duplicates(subset=[column], keep='first').copy()
+    cleaned_df.reset_index(drop=True, inplace=True)
+    return cleaned_df
