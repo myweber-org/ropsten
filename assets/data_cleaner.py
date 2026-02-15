@@ -97,3 +97,11 @@ def validate_dataset(df, required_columns=None, min_rows=1):
         return False, f"Dataset has fewer than {min_rows} rows"
     
     return True, "Dataset is valid"
+def remove_duplicates(data_list, key):
+    seen = set()
+    unique_data = []
+    for item in data_list:
+        if item.get(key) not in seen:
+            seen.add(item.get(key))
+            unique_data.append(item)
+    return unique_data
