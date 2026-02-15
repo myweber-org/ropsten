@@ -226,3 +226,98 @@ def organize_files(directory_path):
 if __name__ == "__main__":
     target_directory = input("Enter directory path to organize: ").strip()
     organize_files(target_directory)
+import os
+import shutil
+from pathlib import Path
+
+def organize_files(directory):
+    """
+    Organizes files in the given directory by moving them into subfolders
+    based on their file extensions.
+    """
+    # Define file type categories and their associated extensions
+    file_categories = {
+        'Images': ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.svg'],
+        'Documents': ['.pdf', '.docx', '.txt', '.xlsx', '.pptx', '.md'],
+        'Audio': ['.mp3', '.wav', '.flac', '.aac'],
+        'Video': ['.mp4', '.avi', '.mov', '.mkv'],
+        'Archives': ['.zip', '.tar', '.gz', '.rar'],
+        'Code': ['.py', '.js', '.html', '.css', '.java', '.cpp']
+    }
+    
+    # Ensure the directory exists
+    target_dir = Path(directory)
+    if not target_dir.exists():
+        print(f"Directory '{directory}' does not exist.")
+        return
+    
+    # Create category folders if they don't exist
+    for category in file_categories.keys():
+        category_path = target_dir / category
+        category_path.mkdir(exist_ok=True)
+    
+    # Track moved files and errors
+    moved_files = []
+    errors = []
+    
+    # Iterate through all items in the directory
+    for item in target_dir.iterdir():
+        # Skip directories and hidden files
+        if item.is_dir() or item.name.startswith('.'):
+            continue
+        
+        # Get file extension
+        file_ext = item.suffix.lower()
+        
+        # Find the appropriate category for the file
+        moved = False
+        for category, extensions in file_categories.items():
+            if file_ext in extensions:
+                destination = target_dir / category / item.name
+                try:
+                    # Handle naming conflicts
+                    if destination.exists():
+                        base_name = item.stem
+                        counter = 1
+                        while destination.exists():
+                            new_name = f"{base_name}_{counter}{item.suffix}"
+                            destination = target_dir / category / new_name
+                            counter += 1
+                    
+                    shutil.move(str(item), str(destination))
+                    moved_files.append((item.name, category))
+                    moved = True
+                    break
+                except Exception as e:
+                    errors.append((item.name, str(e)))
+        
+        # If file doesn't match any category, move to 'Other'
+        if not moved:
+            other_dir = target_dir / 'Other'
+            other_dir.mkdir(exist_ok=True)
+            destination = other_dir / item.name
+            try:
+                shutil.move(str(item), str(destination))
+                moved_files.append((item.name, 'Other'))
+            except Exception as e:
+                errors.append((item.name, str(e)))
+    
+    # Print summary
+    print(f"Organization complete for '{directory}'")
+    print(f"Total files moved: {len(moved_files)}")
+    
+    if moved_files:
+        print("\nMoved files:")
+        for filename, category in moved_files:
+            print(f"  {filename} -> {category}/")
+    
+    if errors:
+        print(f"\nErrors ({len(errors)}):")
+        for filename, error_msg in errors:
+            print(f"  {filename}: {error_msg}")
+
+if __name__ == "__main__":
+    # Use current directory if no argument provided
+    import sys
+    target_directory = sys.argv[1] if len(sys.argv) > 1 else os.getcwd()
+    organize_files(target_directory)
