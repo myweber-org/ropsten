@@ -114,3 +114,43 @@ def get_summary_statistics(data, numeric_columns):
             }
     
     return pd.DataFrame(summary).T
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df, missing_strategy='mean', outlier_threshold=3):
+    """
+    Clean a pandas DataFrame by handling missing values and outliers.
+
+    Parameters:
+    df (pd.DataFrame): Input DataFrame.
+    missing_strategy (str): Strategy for handling missing values.
+                            Options: 'mean', 'median', 'mode', 'drop'.
+    outlier_threshold (float): Number of standard deviations to consider a point an outlier.
+
+    Returns:
+    pd.DataFrame: Cleaned DataFrame.
+    """
+    cleaned_df = df.copy()
+
+    # Handle missing values
+    if missing_strategy == 'mean':
+        cleaned_df = cleaned_df.fillna(cleaned_df.mean(numeric_only=True))
+    elif missing_strategy == 'median':
+        cleaned_df = cleaned_df.fillna(cleaned_df.median(numeric_only=True))
+    elif missing_strategy == 'mode':
+        cleaned_df = cleaned_df.fillna(cleaned_df.mode().iloc[0])
+    elif missing_strategy == 'drop':
+        cleaned_df = cleaned_df.dropna()
+    else:
+        raise ValueError("Invalid missing_strategy. Choose from 'mean', 'median', 'mode', 'drop'.")
+
+    # Handle outliers for numeric columns
+    numeric_cols = cleaned_df.select_dtypes(include=[np.number]).columns
+    for col in numeric_cols:
+        mean = cleaned_df[col].mean()
+        std = cleaned_df[col].std()
+        lower_bound = mean - outlier_threshold * std
+        upper_bound = mean + outlier_threshold * std
+        cleaned_df[col] = cleaned_df[col].clip(lower=lower_bound, upper=upper_bound)
+
+    return cleaned_df
