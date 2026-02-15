@@ -466,3 +466,128 @@ def validate_dataframe(df):
         'data_types': df.dtypes.to_dict()
     }
     return validation_results
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(dataframe, column, multiplier=1.5):
+    """
+    Remove outliers using IQR method
+    """
+    if column not in dataframe.columns:
+        raise ValueError(f"Column '{column}' not found in dataframe")
+    
+    q1 = dataframe[column].quantile(0.25)
+    q3 = dataframe[column].quantile(0.75)
+    iqr = q3 - q1
+    lower_bound = q1 - multiplier * iqr
+    upper_bound = q3 + multiplier * iqr
+    
+    return dataframe[(dataframe[column] >= lower_bound) & 
+                     (dataframe[column] <= upper_bound)].copy()
+
+def remove_outliers_zscore(dataframe, column, threshold=3):
+    """
+    Remove outliers using Z-score method
+    """
+    if column not in dataframe.columns:
+        raise ValueError(f"Column '{column}' not found in dataframe")
+    
+    z_scores = np.abs(stats.zscore(dataframe[column]))
+    return dataframe[z_scores < threshold].copy()
+
+def normalize_minmax(dataframe, columns=None):
+    """
+    Normalize data using min-max scaling
+    """
+    df_copy = dataframe.copy()
+    
+    if columns is None:
+        numeric_cols = df_copy.select_dtypes(include=[np.number]).columns
+        columns = list(numeric_cols)
+    
+    for col in columns:
+        if col in df_copy.columns and pd.api.types.is_numeric_dtype(df_copy[col]):
+            min_val = df_copy[col].min()
+            max_val = df_copy[col].max()
+            
+            if max_val != min_val:
+                df_copy[col] = (df_copy[col] - min_val) / (max_val - min_val)
+            else:
+                df_copy[col] = 0
+    
+    return df_copy
+
+def normalize_zscore(dataframe, columns=None):
+    """
+    Normalize data using Z-score standardization
+    """
+    df_copy = dataframe.copy()
+    
+    if columns is None:
+        numeric_cols = df_copy.select_dtypes(include=[np.number]).columns
+        columns = list(numeric_cols)
+    
+    for col in columns:
+        if col in df_copy.columns and pd.api.types.is_numeric_dtype(df_copy[col]):
+            mean_val = df_copy[col].mean()
+            std_val = df_copy[col].std()
+            
+            if std_val != 0:
+                df_copy[col] = (df_copy[col] - mean_val) / std_val
+            else:
+                df_copy[col] = 0
+    
+    return df_copy
+
+def handle_missing_values(dataframe, strategy='mean', columns=None):
+    """
+    Handle missing values using specified strategy
+    """
+    df_copy = dataframe.copy()
+    
+    if columns is None:
+        numeric_cols = df_copy.select_dtypes(include=[np.number]).columns
+        columns = list(numeric_cols)
+    
+    for col in columns:
+        if col in df_copy.columns and pd.api.types.is_numeric_dtype(df_copy[col]):
+            if strategy == 'mean':
+                fill_value = df_copy[col].mean()
+            elif strategy == 'median':
+                fill_value = df_copy[col].median()
+            elif strategy == 'mode':
+                fill_value = df_copy[col].mode()[0] if not df_copy[col].mode().empty else 0
+            elif strategy == 'zero':
+                fill_value = 0
+            else:
+                raise ValueError(f"Unknown strategy: {strategy}")
+            
+            df_copy[col] = df_copy[col].fillna(fill_value)
+    
+    return df_copy
+
+def get_data_summary(dataframe):
+    """
+    Generate comprehensive data summary
+    """
+    summary = {
+        'shape': dataframe.shape,
+        'dtypes': dataframe.dtypes.to_dict(),
+        'missing_values': dataframe.isnull().sum().to_dict(),
+        'numeric_stats': {}
+    }
+    
+    numeric_cols = dataframe.select_dtypes(include=[np.number]).columns
+    for col in numeric_cols:
+        summary['numeric_stats'][col] = {
+            'mean': dataframe[col].mean(),
+            'std': dataframe[col].std(),
+            'min': dataframe[col].min(),
+            '25%': dataframe[col].quantile(0.25),
+            '50%': dataframe[col].quantile(0.50),
+            '75%': dataframe[col].quantile(0.75),
+            'max': dataframe[col].max()
+        }
+    
+    return summary
