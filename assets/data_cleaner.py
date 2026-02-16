@@ -185,3 +185,122 @@ if __name__ == "__main__":
     
     is_valid, message = validate_data(cleaned, required_columns=['A', 'B'])
     print(f"\nValidation: {message}")
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(dataframe, column, factor=1.5):
+    """
+    Remove outliers from a DataFrame column using IQR method.
+    
+    Args:
+        dataframe: pandas DataFrame
+        column: column name to process
+        factor: IQR multiplier (default 1.5)
+    
+    Returns:
+        DataFrame with outliers removed
+    """
+    if column not in dataframe.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    q1 = dataframe[column].quantile(0.25)
+    q3 = dataframe[column].quantile(0.75)
+    iqr = q3 - q1
+    
+    lower_bound = q1 - factor * iqr
+    upper_bound = q3 + factor * iqr
+    
+    filtered_df = dataframe[(dataframe[column] >= lower_bound) & 
+                           (dataframe[column] <= upper_bound)]
+    
+    return filtered_df.copy()
+
+def normalize_minmax(dataframe, columns=None):
+    """
+    Normalize specified columns using min-max scaling.
+    
+    Args:
+        dataframe: pandas DataFrame
+        columns: list of column names to normalize (default: all numeric columns)
+    
+    Returns:
+        DataFrame with normalized columns
+    """
+    if columns is None:
+        columns = dataframe.select_dtypes(include=[np.number]).columns.tolist()
+    
+    result_df = dataframe.copy()
+    
+    for col in columns:
+        if col in dataframe.columns and np.issubdtype(dataframe[col].dtype, np.number):
+            col_min = dataframe[col].min()
+            col_max = dataframe[col].max()
+            
+            if col_max > col_min:
+                result_df[col] = (dataframe[col] - col_min) / (col_max - col_min)
+            else:
+                result_df[col] = 0
+    
+    return result_df
+
+def handle_missing_values(dataframe, strategy='mean', columns=None):
+    """
+    Handle missing values in DataFrame columns.
+    
+    Args:
+        dataframe: pandas DataFrame
+        strategy: 'mean', 'median', 'mode', or 'drop'
+        columns: list of column names to process (default: all columns)
+    
+    Returns:
+        DataFrame with handled missing values
+    """
+    if columns is None:
+        columns = dataframe.columns.tolist()
+    
+    result_df = dataframe.copy()
+    
+    for col in columns:
+        if col not in result_df.columns:
+            continue
+            
+        if result_df[col].isnull().any():
+            if strategy == 'drop':
+                result_df = result_df.dropna(subset=[col])
+            elif strategy == 'mean' and np.issubdtype(result_df[col].dtype, np.number):
+                result_df[col] = result_df[col].fillna(result_df[col].mean())
+            elif strategy == 'median' and np.issubdtype(result_df[col].dtype, np.number):
+                result_df[col] = result_df[col].fillna(result_df[col].median())
+            elif strategy == 'mode':
+                mode_value = result_df[col].mode()
+                if not mode_value.empty:
+                    result_df[col] = result_df[col].fillna(mode_value.iloc[0])
+    
+    return result_df
+
+def clean_dataset(dataframe, numeric_columns=None, outlier_factor=1.5):
+    """
+    Complete data cleaning pipeline.
+    
+    Args:
+        dataframe: pandas DataFrame
+        numeric_columns: list of numeric columns to process
+        outlier_factor: IQR multiplier for outlier removal
+    
+    Returns:
+        Cleaned DataFrame
+    """
+    if numeric_columns is None:
+        numeric_columns = dataframe.select_dtypes(include=[np.number]).columns.tolist()
+    
+    cleaned_df = dataframe.copy()
+    
+    for col in numeric_columns:
+        if col in cleaned_df.columns:
+            cleaned_df = remove_outliers_iqr(cleaned_df, col, outlier_factor)
+    
+    cleaned_df = handle_missing_values(cleaned_df, strategy='median', columns=numeric_columns)
+    cleaned_df = normalize_minmax(cleaned_df, columns=numeric_columns)
+    
+    return cleaned_df.reset_index(drop=True)
