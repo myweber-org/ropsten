@@ -103,3 +103,42 @@ if __name__ == "__main__":
         print("Data validation passed")
     else:
         print("Data validation failed")
+def remove_duplicates(input_list):
+    """
+    Remove duplicate elements from a list while preserving order.
+    
+    Args:
+        input_list: A list containing elements (must be hashable).
+    
+    Returns:
+        A new list with duplicates removed.
+    """
+    seen = set()
+    result = []
+    for item in input_list:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
+
+def clean_data_with_counts(data):
+    """
+    Clean data and return both cleaned list and duplicate count.
+    
+    Args:
+        data: List of items to clean.
+    
+    Returns:
+        Tuple of (cleaned_list, duplicates_removed)
+    """
+    original_len = len(data)
+    cleaned = remove_duplicates(data)
+    return cleaned, original_len - len(cleaned)
+
+if __name__ == "__main__":
+    sample_data = [1, 2, 2, 3, 4, 4, 4, 5, 1, 6]
+    cleaned, removed = clean_data_with_counts(sample_data)
+    
+    print(f"Original data: {sample_data}")
+    print(f"Cleaned data: {cleaned}")
+    print(f"Duplicates removed: {removed}")
