@@ -161,3 +161,39 @@ def get_data_summary(df):
         'data_types': df.dtypes.astype(str).to_dict()
     }
     return summary
+import pandas as pd
+import numpy as np
+
+def clean_csv_data(input_file, output_file):
+    df = pd.read_csv(input_file)
+    
+    # Remove duplicate rows
+    df.drop_duplicates(inplace=True)
+    
+    # Fill missing numeric values with column median
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    for col in numeric_cols:
+        df[col].fillna(df[col].median(), inplace=True)
+    
+    # Fill missing categorical values with mode
+    categorical_cols = df.select_dtypes(include=['object']).columns
+    for col in categorical_cols:
+        df[col].fillna(df[col].mode()[0] if not df[col].mode().empty else 'Unknown', inplace=True)
+    
+    # Remove outliers using IQR method for numeric columns
+    for col in numeric_cols:
+        Q1 = df[col].quantile(0.25)
+        Q3 = df[col].quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - 1.5 * IQR
+        upper_bound = Q3 + 1.5 * IQR
+        df = df[(df[col] >= lower_bound) & (df[col] <= upper_bound)]
+    
+    # Save cleaned data
+    df.to_csv(output_file, index=False)
+    print(f"Cleaned data saved to {output_file}")
+    print(f"Original shape: {pd.read_csv(input_file).shape}")
+    print(f"Cleaned shape: {df.shape}")
+
+if __name__ == "__main__":
+    clean_csv_data('raw_data.csv', 'cleaned_data.csv')
