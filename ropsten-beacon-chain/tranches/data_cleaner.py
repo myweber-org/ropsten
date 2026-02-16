@@ -111,4 +111,50 @@ if __name__ == "__main__":
     print(cleaned)
     
     is_valid, message = validate_dataframe(cleaned, required_columns=['A', 'B', 'C'])
-    print(f"\nValidation: {message}")
+    print(f"\nValidation: {message}")import pandas as pd
+
+def remove_duplicates(input_file, output_file, subset_columns=None):
+    """
+    Load data from CSV file, remove duplicate rows based on specified columns,
+    and save cleaned data to a new CSV file.
+    
+    Args:
+        input_file (str): Path to input CSV file
+        output_file (str): Path to output CSV file
+        subset_columns (list, optional): List of column names to consider for duplicates
+    """
+    try:
+        df = pd.read_csv(input_file)
+        
+        original_count = len(df)
+        
+        if subset_columns:
+            df_cleaned = df.drop_duplicates(subset=subset_columns, keep='first')
+        else:
+            df_cleaned = df.drop_duplicates(keep='first')
+        
+        removed_count = original_count - len(df_cleaned)
+        
+        df_cleaned.to_csv(output_file, index=False)
+        
+        print(f"Original records: {original_count}")
+        print(f"Removed duplicates: {removed_count}")
+        print(f"Cleaned records: {len(df_cleaned)}")
+        print(f"Cleaned data saved to: {output_file}")
+        
+        return df_cleaned
+        
+    except FileNotFoundError:
+        print(f"Error: Input file '{input_file}' not found.")
+        return None
+    except Exception as e:
+        print(f"Error processing data: {str(e)}")
+        return None
+
+if __name__ == "__main__":
+    input_csv = "raw_data.csv"
+    output_csv = "cleaned_data.csv"
+    
+    columns_to_check = ['id', 'email']
+    
+    cleaned_data = remove_duplicates(input_csv, output_csv, columns_to_check)
