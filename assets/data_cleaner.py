@@ -1085,3 +1085,10 @@ def clean_dataset(df, numeric_columns):
             cleaned_df = normalize_minmax(cleaned_df, col)
             cleaned_df = standardize_zscore(cleaned_df, col)
     return cleaned_df
+def filter_and_sort(data, key, reverse=False):
+    """
+    Filter out entries where the specified key is None and sort the remaining
+    by the value of that key.
+    """
+    filtered = [item for item in data if item.get(key) is not None]
+    return sorted(filtered, key=lambda x: x[key], reverse=reverse)
