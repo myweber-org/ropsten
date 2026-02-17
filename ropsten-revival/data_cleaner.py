@@ -1,58 +1,67 @@
 
 import pandas as pd
-import numpy as np
+import re
 
-def remove_outliers_iqr(df, column):
+def clean_dataframe(df, column_mapping=None, drop_duplicates=True, normalize_text=True):
     """
-    Remove outliers from a DataFrame column using the Interquartile Range (IQR) method.
+    Clean a pandas DataFrame by removing duplicates and normalizing text columns.
     
     Parameters:
-    df (pd.DataFrame): The input DataFrame.
-    column (str): The column name to clean.
+    df (pd.DataFrame): Input DataFrame to clean
+    column_mapping (dict): Optional dictionary to rename columns
+    drop_duplicates (bool): Whether to remove duplicate rows
+    normalize_text (bool): Whether to normalize text columns
     
     Returns:
-    pd.DataFrame: DataFrame with outliers removed.
+    pd.DataFrame: Cleaned DataFrame
     """
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
     
-    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
-    return filtered_df
+    # Create a copy to avoid modifying the original
+    cleaned_df = df.copy()
+    
+    # Rename columns if mapping provided
+    if column_mapping:
+        cleaned_df = cleaned_df.rename(columns=column_mapping)
+    
+    # Remove duplicate rows
+    if drop_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates().reset_index(drop=True)
+    
+    # Normalize text columns
+    if normalize_text:
+        for col in cleaned_df.select_dtypes(include=['object']).columns:
+            cleaned_df[col] = cleaned_df[col].apply(
+                lambda x: re.sub(r'\s+', ' ', str(x).strip().lower()) if pd.notna(x) else x
+            )
+    
+    return cleaned_df
 
-def calculate_basic_stats(df, column):
+def validate_email(email):
     """
-    Calculate basic statistics for a column.
+    Validate email format using regex.
     
     Parameters:
-    df (pd.DataFrame): The input DataFrame.
-    column (str): The column name.
+    email (str): Email address to validate
     
     Returns:
-    dict: Dictionary containing count, mean, std, min, max.
+    bool: True if email is valid, False otherwise
     """
-    stats = {
-        'count': df[column].count(),
-        'mean': df[column].mean(),
-        'std': df[column].std(),
-        'min': df[column].min(),
-        'max': df[column].max()
-    }
-    return stats
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return bool(re.match(pattern, str(email))) if pd.notna(email) else False
 
-if __name__ == "__main__":
-    sample_data = {'values': [10, 12, 12, 13, 12, 11, 14, 13, 15, 102, 12, 11, 14, 13, 12, 11, 10, 9, 9, 10, 11, 100]}
-    df = pd.DataFrame(sample_data)
+def filter_valid_emails(df, email_column):
+    """
+    Filter DataFrame to only include rows with valid email addresses.
     
-    print("Original DataFrame:")
-    print(df)
-    print("\nOriginal Statistics:")
-    print(calculate_basic_stats(df, 'values'))
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    email_column (str): Name of the column containing email addresses
     
-    cleaned_df = remove_outliers_iqr(df, 'values')
-    print("\nCleaned DataFrame:")
-    print(cleaned_df)
-    print("\nCleaned Statistics:")
-    print(calculate_basic_stats(cleaned_df, 'values'))
+    Returns:
+    pd.DataFrame: DataFrame with only valid emails
+    """
+    if email_column not in df.columns:
+        raise ValueError(f"Column '{email_column}' not found in DataFrame")
+    
+    mask = df[email_column].apply(validate_email)
+    return df[mask].reset_index(drop=True)
