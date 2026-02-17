@@ -829,4 +829,35 @@ if __name__ == "__main__":
     sample_df.loc[1, 'B'] = -50
     print("Original shape:", sample_df.shape)
     cleaned = clean_dataset(sample_df, ['A', 'B', 'C'])
-    print("Cleaned shape:", cleaned.shape)
+    print("Cleaned shape:", cleaned.shape)import pandas as pd
+
+def clean_dataset(df, drop_duplicates=True, fill_method=None):
+    """
+    Clean a pandas DataFrame by handling missing values and optionally removing duplicates.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame to clean.
+    drop_duplicates (bool): If True, remove duplicate rows.
+    fill_method (str or None): Method to fill missing values. 
+                               Options: 'ffill', 'bfill', 'mean', 'median', or None to drop rows.
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame.
+    """
+    cleaned_df = df.copy()
+    
+    # Handle missing values
+    if fill_method is None:
+        cleaned_df = cleaned_df.dropna()
+    elif fill_method in ['ffill', 'bfill']:
+        cleaned_df = cleaned_df.fillna(method=fill_method)
+    elif fill_method == 'mean':
+        cleaned_df = cleaned_df.fillna(cleaned_df.mean(numeric_only=True))
+    elif fill_method == 'median':
+        cleaned_df = cleaned_df.fillna(cleaned_df.median(numeric_only=True))
+    
+    # Remove duplicates if requested
+    if drop_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates()
+    
+    return cleaned_df
