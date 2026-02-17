@@ -628,3 +628,115 @@ def clean_dataset(df, outlier_threshold=1.5, normalize=True, fill_missing=True):
         cleaner.normalize_minmax()
     
     return cleaner.get_cleaned_data(), cleaner.get_summary()
+import numpy as np
+import pandas as pd
+
+def remove_outliers_iqr(data, column, factor=1.5):
+    """
+    Remove outliers using IQR method
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    q1 = data[column].quantile(0.25)
+    q3 = data[column].quantile(0.75)
+    iqr = q3 - q1
+    
+    lower_bound = q1 - factor * iqr
+    upper_bound = q3 + factor * iqr
+    
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    removed_count = len(data) - len(filtered_data)
+    
+    return filtered_data, removed_count
+
+def normalize_minmax(data, column):
+    """
+    Normalize column using min-max scaling
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    min_val = data[column].min()
+    max_val = data[column].max()
+    
+    if max_val == min_val:
+        return data[column].apply(lambda x: 0.5)
+    
+    normalized = (data[column] - min_val) / (max_val - min_val)
+    return normalized
+
+def clean_dataset(df, numeric_columns=None, outlier_factor=1.5):
+    """
+    Clean dataset by removing outliers and normalizing numeric columns
+    """
+    if numeric_columns is None:
+        numeric_columns = df.select_dtypes(include=[np.number]).columns.tolist()
+    
+    cleaned_df = df.copy()
+    removal_stats = {}
+    
+    for col in numeric_columns:
+        if col in df.columns:
+            cleaned_df, removed = remove_outliers_iqr(cleaned_df, col, outlier_factor)
+            removal_stats[col] = removed
+            cleaned_df[f"{col}_normalized"] = normalize_minmax(cleaned_df, col)
+    
+    return cleaned_df, removal_stats
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and content
+    """
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError("Input must be a pandas DataFrame")
+    
+    if df.empty:
+        raise ValueError("DataFrame is empty")
+    
+    if required_columns:
+        missing = [col for col in required_columns if col not in df.columns]
+        if missing:
+            raise ValueError(f"Missing required columns: {missing}")
+    
+    return True
+
+def example_usage():
+    """
+    Example usage of the data cleaning utilities
+    """
+    np.random.seed(42)
+    
+    data = {
+        'id': range(100),
+        'feature_a': np.random.normal(100, 15, 100),
+        'feature_b': np.random.exponential(50, 100),
+        'category': np.random.choice(['A', 'B', 'C'], 100)
+    }
+    
+    df = pd.DataFrame(data)
+    
+    print("Original DataFrame shape:", df.shape)
+    
+    try:
+        validate_dataframe(df, ['feature_a', 'feature_b'])
+        
+        cleaned_df, stats = clean_dataset(
+            df, 
+            numeric_columns=['feature_a', 'feature_b'],
+            outlier_factor=1.5
+        )
+        
+        print("Cleaned DataFrame shape:", cleaned_df.shape)
+        print("Outliers removed per column:", stats)
+        print("Normalized columns added:", 
+              [col for col in cleaned_df.columns if 'normalized' in col])
+        
+        return cleaned_df
+        
+    except Exception as e:
+        print(f"Error during data cleaning: {e}")
+        return None
+
+if __name__ == "__main__":
+    result = example_usage()
