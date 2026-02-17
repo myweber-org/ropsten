@@ -841,3 +841,39 @@ if __name__ == "__main__":
     print(f"Original shape: {sample_df.shape}")
     print(f"Cleaned shape: {result_df.shape}")
     print(result_df.head())
+import pandas as pd
+import numpy as np
+
+def clean_dataframe(df, drop_duplicates=True, fill_missing='mean'):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    """
+    df_clean = df.copy()
+    
+    if drop_duplicates:
+        df_clean = df_clean.drop_duplicates()
+    
+    if fill_missing is not None:
+        numeric_cols = df_clean.select_dtypes(include=[np.number]).columns
+        if fill_missing == 'mean':
+            df_clean[numeric_cols] = df_clean[numeric_cols].fillna(df_clean[numeric_cols].mean())
+        elif fill_missing == 'median':
+            df_clean[numeric_cols] = df_clean[numeric_cols].fillna(df_clean[numeric_cols].median())
+        elif fill_missing == 'zero':
+            df_clean[numeric_cols] = df_clean[numeric_cols].fillna(0)
+    
+    return df_clean
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    """
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError("Input must be a pandas DataFrame")
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            raise ValueError(f"Missing required columns: {missing_cols}")
+    
+    return True
