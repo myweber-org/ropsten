@@ -71,4 +71,11 @@ def get_cleaning_stats(original_df, cleaned_df):
         'removal_percentage': ((len(original_df) - len(cleaned_df)) / len(original_df)) * 100
     }
     
-    return stats
+    return statsdef remove_duplicates_preserve_order(sequence):
+    seen = set()
+    result = []
+    for item in sequence:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
