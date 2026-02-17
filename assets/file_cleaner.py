@@ -129,4 +129,36 @@ if __name__ == "__main__":
     
     input_file = sys.argv[1]
     output_file = sys.argv[2] if len(sys.argv) > 2 else None
-    clean_file(input_file, output_file)
+    clean_file(input_file, output_file)import os
+import time
+from pathlib import Path
+
+def clean_old_files(directory, days_old=7):
+    """
+    Remove files in the specified directory that are older than the given number of days.
+    """
+    if not os.path.isdir(directory):
+        print(f"Error: {directory} is not a valid directory.")
+        return
+
+    cutoff_time = time.time() - (days_old * 24 * 60 * 60)
+    deleted_count = 0
+    total_size = 0
+
+    for item in Path(directory).iterdir():
+        if item.is_file():
+            file_stat = item.stat()
+            if file_stat.st_mtime < cutoff_time:
+                try:
+                    total_size += file_stat.st_size
+                    item.unlink()
+                    deleted_count += 1
+                    print(f"Deleted: {item.name}")
+                except OSError as e:
+                    print(f"Failed to delete {item.name}: {e}")
+
+    print(f"Cleaning completed. Deleted {deleted_count} files, freed {total_size / (1024*1024):.2f} MB.")
+
+if __name__ == "__main__":
+    target_dir = "/tmp/my_app_cache"
+    clean_old_files(target_dir, days_old=7)
