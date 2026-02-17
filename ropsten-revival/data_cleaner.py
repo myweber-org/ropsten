@@ -972,3 +972,162 @@ if __name__ == "__main__":
     
     print("\nCleaned dataset shape:", cleaned_df.shape)
     print("Cleaned statistics:", calculate_summary_statistics(cleaned_df, 'value'))
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(dataframe, column, threshold=1.5):
+    """
+    Remove outliers from a DataFrame column using IQR method.
+    
+    Args:
+        dataframe: pandas DataFrame
+        column: column name to process
+        threshold: IQR multiplier (default 1.5)
+    
+    Returns:
+        DataFrame with outliers removed
+    """
+    if column not in dataframe.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    q1 = dataframe[column].quantile(0.25)
+    q3 = dataframe[column].quantile(0.75)
+    iqr = q3 - q1
+    
+    lower_bound = q1 - threshold * iqr
+    upper_bound = q3 + threshold * iqr
+    
+    filtered_df = dataframe[(dataframe[column] >= lower_bound) & 
+                           (dataframe[column] <= upper_bound)]
+    
+    return filtered_df
+
+def normalize_column_zscore(dataframe, column):
+    """
+    Normalize a column using z-score normalization.
+    
+    Args:
+        dataframe: pandas DataFrame
+        column: column name to normalize
+    
+    Returns:
+        DataFrame with normalized column added as '{column}_normalized'
+    """
+    if column not in dataframe.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    normalized_col = f"{column}_normalized"
+    dataframe[normalized_col] = stats.zscore(dataframe[column])
+    
+    return dataframe
+
+def min_max_normalize(dataframe, column, new_min=0, new_max=1):
+    """
+    Apply min-max normalization to a column.
+    
+    Args:
+        dataframe: pandas DataFrame
+        column: column name to normalize
+        new_min: new minimum value (default 0)
+        new_max: new maximum value (default 1)
+    
+    Returns:
+        DataFrame with normalized column added as '{column}_scaled'
+    """
+    if column not in dataframe.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    old_min = dataframe[column].min()
+    old_max = dataframe[column].max()
+    
+    scaled_col = f"{column}_scaled"
+    dataframe[scaled_col] = ((dataframe[column] - old_min) / 
+                            (old_max - old_min)) * (new_max - new_min) + new_min
+    
+    return dataframe
+
+def clean_numeric_data(dataframe, columns=None, outlier_threshold=1.5):
+    """
+    Comprehensive data cleaning for numeric columns.
+    
+    Args:
+        dataframe: pandas DataFrame
+        columns: list of columns to clean (default: all numeric columns)
+        outlier_threshold: IQR multiplier for outlier removal
+    
+    Returns:
+        Cleaned DataFrame with outliers removed and normalized columns
+    """
+    if columns is None:
+        columns = dataframe.select_dtypes(include=[np.number]).columns.tolist()
+    
+    cleaned_df = dataframe.copy()
+    
+    for col in columns:
+        if col in cleaned_df.columns:
+            # Remove outliers
+            q1 = cleaned_df[col].quantile(0.25)
+            q3 = cleaned_df[col].quantile(0.75)
+            iqr = q3 - q1
+            
+            lower_bound = q1 - outlier_threshold * iqr
+            upper_bound = q3 + outlier_threshold * iqr
+            
+            mask = (cleaned_df[col] >= lower_bound) & (cleaned_df[col] <= upper_bound)
+            cleaned_df = cleaned_df[mask]
+            
+            # Normalize
+            cleaned_df = normalize_column_zscore(cleaned_df, col)
+    
+    return cleaned_df
+
+def validate_dataframe(dataframe, required_columns=None, min_rows=1):
+    """
+    Validate DataFrame structure and content.
+    
+    Args:
+        dataframe: pandas DataFrame to validate
+        required_columns: list of required column names
+        min_rows: minimum number of rows required
+    
+    Returns:
+        tuple: (is_valid, error_message)
+    """
+    if not isinstance(dataframe, pd.DataFrame):
+        return False, "Input is not a pandas DataFrame"
+    
+    if len(dataframe) < min_rows:
+        return False, f"DataFrame has fewer than {min_rows} rows"
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in dataframe.columns]
+        if missing_cols:
+            return False, f"Missing required columns: {missing_cols}"
+    
+    return True, "DataFrame is valid"
+
+# Example usage demonstration
+if __name__ == "__main__":
+    # Create sample data
+    np.random.seed(42)
+    sample_data = {
+        'feature_a': np.random.normal(100, 15, 100),
+        'feature_b': np.random.exponential(50, 100),
+        'category': np.random.choice(['A', 'B', 'C'], 100)
+    }
+    
+    df = pd.DataFrame(sample_data)
+    
+    # Add some outliers
+    df.loc[0, 'feature_a'] = 500
+    df.loc[1, 'feature_b'] = 1000
+    
+    print("Original DataFrame shape:", df.shape)
+    
+    # Clean the data
+    cleaned_df = clean_numeric_data(df, columns=['feature_a', 'feature_b'])
+    
+    print("Cleaned DataFrame shape:", cleaned_df.shape)
+    print("\nCleaned statistics:")
+    print(cleaned_df[['feature_a', 'feature_b']].describe())
