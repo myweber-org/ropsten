@@ -65,3 +65,11 @@ def filter_valid_emails(df, email_column):
     
     mask = df[email_column].apply(validate_email)
     return df[mask].reset_index(drop=True)
+def remove_duplicates_preserve_order(sequence):
+    seen = set()
+    result = []
+    for item in sequence:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
