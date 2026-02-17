@@ -722,3 +722,116 @@ def get_data_summary(data):
         }
     
     return summary
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+class DataCleaner:
+    def __init__(self, df):
+        self.df = df.copy()
+        self.original_shape = df.shape
+        
+    def remove_outliers_iqr(self, columns=None, factor=1.5):
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
+        
+        clean_df = self.df.copy()
+        outliers_mask = pd.Series([False] * len(clean_df))
+        
+        for col in columns:
+            if col in clean_df.columns:
+                Q1 = clean_df[col].quantile(0.25)
+                Q3 = clean_df[col].quantile(0.75)
+                IQR = Q3 - Q1
+                lower_bound = Q1 - factor * IQR
+                upper_bound = Q3 + factor * IQR
+                
+                col_outliers = (clean_df[col] < lower_bound) | (clean_df[col] > upper_bound)
+                outliers_mask = outliers_mask | col_outliers
+        
+        clean_df = clean_df[~outliers_mask]
+        removed_count = outliers_mask.sum()
+        return clean_df, removed_count
+    
+    def normalize_minmax(self, columns=None):
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
+        
+        normalized_df = self.df.copy()
+        
+        for col in columns:
+            if col in normalized_df.columns:
+                col_min = normalized_df[col].min()
+                col_max = normalized_df[col].max()
+                
+                if col_max > col_min:
+                    normalized_df[col] = (normalized_df[col] - col_min) / (col_max - col_min)
+        
+        return normalized_df
+    
+    def standardize_zscore(self, columns=None):
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
+        
+        standardized_df = self.df.copy()
+        
+        for col in columns:
+            if col in standardized_df.columns:
+                mean_val = standardized_df[col].mean()
+                std_val = standardized_df[col].std()
+                
+                if std_val > 0:
+                    standardized_df[col] = (standardized_df[col] - mean_val) / std_val
+        
+        return standardized_df
+    
+    def fill_missing_median(self, columns=None):
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
+        
+        filled_df = self.df.copy()
+        
+        for col in columns:
+            if col in filled_df.columns and filled_df[col].isnull().any():
+                median_val = filled_df[col].median()
+                filled_df[col] = filled_df[col].fillna(median_val)
+        
+        return filled_df
+    
+    def get_summary(self):
+        summary = {
+            'original_rows': self.original_shape[0],
+            'original_columns': self.original_shape[1],
+            'numeric_columns': list(self.df.select_dtypes(include=[np.number]).columns),
+            'missing_values': self.df.isnull().sum().sum(),
+            'data_types': self.df.dtypes.to_dict()
+        }
+        return summary
+
+def example_usage():
+    np.random.seed(42)
+    data = {
+        'feature_a': np.random.normal(100, 15, 100),
+        'feature_b': np.random.exponential(50, 100),
+        'feature_c': np.random.uniform(0, 1, 100),
+        'category': np.random.choice(['A', 'B', 'C'], 100)
+    }
+    
+    df = pd.DataFrame(data)
+    cleaner = DataCleaner(df)
+    
+    print("Data Summary:")
+    summary = cleaner.get_summary()
+    for key, value in summary.items():
+        print(f"{key}: {value}")
+    
+    clean_df, removed = cleaner.remove_outliers_iqr(['feature_a', 'feature_b'])
+    print(f"\nRemoved {removed} outliers")
+    
+    normalized = cleaner.normalize_minmax(['feature_a', 'feature_b', 'feature_c'])
+    print("Normalization completed")
+    
+    return clean_df, normalized
+
+if __name__ == "__main__":
+    clean_df, normalized_df = example_usage()
