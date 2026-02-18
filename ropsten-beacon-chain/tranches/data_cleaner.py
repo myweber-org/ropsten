@@ -1,84 +1,29 @@
 import pandas as pd
 import numpy as np
-from scipy import stats
 
-class DataCleaner:
-    def __init__(self, df):
-        self.df = df.copy()
-        self.numeric_columns = df.select_dtypes(include=[np.number]).columns.tolist()
-    
-    def handle_missing_values(self, strategy='mean', fill_value=None):
-        if strategy == 'mean':
-            for col in self.numeric_columns:
-                self.df[col].fillna(self.df[col].mean(), inplace=True)
-        elif strategy == 'median':
-            for col in self.numeric_columns:
-                self.df[col].fillna(self.df[col].median(), inplace=True)
-        elif strategy == 'mode':
-            for col in self.df.columns:
-                self.df[col].fillna(self.df[col].mode()[0] if not self.df[col].mode().empty else fill_value, inplace=True)
-        elif strategy == 'constant' and fill_value is not None:
-            self.df.fillna(fill_value, inplace=True)
-        return self
-    
-    def remove_outliers_zscore(self, threshold=3):
-        z_scores = np.abs(stats.zscore(self.df[self.numeric_columns]))
-        outlier_mask = (z_scores < threshold).all(axis=1)
-        self.df = self.df[outlier_mask]
-        return self
-    
-    def remove_outliers_iqr(self, multiplier=1.5):
-        for col in self.numeric_columns:
-            Q1 = self.df[col].quantile(0.25)
-            Q3 = self.df[col].quantile(0.75)
-            IQR = Q3 - Q1
-            lower_bound = Q1 - multiplier * IQR
-            upper_bound = Q3 + multiplier * IQR
-            self.df = self.df[(self.df[col] >= lower_bound) & (self.df[col] <= upper_bound)]
-        return self
-    
-    def normalize_data(self, method='minmax'):
-        if method == 'minmax':
-            for col in self.numeric_columns:
-                min_val = self.df[col].min()
-                max_val = self.df[col].max()
-                if max_val > min_val:
-                    self.df[col] = (self.df[col] - min_val) / (max_val - min_val)
-        elif method == 'zscore':
-            for col in self.numeric_columns:
-                mean_val = self.df[col].mean()
-                std_val = self.df[col].std()
-                if std_val > 0:
-                    self.df[col] = (self.df[col] - mean_val) / std_val
-        return self
-    
-    def get_cleaned_data(self):
-        return self.df.copy()
+def load_data(filepath):
+    """Load data from a CSV file."""
+    return pd.read_csv(filepath)
 
-def example_usage():
-    np.random.seed(42)
-    data = {
-        'A': np.random.randn(100),
-        'B': np.random.randn(100) * 2 + 5,
-        'C': np.random.randn(100) * 0.5 - 2
-    }
-    df = pd.DataFrame(data)
-    df.iloc[5, 0] = np.nan
-    df.iloc[10, 1] = np.nan
-    df.iloc[15, 2] = 100
-    
-    cleaner = DataCleaner(df)
-    cleaned_df = (cleaner
-                 .handle_missing_values(strategy='mean')
-                 .remove_outliers_zscore(threshold=3)
-                 .normalize_data(method='minmax')
-                 .get_cleaned_data())
-    
-    print(f"Original shape: {df.shape}")
-    print(f"Cleaned shape: {cleaned_df.shape}")
-    print(f"Missing values in cleaned data: {cleaned_df.isnull().sum().sum()}")
-    
-    return cleaned_df
+def remove_outliers(df, column, threshold=3):
+    """Remove outliers using the Z-score method."""
+    z_scores = np.abs((df[column] - df[column].mean()) / df[column].std())
+    return df[z_scores < threshold]
+
+def normalize_column(df, column):
+    """Normalize a column using Min-Max scaling."""
+    min_val = df[column].min()
+    max_val = df[column].max()
+    df[column] = (df[column] - min_val) / (max_val - min_val)
+    return df
+
+def clean_data(input_file, output_file, column_to_clean):
+    """Main function to load, clean, and save data."""
+    df = load_data(input_file)
+    df = remove_outliers(df, column_to_clean)
+    df = normalize_column(df, column_to_clean)
+    df.to_csv(output_file, index=False)
+    print(f"Cleaned data saved to {output_file}")
 
 if __name__ == "__main__":
-    result = example_usage()
+    clean_data("raw_data.csv", "cleaned_data.csv", "value")
