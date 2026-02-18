@@ -47,3 +47,50 @@ def validate_dataframe(df, required_columns=None):
             return False, f"Missing required columns: {missing_columns}"
     
     return True, "DataFrame is valid"
+import pandas as pd
+import re
+
+def clean_dataframe(df, column_names=None):
+    """
+    Clean a pandas DataFrame by removing duplicates and normalizing string columns.
+    """
+    df_clean = df.copy()
+    
+    # Remove duplicate rows
+    df_clean = df_clean.drop_duplicates()
+    
+    # If specific columns are provided, clean only those
+    if column_names is None:
+        column_names = df_clean.select_dtypes(include=['object']).columns
+    
+    for col in column_names:
+        if col in df_clean.columns and df_clean[col].dtype == 'object':
+            df_clean[col] = df_clean[col].apply(normalize_string)
+    
+    return df_clean
+
+def normalize_string(text):
+    """
+    Normalize a string by converting to lowercase, removing extra whitespace,
+    and stripping special characters.
+    """
+    if pd.isna(text):
+        return text
+    
+    # Convert to lowercase
+    text = str(text).lower()
+    
+    # Remove extra whitespace
+    text = re.sub(r'\s+', ' ', text).strip()
+    
+    # Remove special characters (keep alphanumeric and spaces)
+    text = re.sub(r'[^a-z0-9\s]', '', text)
+    
+    return text
+
+def validate_email(email):
+    """
+    Validate email format using regex pattern.
+    """
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return bool(re.match(pattern, str(email))) if pd.notna(email) else False
