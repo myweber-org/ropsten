@@ -1,96 +1,42 @@
 
-import pandas as pd
 import numpy as np
 
-def remove_outliers_iqr(df, column):
+def remove_outliers_iqr(data, column):
     """
-    Remove outliers from a specified column in a DataFrame using the IQR method.
+    Remove outliers from a pandas DataFrame column using the IQR method.
     
     Parameters:
-    df (pd.DataFrame): Input DataFrame
-    column (str): Column name to process
+    data (pd.DataFrame): The DataFrame containing the data.
+    column (str): The column name to process.
     
     Returns:
-    pd.DataFrame: DataFrame with outliers removed
+    pd.DataFrame: DataFrame with outliers removed from the specified column.
     """
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
-    
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
+    Q1 = data[column].quantile(0.25)
+    Q3 = data[column].quantile(0.75)
     IQR = Q3 - Q1
-    
     lower_bound = Q1 - 1.5 * IQR
     upper_bound = Q3 + 1.5 * IQR
     
-    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
-    
-    return filtered_df.reset_index(drop=True)
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    return filtered_data
 
-def calculate_basic_stats(df, column):
+def calculate_summary_statistics(data, column):
     """
-    Calculate basic statistics for a column.
+    Calculate summary statistics for a column after outlier removal.
     
     Parameters:
-    df (pd.DataFrame): Input DataFrame
-    column (str): Column name
+    data (pd.DataFrame): The DataFrame containing the data.
+    column (str): The column name to analyze.
     
     Returns:
-    dict: Dictionary containing statistics
+    dict: Dictionary containing count, mean, std, min, and max.
     """
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
-    
     stats = {
-        'mean': df[column].mean(),
-        'median': df[column].median(),
-        'std': df[column].std(),
-        'min': df[column].min(),
-        'max': df[column].max(),
-        'count': df[column].count()
+        'count': data[column].count(),
+        'mean': data[column].mean(),
+        'std': data[column].std(),
+        'min': data[column].min(),
+        'max': data[column].max()
     }
-    
     return stats
-
-def clean_numeric_data(df, columns=None):
-    """
-    Clean numeric data by removing NaN values and converting to appropriate types.
-    
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    columns (list): List of column names to clean. If None, clean all numeric columns.
-    
-    Returns:
-    pd.DataFrame: Cleaned DataFrame
-    """
-    if columns is None:
-        columns = df.select_dtypes(include=[np.number]).columns.tolist()
-    
-    cleaned_df = df.copy()
-    
-    for col in columns:
-        if col in cleaned_df.columns:
-            cleaned_df[col] = pd.to_numeric(cleaned_df[col], errors='coerce')
-            cleaned_df = cleaned_df.dropna(subset=[col])
-    
-    return cleaned_df.reset_index(drop=True)
-
-if __name__ == "__main__":
-    sample_data = {
-        'values': [10, 12, 13, 15, 16, 18, 20, 22, 24, 26, 28, 30, 100]
-    }
-    
-    df = pd.DataFrame(sample_data)
-    print("Original data:")
-    print(df)
-    print()
-    
-    cleaned_df = remove_outliers_iqr(df, 'values')
-    print("Data after outlier removal:")
-    print(cleaned_df)
-    print()
-    
-    stats = calculate_basic_stats(cleaned_df, 'values')
-    print("Basic statistics:")
-    for key, value in stats.items():
-        print(f"{key}: {value:.2f}")
