@@ -268,3 +268,122 @@ def clean_csv_file(input_path: str, output_path: str, **kwargs) -> Dict:
             'success': False,
             'error': str(e)
         }
+import pandas as pd
+import numpy as np
+from pathlib import Path
+
+def load_csv_data(file_path):
+    """Load CSV file into pandas DataFrame"""
+    try:
+        df = pd.read_csv(file_path)
+        print(f"Loaded {len(df)} rows from {file_path}")
+        return df
+    except FileNotFoundError:
+        print(f"Error: File {file_path} not found")
+        return None
+    except Exception as e:
+        print(f"Error loading file: {e}")
+        return None
+
+def clean_missing_values(df, strategy='mean'):
+    """Handle missing values in DataFrame"""
+    if df is None or df.empty:
+        return df
+    
+    missing_count = df.isnull().sum().sum()
+    if missing_count == 0:
+        print("No missing values found")
+        return df
+    
+    print(f"Found {missing_count} missing values")
+    
+    cleaned_df = df.copy()
+    
+    for column in cleaned_df.columns:
+        if cleaned_df[column].dtype in ['float64', 'int64']:
+            if strategy == 'mean':
+                cleaned_df[column].fillna(cleaned_df[column].mean(), inplace=True)
+            elif strategy == 'median':
+                cleaned_df[column].fillna(cleaned_df[column].median(), inplace=True)
+            elif strategy == 'zero':
+                cleaned_df[column].fillna(0, inplace=True)
+        else:
+            cleaned_df[column].fillna('Unknown', inplace=True)
+    
+    print(f"Cleaned {missing_count} missing values using {strategy} strategy")
+    return cleaned_df
+
+def remove_duplicates(df):
+    """Remove duplicate rows from DataFrame"""
+    if df is None or df.empty:
+        return df
+    
+    initial_rows = len(df)
+    cleaned_df = df.drop_duplicates()
+    removed_count = initial_rows - len(cleaned_df)
+    
+    if removed_count > 0:
+        print(f"Removed {removed_count} duplicate rows")
+    
+    return cleaned_df
+
+def normalize_numeric_columns(df):
+    """Normalize numeric columns to 0-1 range"""
+    if df is None or df.empty:
+        return df
+    
+    normalized_df = df.copy()
+    
+    for column in normalized_df.columns:
+        if normalized_df[column].dtype in ['float64', 'int64']:
+            col_min = normalized_df[column].min()
+            col_max = normalized_df[column].max()
+            
+            if col_max > col_min:
+                normalized_df[column] = (normalized_df[column] - col_min) / (col_max - col_min)
+                print(f"Normalized column: {column}")
+    
+    return normalized_df
+
+def save_cleaned_data(df, output_path):
+    """Save cleaned DataFrame to CSV"""
+    if df is None or df.empty:
+        print("No data to save")
+        return False
+    
+    try:
+        output_path = Path(output_path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        df.to_csv(output_path, index=False)
+        print(f"Saved cleaned data to {output_path}")
+        return True
+    except Exception as e:
+        print(f"Error saving file: {e}")
+        return False
+
+def clean_data_pipeline(input_file, output_file, strategy='mean'):
+    """Complete data cleaning pipeline"""
+    print(f"Starting data cleaning pipeline for {input_file}")
+    
+    df = load_csv_data(input_file)
+    if df is None:
+        return False
+    
+    df = clean_missing_values(df, strategy)
+    df = remove_duplicates(df)
+    df = normalize_numeric_columns(df)
+    
+    success = save_cleaned_data(df, output_file)
+    
+    if success:
+        print("Data cleaning pipeline completed successfully")
+    else:
+        print("Data cleaning pipeline failed")
+    
+    return success
+
+if __name__ == "__main__":
+    input_file = "data/raw_data.csv"
+    output_file = "data/cleaned_data.csv"
+    
+    clean_data_pipeline(input_file, output_file, strategy='median')
