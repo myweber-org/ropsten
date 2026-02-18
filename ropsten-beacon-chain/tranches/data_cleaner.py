@@ -494,3 +494,183 @@ def clean_dataset(data, outlier_method='iqr', normalize_method='minmax', missing
     cleaned_data = handle_missing_values(cleaned_data, strategy=missing_strategy)
     
     return cleaned_data
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(data, column, threshold=1.5):
+    """
+    Remove outliers using IQR method.
+    
+    Args:
+        data: pandas DataFrame
+        column: column name to process
+        threshold: IQR multiplier (default 1.5)
+    
+    Returns:
+        DataFrame with outliers removed
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    q1 = data[column].quantile(0.25)
+    q3 = data[column].quantile(0.75)
+    iqr = q3 - q1
+    
+    lower_bound = q1 - threshold * iqr
+    upper_bound = q3 + threshold * iqr
+    
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    return filtered_data
+
+def remove_outliers_zscore(data, column, threshold=3):
+    """
+    Remove outliers using Z-score method.
+    
+    Args:
+        data: pandas DataFrame
+        column: column name to process
+        threshold: Z-score threshold (default 3)
+    
+    Returns:
+        DataFrame with outliers removed
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    z_scores = np.abs(stats.zscore(data[column].dropna()))
+    filtered_indices = np.where(z_scores < threshold)[0]
+    
+    filtered_data = data.iloc[filtered_indices]
+    return filtered_data
+
+def normalize_minmax(data, column):
+    """
+    Normalize data using Min-Max scaling.
+    
+    Args:
+        data: pandas DataFrame or Series
+        column: column name to normalize
+    
+    Returns:
+        Normalized data
+    """
+    if isinstance(data, pd.DataFrame):
+        if column not in data.columns:
+            raise ValueError(f"Column '{column}' not found in DataFrame")
+        series = data[column]
+    else:
+        series = data
+    
+    min_val = series.min()
+    max_val = series.max()
+    
+    if max_val == min_val:
+        return pd.Series([0.5] * len(series), index=series.index)
+    
+    normalized = (series - min_val) / (max_val - min_val)
+    return normalized
+
+def normalize_zscore(data, column):
+    """
+    Normalize data using Z-score standardization.
+    
+    Args:
+        data: pandas DataFrame or Series
+        column: column name to normalize
+    
+    Returns:
+        Standardized data
+    """
+    if isinstance(data, pd.DataFrame):
+        if column not in data.columns:
+            raise ValueError(f"Column '{column}' not found in DataFrame")
+        series = data[column]
+    else:
+        series = data
+    
+    mean_val = series.mean()
+    std_val = series.std()
+    
+    if std_val == 0:
+        return pd.Series([0] * len(series), index=series.index)
+    
+    standardized = (series - mean_val) / std_val
+    return standardized
+
+def handle_missing_values(data, strategy='mean', columns=None):
+    """
+    Handle missing values in DataFrame.
+    
+    Args:
+        data: pandas DataFrame
+        strategy: imputation strategy ('mean', 'median', 'mode', 'drop')
+        columns: list of columns to process (None for all numeric columns)
+    
+    Returns:
+        DataFrame with handled missing values
+    """
+    if columns is None:
+        columns = data.select_dtypes(include=[np.number]).columns
+    
+    result = data.copy()
+    
+    for col in columns:
+        if col not in result.columns:
+            continue
+            
+        if strategy == 'drop':
+            result = result.dropna(subset=[col])
+        elif strategy == 'mean':
+            result[col] = result[col].fillna(result[col].mean())
+        elif strategy == 'median':
+            result[col] = result[col].fillna(result[col].median())
+        elif strategy == 'mode':
+            result[col] = result[col].fillna(result[col].mode()[0])
+        else:
+            raise ValueError(f"Unknown strategy: {strategy}")
+    
+    return result
+
+def validate_data(data, checks=None):
+    """
+    Validate data quality with various checks.
+    
+    Args:
+        data: pandas DataFrame
+        checks: list of checks to perform
+    
+    Returns:
+        Dictionary with validation results
+    """
+    if checks is None:
+        checks = ['missing', 'duplicates', 'infinite', 'negative']
+    
+    validation_results = {}
+    
+    if 'missing' in checks:
+        missing_counts = data.isnull().sum()
+        validation_results['missing_values'] = missing_counts[missing_counts > 0].to_dict()
+    
+    if 'duplicates' in checks:
+        duplicate_count = data.duplicated().sum()
+        validation_results['duplicate_rows'] = duplicate_count
+    
+    if 'infinite' in checks:
+        numeric_cols = data.select_dtypes(include=[np.number]).columns
+        infinite_counts = {}
+        for col in numeric_cols:
+            infinite_count = np.isinf(data[col]).sum()
+            if infinite_count > 0:
+                infinite_counts[col] = infinite_count
+        validation_results['infinite_values'] = infinite_counts
+    
+    if 'negative' in checks:
+        numeric_cols = data.select_dtypes(include=[np.number]).columns
+        negative_counts = {}
+        for col in numeric_cols:
+            if (data[col] < 0).any():
+                negative_counts[col] = (data[col] < 0).sum()
+        validation_results['negative_values'] = negative_counts
+    
+    return validation_results
