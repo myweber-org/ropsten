@@ -765,4 +765,81 @@ if __name__ == "__main__":
     cleaned = clean_dataset(sample_data, ['feature_a', 'feature_b'])
     print(f"Original shape: {sample_data.shape}")
     print(f"Cleaned shape: {cleaned.shape}")
-    print("Cleaning process completed.")
+    print("Cleaning process completed.")import pandas as pd
+import re
+
+def clean_dataframe(df, text_columns=None, drop_duplicates=True, lowercase=True):
+    """
+    Clean a pandas DataFrame by removing duplicates and standardizing text columns.
+    
+    Args:
+        df: pandas DataFrame to clean
+        text_columns: list of column names to apply text standardization
+        drop_duplicates: whether to remove duplicate rows
+        lowercase: whether to convert text to lowercase
+    
+    Returns:
+        Cleaned pandas DataFrame
+    """
+    df_clean = df.copy()
+    
+    if drop_duplicates:
+        initial_rows = len(df_clean)
+        df_clean = df_clean.drop_duplicates()
+        removed = initial_rows - len(df_clean)
+        print(f"Removed {removed} duplicate rows")
+    
+    if text_columns:
+        for col in text_columns:
+            if col in df_clean.columns:
+                df_clean[col] = df_clean[col].astype(str)
+                
+                if lowercase:
+                    df_clean[col] = df_clean[col].str.lower()
+                
+                df_clean[col] = df_clean[col].apply(lambda x: re.sub(r'\s+', ' ', x.strip()))
+    
+    return df_clean
+
+def validate_email_column(df, email_column):
+    """
+    Validate email addresses in a specified column.
+    
+    Args:
+        df: pandas DataFrame
+        email_column: name of column containing email addresses
+    
+    Returns:
+        DataFrame with additional 'email_valid' column
+    """
+    if email_column not in df.columns:
+        raise ValueError(f"Column '{email_column}' not found in DataFrame")
+    
+    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    df['email_valid'] = df[email_column].str.match(email_pattern, na=False)
+    
+    valid_count = df['email_valid'].sum()
+    total_count = len(df)
+    print(f"Valid emails: {valid_count}/{total_count} ({valid_count/total_count*100:.1f}%)")
+    
+    return df
+
+def save_cleaned_data(df, output_path, format='csv'):
+    """
+    Save cleaned DataFrame to file.
+    
+    Args:
+        df: pandas DataFrame to save
+        output_path: path to save the file
+        format: file format ('csv', 'excel', or 'json')
+    """
+    if format == 'csv':
+        df.to_csv(output_path, index=False)
+    elif format == 'excel':
+        df.to_excel(output_path, index=False)
+    elif format == 'json':
+        df.to_json(output_path, orient='records', indent=2)
+    else:
+        raise ValueError(f"Unsupported format: {format}")
+    
+    print(f"Data saved to {output_path}")
