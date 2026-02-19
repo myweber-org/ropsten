@@ -394,3 +394,38 @@ if __name__ == "__main__":
     result_df = example_usage()
     print("\nFirst 5 rows of processed data:")
     print(result_df.head())
+import pandas as pd
+import re
+
+def clean_dataframe(df, column_names):
+    """
+    Clean a pandas DataFrame by removing duplicate rows and normalizing
+    specified string columns (strip whitespace, lowercase).
+    """
+    # Remove duplicate rows
+    df_cleaned = df.drop_duplicates().reset_index(drop=True)
+    
+    # Normalize specified string columns
+    for col in column_names:
+        if col in df_cleaned.columns:
+            # Convert to string, strip whitespace, convert to lowercase
+            df_cleaned[col] = df_cleaned[col].astype(str).str.strip().str.lower()
+    
+    return df_cleaned
+
+def remove_special_characters(text):
+    """
+    Remove special characters from a string, keeping only alphanumeric and spaces.
+    """
+    if pd.isna(text):
+        return text
+    return re.sub(r'[^a-zA-Z0-9\s]', '', str(text))
+
+def validate_email(email):
+    """
+    Validate email format using regex pattern.
+    """
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    if pd.isna(email):
+        return False
+    return bool(re.match(pattern, str(email)))
