@@ -147,3 +147,38 @@ if __name__ == "__main__":
         os.remove(test_file)
     
     print("\nCleaning complete!")
+def clean_data(data):
+    """
+    Remove duplicate entries from a list and sort the remaining items.
+    """
+    if not isinstance(data, list):
+        raise TypeError("Input must be a list")
+    
+    unique_data = list(set(data))
+    unique_data.sort()
+    return unique_data
+
+def validate_data(data, expected_type):
+    """
+    Validate that all items in the list are of the expected type.
+    """
+    if not isinstance(data, list):
+        raise TypeError("Input must be a list")
+    
+    for item in data:
+        if not isinstance(item, expected_type):
+            raise TypeError(f"All items must be of type {expected_type}")
+    
+    return True
+
+def process_data(raw_data, data_type):
+    """
+    Main function to clean and validate data.
+    """
+    try:
+        validate_data(raw_data, data_type)
+        cleaned_data = clean_data(raw_data)
+        return cleaned_data
+    except Exception as e:
+        print(f"Error processing data: {e}")
+        return []
