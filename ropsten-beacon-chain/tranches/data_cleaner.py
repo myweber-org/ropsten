@@ -290,3 +290,105 @@ def export_cleaned_data(df, output_path):
 if __name__ == "__main__":
     cleaned_df = clean_csv_data('raw_data.csv', fill_strategy='median', drop_threshold=0.3)
     export_cleaned_data(cleaned_df, 'cleaned_data.csv')
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+class DataCleaner:
+    def __init__(self, data):
+        self.data = data
+        self.original_shape = data.shape
+        
+    def remove_outliers_iqr(self, columns=None, factor=1.5):
+        if columns is None:
+            columns = self.data.columns
+            
+        clean_data = self.data.copy()
+        for col in columns:
+            if pd.api.types.is_numeric_dtype(clean_data[col]):
+                Q1 = clean_data[col].quantile(0.25)
+                Q3 = clean_data[col].quantile(0.75)
+                IQR = Q3 - Q1
+                lower_bound = Q1 - factor * IQR
+                upper_bound = Q3 + factor * IQR
+                clean_data = clean_data[(clean_data[col] >= lower_bound) & (clean_data[col] <= upper_bound)]
+        
+        self.data = clean_data.reset_index(drop=True)
+        return self
+    
+    def normalize_minmax(self, columns=None):
+        if columns is None:
+            columns = self.data.select_dtypes(include=[np.number]).columns
+            
+        for col in columns:
+            if col in self.data.columns:
+                min_val = self.data[col].min()
+                max_val = self.data[col].max()
+                if max_val != min_val:
+                    self.data[col] = (self.data[col] - min_val) / (max_val - min_val)
+        
+        return self
+    
+    def standardize_zscore(self, columns=None):
+        if columns is None:
+            columns = self.data.select_dtypes(include=[np.number]).columns
+            
+        for col in columns:
+            if col in self.data.columns:
+                mean_val = self.data[col].mean()
+                std_val = self.data[col].std()
+                if std_val > 0:
+                    self.data[col] = (self.data[col] - mean_val) / std_val
+        
+        return self
+    
+    def fill_missing_median(self, columns=None):
+        if columns is None:
+            columns = self.data.select_dtypes(include=[np.number]).columns
+            
+        for col in columns:
+            if col in self.data.columns and self.data[col].isnull().any():
+                median_val = self.data[col].median()
+                self.data[col] = self.data[col].fillna(median_val)
+        
+        return self
+    
+    def get_cleaned_data(self):
+        return self.data
+    
+    def get_removed_count(self):
+        return self.original_shape[0] - self.data.shape[0]
+
+def create_sample_data():
+    np.random.seed(42)
+    data = pd.DataFrame({
+        'feature_a': np.random.normal(100, 15, 1000),
+        'feature_b': np.random.exponential(50, 1000),
+        'feature_c': np.random.uniform(0, 1, 1000),
+        'category': np.random.choice(['A', 'B', 'C'], 1000)
+    })
+    
+    data.loc[np.random.choice(1000, 50), 'feature_a'] = np.nan
+    data.loc[np.random.choice(1000, 20), 'feature_b'] = 1000
+    
+    return data
+
+if __name__ == "__main__":
+    sample_data = create_sample_data()
+    cleaner = DataCleaner(sample_data)
+    
+    print(f"Original data shape: {sample_data.shape}")
+    
+    cleaned = (cleaner
+               .fill_missing_median()
+               .remove_outliers_iqr(['feature_a', 'feature_b'])
+               .normalize_minmax(['feature_a', 'feature_c'])
+               .standardize_zscore(['feature_b'])
+               .get_cleaned_data())
+    
+    print(f"Cleaned data shape: {cleaned.shape}")
+    print(f"Rows removed: {cleaner.get_removed_count()}")
+    print(f"Missing values after cleaning: {cleaned.isnull().sum().sum()}")
+    
+    print("\nSummary statistics:")
+    print(cleaned.describe())
