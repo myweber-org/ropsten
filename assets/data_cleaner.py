@@ -493,3 +493,83 @@ def remove_outliers_iqr(data, column):
     upper_bound = Q3 + 1.5 * IQR
     filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
     return filtered_data
+def remove_duplicates(data_list):
+    """
+    Remove duplicate entries from a list while preserving order.
+    
+    Args:
+        data_list: List containing potentially duplicate items.
+    
+    Returns:
+        List with duplicates removed.
+    """
+    seen = set()
+    result = []
+    
+    for item in data_list:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    
+    return result
+
+def clean_numeric_data(values, default=0):
+    """
+    Clean numeric data by converting strings to floats and handling invalid values.
+    
+    Args:
+        values: List of values to clean.
+        default: Default value for invalid entries.
+    
+    Returns:
+        List of cleaned numeric values.
+    """
+    cleaned = []
+    
+    for value in values:
+        try:
+            cleaned.append(float(value))
+        except (ValueError, TypeError):
+            cleaned.append(default)
+    
+    return cleaned
+
+def validate_email_format(email):
+    """
+    Basic email format validation.
+    
+    Args:
+        email: Email string to validate.
+    
+    Returns:
+        Boolean indicating if email format is valid.
+    """
+    if not email or '@' not in email:
+        return False
+    
+    local_part, domain = email.split('@', 1)
+    
+    if not local_part or not domain:
+        return False
+    
+    if '.' not in domain:
+        return False
+    
+    return True
+
+def filter_by_threshold(data, threshold, key=None):
+    """
+    Filter data based on a threshold value.
+    
+    Args:
+        data: List of items to filter.
+        threshold: Minimum value to include.
+        key: Function to extract value from items (optional).
+    
+    Returns:
+        Filtered list of items.
+    """
+    if key is None:
+        key = lambda x: x
+    
+    return [item for item in data if key(item) >= threshold]
