@@ -195,3 +195,92 @@ if __name__ == "__main__":
     print("\nCleaned DataFrame shape:", cleaned_df.shape)
     print("\nCleaned statistics for column 'A':")
     print(calculate_statistics(cleaned_df, 'A'))
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df, text_columns=None):
+    """
+    Clean a pandas DataFrame by removing rows with null values
+    and standardizing text columns to lowercase.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame to clean
+    text_columns (list): List of column names containing text data
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame
+    """
+    # Create a copy to avoid modifying the original
+    cleaned_df = df.copy()
+    
+    # Remove rows with any null values
+    cleaned_df = cleaned_df.dropna()
+    
+    # Standardize text columns if specified
+    if text_columns:
+        for col in text_columns:
+            if col in cleaned_df.columns:
+                cleaned_df[col] = cleaned_df[col].astype(str).str.lower().str.strip()
+    
+    # Reset index after dropping rows
+    cleaned_df = cleaned_df.reset_index(drop=True)
+    
+    return cleaned_df
+
+def calculate_basic_stats(df, numeric_columns=None):
+    """
+    Calculate basic statistics for numeric columns.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    numeric_columns (list): List of numeric column names
+    
+    Returns:
+    dict: Dictionary containing statistics for each column
+    """
+    stats = {}
+    
+    # If no columns specified, use all numeric columns
+    if numeric_columns is None:
+        numeric_columns = df.select_dtypes(include=[np.number]).columns.tolist()
+    
+    for col in numeric_columns:
+        if col in df.columns and pd.api.types.is_numeric_dtype(df[col]):
+            col_data = df[col].dropna()
+            stats[col] = {
+                'mean': float(col_data.mean()),
+                'median': float(col_data.median()),
+                'std': float(col_data.std()),
+                'min': float(col_data.min()),
+                'max': float(col_data.max()),
+                'count': int(len(col_data))
+            }
+    
+    return stats
+
+# Example usage
+if __name__ == "__main__":
+    # Create sample data
+    sample_data = {
+        'name': ['Alice', 'Bob', 'Charlie', None, 'Eve'],
+        'age': [25, 30, None, 40, 35],
+        'score': [85.5, 92.0, 78.5, 88.0, 95.5],
+        'city': ['New York', 'los angeles', 'CHICAGO', 'Boston', 'Miami']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\n")
+    
+    # Clean the data
+    cleaned = clean_dataset(df, text_columns=['name', 'city'])
+    print("Cleaned DataFrame:")
+    print(cleaned)
+    print("\n")
+    
+    # Calculate statistics
+    stats = calculate_basic_stats(cleaned, numeric_columns=['age', 'score'])
+    print("Statistics:")
+    for col, col_stats in stats.items():
+        print(f"{col}: {col_stats}")
