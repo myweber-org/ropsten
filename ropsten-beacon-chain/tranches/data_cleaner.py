@@ -392,3 +392,102 @@ if __name__ == "__main__":
     
     print("\nSummary statistics:")
     print(cleaned.describe())
+import pandas as pd
+import numpy as np
+from pathlib import Path
+
+def clean_csv_data(input_path, output_path=None):
+    """
+    Load a CSV file, perform basic cleaning operations,
+    and save the cleaned data.
+    """
+    try:
+        df = pd.read_csv(input_path)
+        
+        # Remove duplicate rows
+        df = df.drop_duplicates()
+        
+        # Fill missing numeric values with column mean
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        for col in numeric_cols:
+            df[col] = df[col].fillna(df[col].mean())
+        
+        # Fill missing categorical values with mode
+        categorical_cols = df.select_dtypes(include=['object']).columns
+        for col in categorical_cols:
+            df[col] = df[col].fillna(df[col].mode()[0] if not df[col].mode().empty else 'Unknown')
+        
+        # Remove leading/trailing whitespace from string columns
+        for col in categorical_cols:
+            df[col] = df[col].str.strip()
+        
+        # Convert date columns if present
+        date_columns = [col for col in df.columns if 'date' in col.lower() or 'time' in col.lower()]
+        for col in date_columns:
+            try:
+                df[col] = pd.to_datetime(df[col], errors='coerce')
+            except:
+                pass
+        
+        # Save cleaned data
+        if output_path is None:
+            output_path = Path(input_path).stem + '_cleaned.csv'
+        
+        df.to_csv(output_path, index=False)
+        print(f"Cleaned data saved to: {output_path}")
+        print(f"Original rows: {len(pd.read_csv(input_path))}, Cleaned rows: {len(df)}")
+        
+        return df
+        
+    except FileNotFoundError:
+        print(f"Error: File not found at {input_path}")
+        return None
+    except pd.errors.EmptyDataError:
+        print("Error: The CSV file is empty")
+        return None
+    except Exception as e:
+        print(f"Error during cleaning: {str(e)}")
+        return None
+
+def validate_dataframe(df):
+    """
+    Perform basic validation on the dataframe.
+    """
+    if df is None or df.empty:
+        print("DataFrame is empty or None")
+        return False
+    
+    print("Data Validation Report:")
+    print(f"Total rows: {len(df)}")
+    print(f"Total columns: {len(df.columns)}")
+    print(f"Missing values per column:")
+    print(df.isnull().sum())
+    
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    if len(numeric_cols) > 0:
+        print("\nNumeric columns statistics:")
+        print(df[numeric_cols].describe())
+    
+    return True
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'id': [1, 2, 3, 4, 5, 5],
+        'name': ['Alice', 'Bob', 'Charlie', 'David', 'Eve', 'Eve'],
+        'age': [25, 30, np.nan, 35, 40, 40],
+        'salary': [50000, 60000, 70000, np.nan, 90000, 90000],
+        'department': ['HR', 'IT', 'IT', 'Finance', 'Marketing', 'Marketing'],
+        'join_date': ['2020-01-15', '2019-03-20', '2021-07-10', '2018-11-05', '2022-02-28', '2022-02-28']
+    }
+    
+    # Create sample CSV
+    sample_df = pd.DataFrame(sample_data)
+    sample_df.to_csv('sample_data.csv', index=False)
+    
+    # Clean the data
+    cleaned_df = clean_csv_data('sample_data.csv', 'cleaned_sample_data.csv')
+    
+    # Validate the cleaned data
+    if cleaned_df is not None:
+        validate_dataframe(cleaned_df)
