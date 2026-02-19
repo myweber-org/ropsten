@@ -140,3 +140,41 @@ def main():
 
 if __name__ == "__main__":
     main()
+import pandas as pd
+
+def clean_dataset(df):
+    """
+    Remove rows with null values and standardize column names.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean.
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame.
+    """
+    # Remove rows with any null values
+    df_cleaned = df.dropna()
+    
+    # Standardize column names: lowercase and replace spaces with underscores
+    df_cleaned.columns = (
+        df_cleaned.columns
+        .str.lower()
+        .str.replace(' ', '_')
+    )
+    
+    return df_cleaned
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'First Name': ['Alice', 'Bob', None, 'David'],
+        'Last Name': ['Smith', None, 'Johnson', 'Lee'],
+        'Age': [25, 30, 35, 40]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\nCleaned DataFrame:")
+    cleaned_df = clean_dataset(df)
+    print(cleaned_df)
