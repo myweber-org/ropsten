@@ -232,4 +232,61 @@ def clean_dataset(file_path, output_path=None):
         return None
 
 if __name__ == "__main__":
-    cleaned_data = clean_dataset("input_data.csv", "cleaned_data.csv")
+    cleaned_data = clean_dataset("input_data.csv", "cleaned_data.csv")import pandas as pd
+import numpy as np
+
+def clean_csv_data(filepath, fill_strategy='mean', drop_threshold=0.5):
+    """
+    Load and clean CSV data by handling missing values and removing columns
+    with excessive missing data.
+    
+    Parameters:
+    filepath (str): Path to the CSV file.
+    fill_strategy (str): Strategy for filling missing values.
+                         Options: 'mean', 'median', 'mode', 'zero'.
+    drop_threshold (float): Threshold for column removal (0 to 1).
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame.
+    """
+    
+    df = pd.read_csv(filepath)
+    
+    missing_percentage = df.isnull().sum() / len(df)
+    columns_to_drop = missing_percentage[missing_percentage > drop_threshold].index
+    df = df.drop(columns=columns_to_drop)
+    
+    numeric_columns = df.select_dtypes(include=[np.number]).columns
+    
+    if fill_strategy == 'mean':
+        fill_values = df[numeric_columns].mean()
+    elif fill_strategy == 'median':
+        fill_values = df[numeric_columns].median()
+    elif fill_strategy == 'mode':
+        fill_values = df[numeric_columns].mode().iloc[0]
+    elif fill_strategy == 'zero':
+        fill_values = 0
+    else:
+        raise ValueError("Invalid fill_strategy. Choose from 'mean', 'median', 'mode', 'zero'.")
+    
+    df[numeric_columns] = df[numeric_columns].fillna(fill_values)
+    
+    non_numeric_columns = df.select_dtypes(exclude=[np.number]).columns
+    df[non_numeric_columns] = df[non_numeric_columns].fillna('Unknown')
+    
+    return df
+
+def export_cleaned_data(df, output_path):
+    """
+    Export cleaned DataFrame to CSV.
+    
+    Parameters:
+    df (pd.DataFrame): Cleaned DataFrame.
+    output_path (str): Path for output CSV file.
+    """
+    df.to_csv(output_path, index=False)
+    print(f"Cleaned data exported to {output_path}")
+
+if __name__ == "__main__":
+    cleaned_df = clean_csv_data('raw_data.csv', fill_strategy='median', drop_threshold=0.3)
+    export_cleaned_data(cleaned_df, 'cleaned_data.csv')
