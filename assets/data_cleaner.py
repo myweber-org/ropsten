@@ -178,3 +178,99 @@ if __name__ == "__main__":
     print("\nCleaned DataFrame:")
     cleaned_df = clean_dataset(df)
     print(cleaned_df)
+import pandas as pd
+import numpy as np
+import re
+
+def clean_column_names(df):
+    df.columns = [col.lower().replace(' ', '_') for col in df.columns]
+    df.columns = [re.sub(r'[^a-z0-9_]', '', col) for col in df.columns]
+    return df
+
+def remove_duplicates(df, subset=None):
+    return df.drop_duplicates(subset=subset, keep='first')
+
+def handle_missing_values(df, strategy='mean', columns=None):
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    df_copy = df.copy()
+    
+    for col in columns:
+        if col in df_copy.columns:
+            if strategy == 'mean':
+                df_copy[col].fillna(df_copy[col].mean(), inplace=True)
+            elif strategy == 'median':
+                df_copy[col].fillna(df_copy[col].median(), inplace=True)
+            elif strategy == 'mode':
+                df_copy[col].fillna(df_copy[col].mode()[0], inplace=True)
+            elif strategy == 'drop':
+                df_copy = df_copy.dropna(subset=[col])
+    
+    return df_copy
+
+def remove_outliers(df, columns=None, threshold=3):
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    df_copy = df.copy()
+    
+    for col in columns:
+        if col in df_copy.columns:
+            z_scores = np.abs((df_copy[col] - df_copy[col].mean()) / df_copy[col].std())
+            df_copy = df_copy[z_scores < threshold]
+    
+    return df_copy
+
+def standardize_data(df, columns=None):
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    df_copy = df.copy()
+    
+    for col in columns:
+        if col in df_copy.columns:
+            mean = df_copy[col].mean()
+            std = df_copy[col].std()
+            if std > 0:
+                df_copy[col] = (df_copy[col] - mean) / std
+    
+    return df_copy
+
+def process_csv(input_path, output_path, cleaning_steps=None):
+    try:
+        df = pd.read_csv(input_path)
+        
+        if cleaning_steps is None:
+            cleaning_steps = [
+                ('clean_column_names', {}),
+                ('remove_duplicates', {}),
+                ('handle_missing_values', {'strategy': 'mean'}),
+                ('remove_outliers', {'threshold': 3}),
+                ('standardize_data', {})
+            ]
+        
+        for step_name, kwargs in cleaning_steps:
+            if hasattr(df, step_name):
+                df = getattr(df, step_name)(**kwargs)
+            else:
+                df = globals()[step_name](df, **kwargs)
+        
+        df.to_csv(output_path, index=False)
+        print(f"Data cleaning completed. Output saved to {output_path}")
+        return True
+        
+    except Exception as e:
+        print(f"Error during data cleaning: {str(e)}")
+        return False
+
+if __name__ == "__main__":
+    input_file = "raw_data.csv"
+    output_file = "cleaned_data.csv"
+    
+    success = process_csv(input_file, output_file)
+    
+    if success:
+        print("Data cleaning pipeline executed successfully")
+    else:
+        print("Data cleaning pipeline failed")
