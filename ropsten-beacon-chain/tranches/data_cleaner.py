@@ -444,4 +444,11 @@ def clean_dataset(df, columns_to_clean=None):
                 'percentage_removed': (removed_count / original_count * 100) if original_count > 0 else 0
             }
     
-    return cleaned_df, removal_stats
+    return cleaned_df, removal_statsdef remove_duplicates(sequence):
+    seen = set()
+    result = []
+    for item in sequence:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
