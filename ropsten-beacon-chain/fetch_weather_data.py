@@ -159,4 +159,52 @@ def main():
     display_weather(weather_data)
 
 if __name__ == "__main__":
-    main()
+    main()import requests
+import json
+
+def get_weather(api_key, city):
+    base_url = "http://api.openweathermap.org/data/2.5/weather"
+    params = {
+        'q': city,
+        'appid': api_key,
+        'units': 'metric'
+    }
+    
+    try:
+        response = requests.get(base_url, params=params)
+        response.raise_for_status()
+        data = response.json()
+        
+        if data['cod'] != 200:
+            return f"Error: {data.get('message', 'Unknown error')}"
+        
+        weather_info = {
+            'city': data['name'],
+            'temperature': data['main']['temp'],
+            'humidity': data['main']['humidity'],
+            'description': data['weather'][0]['description'],
+            'wind_speed': data['wind']['speed']
+        }
+        return weather_info
+        
+    except requests.exceptions.RequestException as e:
+        return f"Network error: {str(e)}"
+    except (KeyError, json.JSONDecodeError) as e:
+        return f"Data parsing error: {str(e)}"
+
+def display_weather(weather_data):
+    if isinstance(weather_data, dict):
+        print(f"Weather in {weather_data['city']}:")
+        print(f"  Temperature: {weather_data['temperature']}°C")
+        print(f"  Humidity: {weather_data['humidity']}%")
+        print(f"  Conditions: {weather_data['description']}")
+        print(f"  Wind Speed: {weather_data['wind_speed']} m/s")
+    else:
+        print(weather_data)
+
+if __name__ == "__main__":
+    API_KEY = "your_api_key_here"
+    CITY = "London"
+    
+    result = get_weather(API_KEY, CITY)
+    display_weather(result)
