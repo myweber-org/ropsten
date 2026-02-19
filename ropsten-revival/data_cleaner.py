@@ -856,3 +856,66 @@ def get_cleaning_summary(df, cleaned_df, numeric_columns=None):
     }
     
     return summary
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df, key_columns=None, date_column=None, numeric_columns=None):
+    """
+    Clean a pandas DataFrame by removing duplicates, handling missing values,
+    and standardizing column formats.
+    """
+    df_clean = df.copy()
+    
+    # Remove duplicate rows based on key columns or all columns
+    if key_columns:
+        df_clean = df_clean.drop_duplicates(subset=key_columns)
+    else:
+        df_clean = df_clean.drop_duplicates()
+    
+    # Standardize date format if date column specified
+    if date_column and date_column in df_clean.columns:
+        df_clean[date_column] = pd.to_datetime(df_clean[date_column], errors='coerce')
+    
+    # Fill missing numeric values with column median
+    if numeric_columns:
+        for col in numeric_columns:
+            if col in df_clean.columns:
+                median_val = df_clean[col].median()
+                df_clean[col] = df_clean[col].fillna(median_val)
+    
+    # Reset index after cleaning
+    df_clean = df_clean.reset_index(drop=True)
+    
+    return df_clean
+
+def validate_data(df, required_columns=None, min_rows=1):
+    """
+    Validate dataset structure and content.
+    """
+    if df.empty:
+        raise ValueError("DataFrame is empty")
+    
+    if len(df) < min_rows:
+        raise ValueError(f"DataFrame has fewer than {min_rows} rows")
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            raise ValueError(f"Missing required columns: {missing_cols}")
+    
+    return True
+
+def export_cleaned_data(df, output_path, format='csv'):
+    """
+    Export cleaned DataFrame to specified format.
+    """
+    if format == 'csv':
+        df.to_csv(output_path, index=False)
+    elif format == 'excel':
+        df.to_excel(output_path, index=False)
+    elif format == 'json':
+        df.to_json(output_path, orient='records')
+    else:
+        raise ValueError(f"Unsupported format: {format}")
+    
+    print(f"Data exported successfully to {output_path}")
