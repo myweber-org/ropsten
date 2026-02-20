@@ -902,3 +902,49 @@ if __name__ == "__main__":
     cleaned_data = remove_outliers_iqr(sample_data, 'values')
     print("\nCleaned data shape:", cleaned_data.shape)
     print("Cleaned stats:", calculate_basic_stats(cleaned_data, 'values'))
+import pandas as pd
+
+def clean_dataframe(df):
+    """
+    Clean a pandas DataFrame by removing null values and standardizing column names.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean.
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame.
+    """
+    # Remove rows with any null values
+    df_cleaned = df.dropna()
+    
+    # Standardize column names: lowercase and replace spaces with underscores
+    df_cleaned.columns = df_cleaned.columns.str.lower().str.replace(' ', '_')
+    
+    # Reset index after dropping rows
+    df_cleaned = df_cleaned.reset_index(drop=True)
+    
+    return df_cleaned
+
+def process_csv(input_path, output_path):
+    """
+    Read a CSV file, clean the data, and save to a new CSV file.
+    
+    Args:
+        input_path (str): Path to the input CSV file.
+        output_path (str): Path to save the cleaned CSV file.
+    """
+    try:
+        df = pd.read_csv(input_path)
+        cleaned_df = clean_dataframe(df)
+        cleaned_df.to_csv(output_path, index=False)
+        print(f"Data cleaned and saved to {output_path}")
+    except FileNotFoundError:
+        print(f"Error: File not found at {input_path}")
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
+if __name__ == "__main__":
+    # Example usage
+    input_file = "raw_data.csv"
+    output_file = "cleaned_data.csv"
+    process_csv(input_file, output_file)
