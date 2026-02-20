@@ -356,3 +356,111 @@ if __name__ == "__main__":
     print("Basic statistics:")
     for key, value in stats.items():
         print(f"{key}: {value:.2f}")
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df, column_mapping=None, drop_duplicates=True, fill_missing='mean'):
+    """
+    Clean a pandas DataFrame by handling duplicates and missing values.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    column_mapping (dict): Optional column renaming dictionary
+    drop_duplicates (bool): Whether to drop duplicate rows
+    fill_missing (str): Strategy for filling missing values ('mean', 'median', 'mode', 'drop')
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame
+    """
+    
+    # Create a copy to avoid modifying the original
+    cleaned_df = df.copy()
+    
+    # Rename columns if mapping provided
+    if column_mapping:
+        cleaned_df = cleaned_df.rename(columns=column_mapping)
+    
+    # Drop duplicate rows if requested
+    if drop_duplicates:
+        initial_rows = len(cleaned_df)
+        cleaned_df = cleaned_df.drop_duplicates()
+        removed = initial_rows - len(cleaned_df)
+        print(f"Removed {removed} duplicate rows")
+    
+    # Handle missing values
+    for column in cleaned_df.columns:
+        if cleaned_df[column].isnull().any():
+            missing_count = cleaned_df[column].isnull().sum()
+            print(f"Column '{column}' has {missing_count} missing values")
+            
+            if fill_missing == 'drop':
+                cleaned_df = cleaned_df.dropna(subset=[column])
+            elif fill_missing == 'mean' and pd.api.types.is_numeric_dtype(cleaned_df[column]):
+                cleaned_df[column] = cleaned_df[column].fillna(cleaned_df[column].mean())
+            elif fill_missing == 'median' and pd.api.types.is_numeric_dtype(cleaned_df[column]):
+                cleaned_df[column] = cleaned_df[column].fillna(cleaned_df[column].median())
+            elif fill_missing == 'mode':
+                cleaned_df[column] = cleaned_df[column].fillna(cleaned_df[column].mode()[0])
+            else:
+                # For non-numeric columns or unknown strategy, fill with placeholder
+                cleaned_df[column] = cleaned_df[column].fillna('MISSING')
+    
+    # Reset index after cleaning
+    cleaned_df = cleaned_df.reset_index(drop=True)
+    
+    print(f"Data cleaning complete. Final shape: {cleaned_df.shape}")
+    return cleaned_df
+
+def validate_dataframe(df, required_columns=None, min_rows=1):
+    """
+    Validate DataFrame structure and content.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate
+    required_columns (list): List of required column names
+    min_rows (int): Minimum number of rows required
+    
+    Returns:
+    bool: True if validation passes, False otherwise
+    """
+    
+    if not isinstance(df, pd.DataFrame):
+        print("Error: Input is not a pandas DataFrame")
+        return False
+    
+    if len(df) < min_rows:
+        print(f"Error: DataFrame has fewer than {min_rows} rows")
+        return False
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            print(f"Error: Missing required columns: {missing_columns}")
+            return False
+    
+    return True
+
+# Example usage
+if __name__ == "__main__":
+    # Create sample data
+    sample_data = {
+        'id': [1, 2, 2, 3, 4, 5],
+        'name': ['Alice', 'Bob', 'Bob', None, 'Eve', 'Frank'],
+        'age': [25, 30, 30, 35, None, 40],
+        'score': [85.5, 92.0, 92.0, 78.5, 88.0, 95.5]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\n" + "="*50 + "\n")
+    
+    # Clean the data
+    cleaned = clean_dataset(df, drop_duplicates=True, fill_missing='mean')
+    
+    print("\nCleaned DataFrame:")
+    print(cleaned)
+    
+    # Validate the cleaned data
+    is_valid = validate_dataframe(cleaned, required_columns=['id', 'name', 'age', 'score'], min_rows=1)
+    print(f"\nData validation: {'PASSED' if is_valid else 'FAILED'}")
