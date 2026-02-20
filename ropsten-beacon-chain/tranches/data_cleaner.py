@@ -80,4 +80,11 @@ def load_and_clean_csv(filepath: str, **kwargs) -> pd.DataFrame:
     if numeric_cols:
         cleaner.normalize_numeric(columns=numeric_cols[:3])
     
-    return cleaner.get_cleaned_data()
+    return cleaner.get_cleaned_data()def remove_duplicates_preserve_order(sequence):
+    seen = set()
+    result = []
+    for item in sequence:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
