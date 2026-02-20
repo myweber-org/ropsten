@@ -821,4 +821,89 @@ class DataCleaner:
         print(f"Missing Values:")
         print(self.df.isnull().sum())
         print(f"Data Types:")
-        print(self.df.dtypes)
+        print(self.df.dtypes)import numpy as np
+import pandas as pd
+from scipy import stats
+
+class DataCleaner:
+    def __init__(self, df):
+        self.df = df.copy()
+        self.original_shape = df.shape
+        
+    def detect_outliers_iqr(self, column):
+        Q1 = self.df[column].quantile(0.25)
+        Q3 = self.df[column].quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - 1.5 * IQR
+        upper_bound = Q3 + 1.5 * IQR
+        outliers = self.df[(self.df[column] < lower_bound) | (self.df[column] > upper_bound)]
+        return outliers
+    
+    def remove_outliers(self, columns):
+        clean_df = self.df.copy()
+        for col in columns:
+            if col in clean_df.columns:
+                Q1 = clean_df[col].quantile(0.25)
+                Q3 = clean_df[col].quantile(0.75)
+                IQR = Q3 - Q1
+                lower_bound = Q1 - 1.5 * IQR
+                upper_bound = Q3 + 1.5 * IQR
+                clean_df = clean_df[(clean_df[col] >= lower_bound) & (clean_df[col] <= upper_bound)]
+        return clean_df
+    
+    def impute_missing_median(self, columns):
+        imputed_df = self.df.copy()
+        for col in columns:
+            if col in imputed_df.columns and imputed_df[col].isnull().any():
+                median_val = imputed_df[col].median()
+                imputed_df[col].fillna(median_val, inplace=True)
+        return imputed_df
+    
+    def standardize_columns(self, columns):
+        standardized_df = self.df.copy()
+        for col in columns:
+            if col in standardized_df.columns:
+                mean_val = standardized_df[col].mean()
+                std_val = standardized_df[col].std()
+                if std_val > 0:
+                    standardized_df[col] = (standardized_df[col] - mean_val) / std_val
+        return standardized_df
+    
+    def get_cleaning_report(self):
+        report = {
+            'original_rows': self.original_shape[0],
+            'original_columns': self.original_shape[1],
+            'missing_values': self.df.isnull().sum().sum(),
+            'duplicate_rows': self.df.duplicated().sum()
+        }
+        return report
+
+def example_usage():
+    np.random.seed(42)
+    data = {
+        'feature_a': np.random.normal(100, 15, 100),
+        'feature_b': np.random.exponential(50, 100),
+        'feature_c': np.random.randint(1, 100, 100)
+    }
+    
+    df = pd.DataFrame(data)
+    df.iloc[5:10, 0] = np.nan
+    df.iloc[15:20, 1] = np.nan
+    
+    cleaner = DataCleaner(df)
+    print("Cleaning Report:", cleaner.get_cleaning_report())
+    
+    clean_df = cleaner.remove_outliers(['feature_a', 'feature_b'])
+    imputed_df = cleaner.impute_missing_median(['feature_a', 'feature_b'])
+    standardized_df = cleaner.standardize_columns(['feature_a', 'feature_b'])
+    
+    return {
+        'original': df.shape,
+        'cleaned': clean_df.shape,
+        'imputed': imputed_df.shape,
+        'standardized': standardized_df.shape
+    }
+
+if __name__ == "__main__":
+    results = example_usage()
+    print("Processing Results:", results)
