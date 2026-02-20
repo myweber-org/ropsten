@@ -243,3 +243,61 @@ def main():
 
 if __name__ == "__main__":
     main()
+import pandas as pd
+
+def clean_dataset(df, sort_column=None):
+    """
+    Clean a pandas DataFrame by removing duplicate rows and optionally sorting.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean.
+        sort_column (str, optional): Column name to sort by. Defaults to None.
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame with duplicates removed.
+    """
+    # Remove duplicate rows
+    cleaned_df = df.drop_duplicates()
+    
+    # Sort by specified column if provided
+    if sort_column and sort_column in cleaned_df.columns:
+        cleaned_df = cleaned_df.sort_values(by=sort_column)
+    
+    # Reset index after cleaning
+    cleaned_df = cleaned_df.reset_index(drop=True)
+    
+    return cleaned_df
+
+def filter_numeric_columns(df):
+    """
+    Filter DataFrame to include only numeric columns.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame.
+    
+    Returns:
+        pd.DataFrame: DataFrame containing only numeric columns.
+    """
+    numeric_df = df.select_dtypes(include=['number'])
+    return numeric_df
+
+def handle_missing_values(df, strategy='drop'):
+    """
+    Handle missing values in DataFrame.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame.
+        strategy (str): Strategy to handle missing values. 
+                       Options: 'drop', 'fill_mean', 'fill_median'.
+    
+    Returns:
+        pd.DataFrame: DataFrame with handled missing values.
+    """
+    if strategy == 'drop':
+        return df.dropna()
+    elif strategy == 'fill_mean':
+        return df.fillna(df.mean())
+    elif strategy == 'fill_median':
+        return df.fillna(df.median())
+    else:
+        raise ValueError("Invalid strategy. Use 'drop', 'fill_mean', or 'fill_median'.")
