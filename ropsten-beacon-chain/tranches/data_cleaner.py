@@ -1121,3 +1121,157 @@ if __name__ == "__main__":
     print("\nData Summary:")
     for key, value in summary.items():
         print(f"{key}: {value}")
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(data, column, multiplier=1.5):
+    """
+    Remove outliers using the Interquartile Range method.
+    
+    Args:
+        data: pandas DataFrame
+        column: column name to process
+        multiplier: IQR multiplier (default 1.5)
+    
+    Returns:
+        DataFrame with outliers removed
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    q1 = data[column].quantile(0.25)
+    q3 = data[column].quantile(0.75)
+    iqr = q3 - q1
+    lower_bound = q1 - multiplier * iqr
+    upper_bound = q3 + multiplier * iqr
+    
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    return filtered_data
+
+def z_score_normalize(data, column):
+    """
+    Normalize data using Z-score normalization.
+    
+    Args:
+        data: pandas DataFrame
+        column: column name to normalize
+    
+    Returns:
+        Series with normalized values
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    mean = data[column].mean()
+    std = data[column].std()
+    
+    if std == 0:
+        return pd.Series([0] * len(data), index=data.index)
+    
+    normalized = (data[column] - mean) / std
+    return normalized
+
+def min_max_normalize(data, column, feature_range=(0, 1)):
+    """
+    Normalize data using Min-Max scaling.
+    
+    Args:
+        data: pandas DataFrame
+        column: column name to normalize
+        feature_range: tuple of (min, max) for output range
+    
+    Returns:
+        Series with normalized values
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    min_val = data[column].min()
+    max_val = data[column].max()
+    
+    if min_val == max_val:
+        return pd.Series([feature_range[0]] * len(data), index=data.index)
+    
+    normalized = (data[column] - min_val) / (max_val - min_val)
+    normalized = normalized * (feature_range[1] - feature_range[0]) + feature_range[0]
+    return normalized
+
+def handle_missing_values(data, strategy='mean', columns=None):
+    """
+    Handle missing values in DataFrame columns.
+    
+    Args:
+        data: pandas DataFrame
+        strategy: imputation strategy ('mean', 'median', 'mode', 'constant', 'drop')
+        columns: list of columns to process (None processes all columns)
+    
+    Returns:
+        DataFrame with missing values handled
+    """
+    if columns is None:
+        columns = data.columns
+    
+    processed_data = data.copy()
+    
+    for column in columns:
+        if column not in processed_data.columns:
+            continue
+            
+        if strategy == 'drop':
+            processed_data = processed_data.dropna(subset=[column])
+        elif strategy == 'mean':
+            processed_data[column].fillna(processed_data[column].mean(), inplace=True)
+        elif strategy == 'median':
+            processed_data[column].fillna(processed_data[column].median(), inplace=True)
+        elif strategy == 'mode':
+            processed_data[column].fillna(processed_data[column].mode()[0], inplace=True)
+        elif strategy == 'constant':
+            processed_data[column].fillna(0, inplace=True)
+        else:
+            raise ValueError(f"Unknown strategy: {strategy}")
+    
+    return processed_data
+
+def detect_anomalies_zscore(data, column, threshold=3):
+    """
+    Detect anomalies using Z-score method.
+    
+    Args:
+        data: pandas DataFrame
+        column: column name to analyze
+        threshold: Z-score threshold for anomaly detection
+    
+    Returns:
+        Boolean Series indicating anomalies
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    z_scores = np.abs(stats.zscore(data[column].dropna()))
+    anomalies = pd.Series(False, index=data.index)
+    valid_indices = data[column].dropna().index
+    anomalies.loc[valid_indices] = z_scores > threshold
+    
+    return anomalies
+
+def create_data_summary(data):
+    """
+    Create a comprehensive summary of the DataFrame.
+    
+    Args:
+        data: pandas DataFrame
+    
+    Returns:
+        Dictionary with summary statistics
+    """
+    summary = {
+        'shape': data.shape,
+        'columns': list(data.columns),
+        'dtypes': data.dtypes.to_dict(),
+        'missing_values': data.isnull().sum().to_dict(),
+        'numeric_summary': data.describe().to_dict() if data.select_dtypes(include=[np.number]).shape[1] > 0 else {},
+        'categorical_summary': data.select_dtypes(include=['object']).describe().to_dict() if data.select_dtypes(include=['object']).shape[1] > 0 else {}
+    }
+    
+    return summary
