@@ -353,4 +353,40 @@ if __name__ == "__main__":
     cleaned = clean_dataset(sample_data, ['feature_a', 'feature_b'])
     print(f"Original shape: {sample_data.shape}")
     print(f"Cleaned shape: {cleaned.shape}")
-    print(cleaned.head())
+    print(cleaned.head())import re
+import unicodedata
+
+def normalize_text(text):
+    """Normalize text by removing extra whitespace and converting to lowercase."""
+    if not isinstance(text, str):
+        return ''
+    text = unicodedata.normalize('NFKD', text)
+    text = re.sub(r'\s+', ' ', text)
+    return text.strip().lower()
+
+def remove_special_characters(text, keep_spaces=True):
+    """Remove special characters from text."""
+    if not isinstance(text, str):
+        return ''
+    if keep_spaces:
+        pattern = r'[^a-zA-Z0-9\s]'
+    else:
+        pattern = r'[^a-zA-Z0-9]'
+    return re.sub(pattern, '', text)
+
+def clean_email_address(email):
+    """Clean and validate email address format."""
+    if not isinstance(email, str):
+        return None
+    email = email.strip().lower()
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    if re.match(pattern, email):
+        return email
+    return None
+
+def tokenize_text(text, min_length=2):
+    """Tokenize text into words, filtering short tokens."""
+    if not isinstance(text, str):
+        return []
+    tokens = re.findall(r'\b\w+\b', text.lower())
+    return [token for token in tokens if len(token) >= min_length]
