@@ -321,4 +321,88 @@ def main():
         print("Operation must be 'encrypt' or 'decrypt'")
 
 if __name__ == "__main__":
+    main()import os
+from cryptography.fernet import Fernet
+
+def generate_key(key_file='secret.key'):
+    """Generate and save a new encryption key."""
+    key = Fernet.generate_key()
+    with open(key_file, 'wb') as f:
+        f.write(key)
+    return key
+
+def load_key(key_file='secret.key'):
+    """Load encryption key from file."""
+    return open(key_file, 'rb').read()
+
+def encrypt_file(file_path, key):
+    """Encrypt a file using Fernet encryption."""
+    fernet = Fernet(key)
+    
+    with open(file_path, 'rb') as f:
+        original_data = f.read()
+    
+    encrypted_data = fernet.encrypt(original_data)
+    
+    encrypted_file = file_path + '.encrypted'
+    with open(encrypted_file, 'wb') as f:
+        f.write(encrypted_data)
+    
+    return encrypted_file
+
+def decrypt_file(encrypted_file, key):
+    """Decrypt an encrypted file."""
+    fernet = Fernet(key)
+    
+    with open(encrypted_file, 'rb') as f:
+        encrypted_data = f.read()
+    
+    decrypted_data = fernet.decrypt(encrypted_data)
+    
+    original_file = encrypted_file.replace('.encrypted', '.decrypted')
+    with open(original_file, 'wb') as f:
+        f.write(decrypted_data)
+    
+    return original_file
+
+def encrypt_string(text, key):
+    """Encrypt a string."""
+    fernet = Fernet(key)
+    return fernet.encrypt(text.encode())
+
+def decrypt_string(encrypted_text, key):
+    """Decrypt an encrypted string."""
+    fernet = Fernet(key)
+    return fernet.decrypt(encrypted_text).decode()
+
+def main():
+    """Example usage of the encryption utility."""
+    # Generate or load key
+    key_file = 'my_secret.key'
+    if not os.path.exists(key_file):
+        key = generate_key(key_file)
+        print(f"Generated new key: {key[:20]}...")
+    else:
+        key = load_key(key_file)
+        print(f"Loaded existing key: {key[:20]}...")
+    
+    # Example: Encrypt a string
+    secret_message = "This is a confidential message"
+    encrypted = encrypt_string(secret_message, key)
+    print(f"Encrypted string: {encrypted[:50]}...")
+    
+    # Example: Decrypt the string
+    decrypted = decrypt_string(encrypted, key)
+    print(f"Decrypted string: {decrypted}")
+    
+    # Example: File encryption
+    test_file = 'test_document.txt'
+    if os.path.exists(test_file):
+        encrypted_file = encrypt_file(test_file, key)
+        print(f"Created encrypted file: {encrypted_file}")
+        
+        decrypted_file = decrypt_file(encrypted_file, key)
+        print(f"Created decrypted file: {decrypted_file}")
+
+if __name__ == "__main__":
     main()
