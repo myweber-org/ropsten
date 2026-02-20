@@ -551,3 +551,143 @@ if __name__ == "__main__":
     print("\nCleaned DataFrame shape:", cleaned_df.shape)
     print("\nCleaned statistics:")
     print(calculate_basic_stats(cleaned_df, 'value'))
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+def detect_outliers_iqr(data, column, threshold=1.5):
+    """
+    Detect outliers using Interquartile Range method.
+    
+    Args:
+        data: pandas DataFrame
+        column: column name to analyze
+        threshold: IQR multiplier (default 1.5)
+    
+    Returns:
+        Boolean mask of outliers
+    """
+    q1 = data[column].quantile(0.25)
+    q3 = data[column].quantile(0.75)
+    iqr = q3 - q1
+    lower_bound = q1 - threshold * iqr
+    upper_bound = q3 + threshold * iqr
+    
+    return (data[column] < lower_bound) | (data[column] > upper_bound)
+
+def remove_outliers_zscore(data, column, threshold=3):
+    """
+    Remove outliers using Z-score method.
+    
+    Args:
+        data: pandas DataFrame
+        column: column name to analyze
+        threshold: Z-score threshold (default 3)
+    
+    Returns:
+        DataFrame with outliers removed
+    """
+    z_scores = np.abs(stats.zscore(data[column].dropna()))
+    mask = z_scores < threshold
+    return data[mask]
+
+def normalize_minmax(data, column):
+    """
+    Normalize data using Min-Max scaling.
+    
+    Args:
+        data: pandas DataFrame
+        column: column name to normalize
+    
+    Returns:
+        Normalized Series
+    """
+    min_val = data[column].min()
+    max_val = data[column].max()
+    
+    if max_val == min_val:
+        return data[column]
+    
+    return (data[column] - min_val) / (max_val - min_val)
+
+def normalize_zscore(data, column):
+    """
+    Normalize data using Z-score standardization.
+    
+    Args:
+        data: pandas DataFrame
+        column: column name to normalize
+    
+    Returns:
+        Standardized Series
+    """
+    mean_val = data[column].mean()
+    std_val = data[column].std()
+    
+    if std_val == 0:
+        return data[column]
+    
+    return (data[column] - mean_val) / std_val
+
+def clean_dataset(df, numeric_columns=None, outlier_method='iqr', normalize_method='zscore'):
+    """
+    Main function to clean dataset by handling outliers and normalization.
+    
+    Args:
+        df: Input DataFrame
+        numeric_columns: List of numeric columns to process (default: all numeric)
+        outlier_method: 'iqr' or 'zscore' (default: 'iqr')
+        normalize_method: 'minmax' or 'zscore' (default: 'zscore')
+    
+    Returns:
+        Cleaned DataFrame
+    """
+    if numeric_columns is None:
+        numeric_columns = df.select_dtypes(include=[np.number]).columns.tolist()
+    
+    cleaned_df = df.copy()
+    
+    for col in numeric_columns:
+        if col not in cleaned_df.columns:
+            continue
+            
+        # Handle outliers
+        if outlier_method == 'iqr':
+            outlier_mask = detect_outliers_iqr(cleaned_df, col)
+            cleaned_df.loc[outlier_mask, col] = np.nan
+        elif outlier_method == 'zscore':
+            cleaned_df = remove_outliers_zscore(cleaned_df, col)
+        
+        # Normalize data
+        if normalize_method == 'minmax':
+            cleaned_df[col] = normalize_minmax(cleaned_df, col)
+        elif normalize_method == 'zscore':
+            cleaned_df[col] = normalize_zscore(cleaned_df, col)
+    
+    return cleaned_df
+
+def validate_data(df, required_columns=None, min_rows=10):
+    """
+    Validate dataset structure and content.
+    
+    Args:
+        df: DataFrame to validate
+        required_columns: List of required column names
+        min_rows: Minimum number of rows required
+    
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    if len(df) < min_rows:
+        return False, f"Dataset has less than {min_rows} rows"
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            return False, f"Missing required columns: {missing_cols}"
+    
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    if len(numeric_cols) == 0:
+        return False, "No numeric columns found in dataset"
+    
+    return True, "Dataset is valid"
