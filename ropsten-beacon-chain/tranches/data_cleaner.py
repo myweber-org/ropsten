@@ -690,4 +690,94 @@ def validate_data(df, required_columns=None, min_rows=10):
     if len(numeric_cols) == 0:
         return False, "No numeric columns found in dataset"
     
-    return True, "Dataset is valid"
+    return True, "Dataset is valid"import numpy as np
+import pandas as pd
+from scipy import stats
+
+class DataCleaner:
+    def __init__(self, df):
+        self.df = df.copy()
+        self.original_shape = df.shape
+        
+    def remove_outliers_iqr(self, columns=None, threshold=1.5):
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
+        
+        df_clean = self.df.copy()
+        for col in columns:
+            if col in self.df.columns and pd.api.types.is_numeric_dtype(self.df[col]):
+                Q1 = self.df[col].quantile(0.25)
+                Q3 = self.df[col].quantile(0.75)
+                IQR = Q3 - Q1
+                lower_bound = Q1 - threshold * IQR
+                upper_bound = Q3 + threshold * IQR
+                
+                mask = (self.df[col] >= lower_bound) & (self.df[col] <= upper_bound)
+                df_clean = df_clean[mask]
+        
+        self.df = df_clean.reset_index(drop=True)
+        return self
+    
+    def normalize_minmax(self, columns=None):
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
+        
+        for col in columns:
+            if col in self.df.columns and pd.api.types.is_numeric_dtype(self.df[col]):
+                min_val = self.df[col].min()
+                max_val = self.df[col].max()
+                if max_val > min_val:
+                    self.df[col] = (self.df[col] - min_val) / (max_val - min_val)
+        
+        return self
+    
+    def fill_missing_median(self, columns=None):
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
+        
+        for col in columns:
+            if col in self.df.columns and pd.api.types.is_numeric_dtype(self.df[col]):
+                self.df[col] = self.df[col].fillna(self.df[col].median())
+        
+        return self
+    
+    def get_cleaned_data(self):
+        return self.df
+    
+    def get_removed_count(self):
+        return self.original_shape[0] - self.df.shape[0]
+
+def generate_sample_data():
+    np.random.seed(42)
+    data = {
+        'feature_a': np.random.normal(100, 15, 1000),
+        'feature_b': np.random.exponential(50, 1000),
+        'feature_c': np.random.uniform(0, 200, 1000)
+    }
+    
+    df = pd.DataFrame(data)
+    
+    df.iloc[10:15, 0] = np.nan
+    df.iloc[20:25, 1] = np.nan
+    
+    outlier_indices = np.random.choice(1000, 20, replace=False)
+    df.iloc[outlier_indices, 2] = df.iloc[outlier_indices, 2] * 10
+    
+    return df
+
+if __name__ == "__main__":
+    sample_df = generate_sample_data()
+    print(f"Original data shape: {sample_df.shape}")
+    print(f"Missing values:\n{sample_df.isnull().sum()}")
+    
+    cleaner = DataCleaner(sample_df)
+    cleaned_df = (cleaner
+                 .fill_missing_median()
+                 .remove_outliers_iqr(threshold=2.0)
+                 .normalize_minmax()
+                 .get_cleaned_data())
+    
+    print(f"\nCleaned data shape: {cleaned_df.shape}")
+    print(f"Removed rows: {cleaner.get_removed_count()}")
+    print(f"\nCleaned statistics:")
+    print(cleaned_df.describe())
