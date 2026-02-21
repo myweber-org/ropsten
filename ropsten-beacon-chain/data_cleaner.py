@@ -1,63 +1,33 @@
-
 import pandas as pd
+import numpy as np
 
-def clean_dataset(df, drop_duplicates=True, fill_na=None):
-    """
-    Clean a pandas DataFrame by handling missing values and duplicates.
-    
-    Args:
-        df (pd.DataFrame): Input DataFrame to clean.
-        drop_duplicates (bool): Whether to drop duplicate rows.
-        fill_na (str or dict): Method to fill missing values.
-    
-    Returns:
-        pd.DataFrame: Cleaned DataFrame.
-    """
-    cleaned_df = df.copy()
-    
-    if fill_na is not None:
-        cleaned_df = cleaned_df.fillna(fill_na)
-    
-    if drop_duplicates:
-        cleaned_df = cleaned_df.drop_duplicates()
-    
-    return cleaned_df
+def load_data(filepath):
+    """Load dataset from CSV file."""
+    return pd.read_csv(filepath)
 
-def validate_data(df, required_columns=None):
-    """
-    Validate DataFrame structure and content.
+def remove_outliers(df, column, threshold=3):
+    """Remove outliers using z-score method."""
+    z_scores = np.abs((df[column] - df[column].mean()) / df[column].std())
+    return df[z_scores < threshold]
+
+def normalize_column(df, column):
+    """Normalize column values to range [0,1]."""
+    min_val = df[column].min()
+    max_val = df[column].max()
+    df[column] = (df[column] - min_val) / (max_val - min_val)
+    return df
+
+def clean_dataset(input_file, output_file):
+    """Main cleaning pipeline."""
+    df = load_data(input_file)
     
-    Args:
-        df (pd.DataFrame): DataFrame to validate.
-        required_columns (list): List of required column names.
+    if 'value' in df.columns:
+        df = remove_outliers(df, 'value')
+        df = normalize_column(df, 'value')
     
-    Returns:
-        tuple: (is_valid, error_message)
-    """
-    if required_columns:
-        missing_cols = [col for col in required_columns if col not in df.columns]
-        if missing_cols:
-            return False, f"Missing required columns: {missing_cols}"
-    
-    if df.empty:
-        return False, "DataFrame is empty"
-    
-    return True, "Data validation passed"
+    df.to_csv(output_file, index=False)
+    print(f"Cleaned data saved to {output_file}")
+    return df
 
 if __name__ == "__main__":
-    sample_data = {
-        'A': [1, 2, None, 4, 2],
-        'B': [5, None, 7, 8, 5],
-        'C': ['x', 'y', 'z', 'x', 'y']
-    }
-    
-    df = pd.DataFrame(sample_data)
-    print("Original DataFrame:")
-    print(df)
-    
-    cleaned = clean_dataset(df, fill_na=0)
-    print("\nCleaned DataFrame:")
-    print(cleaned)
-    
-    is_valid, message = validate_data(cleaned, required_columns=['A', 'B', 'C'])
-    print(f"\nValidation: {is_valid}, Message: {message}")
+    clean_dataset('raw_data.csv', 'cleaned_data.csv')
