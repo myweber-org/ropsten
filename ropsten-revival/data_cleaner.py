@@ -454,4 +454,63 @@ if __name__ == "__main__":
         validate_dataframe(cleaned_df, required_columns=['id', 'value', 'category'])
         print("Data validation passed")
     except Exception as e:
-        print(f"Data validation failed: {e}")
+        print(f"Data validation failed: {e}")import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(data, column):
+    """
+    Remove outliers using IQR method.
+    """
+    Q1 = data[column].quantile(0.25)
+    Q3 = data[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    return filtered_data
+
+def normalize_minmax(data, column):
+    """
+    Normalize data using min-max scaling.
+    """
+    min_val = data[column].min()
+    max_val = data[column].max()
+    if max_val - min_val == 0:
+        return data[column]
+    normalized = (data[column] - min_val) / (max_val - min_val)
+    return normalized
+
+def standardize_zscore(data, column):
+    """
+    Standardize data using z-score.
+    """
+    mean_val = data[column].mean()
+    std_val = data[column].std()
+    if std_val == 0:
+        return data[column]
+    standardized = (data[column] - mean_val) / std_val
+    return standardized
+
+def clean_dataset(df, numeric_columns):
+    """
+    Clean dataset by removing outliers and normalizing numeric columns.
+    """
+    cleaned_df = df.copy()
+    for col in numeric_columns:
+        if col in cleaned_df.columns:
+            cleaned_df = remove_outliers_iqr(cleaned_df, col)
+            cleaned_df[col] = normalize_minmax(cleaned_df, col)
+    return cleaned_df
+
+if __name__ == "__main__":
+    sample_data = pd.DataFrame({
+        'A': np.random.randn(100),
+        'B': np.random.uniform(0, 100, 100),
+        'C': np.random.randint(1, 50, 100)
+    })
+    numeric_cols = ['A', 'B', 'C']
+    result = clean_dataset(sample_data, numeric_cols)
+    print(f"Original shape: {sample_data.shape}")
+    print(f"Cleaned shape: {result.shape}")
+    print(result.head())
