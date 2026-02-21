@@ -1158,4 +1158,90 @@ if __name__ == "__main__":
     
     print("\nCleaned data shape:", cleaned_df.shape)
     print("Cleaned data head:")
-    print(cleaned_df.head())
+    print(cleaned_df.head())import pandas as pd
+
+def remove_duplicates(df, subset=None, keep='first'):
+    """
+    Remove duplicate rows from a DataFrame.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame.
+        subset (list, optional): Column labels to consider for duplicates.
+        keep (str, optional): Which duplicates to keep.
+    
+    Returns:
+        pd.DataFrame: DataFrame with duplicates removed.
+    """
+    if df.empty:
+        return df
+    
+    cleaned_df = df.drop_duplicates(subset=subset, keep=keep)
+    return cleaned_df
+
+def validate_dataframe(df):
+    """
+    Perform basic validation on DataFrame.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate.
+    
+    Returns:
+        bool: True if DataFrame is valid.
+    """
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError("Input must be a pandas DataFrame")
+    
+    if df.empty:
+        print("Warning: DataFrame is empty")
+    
+    return True
+
+def clean_dataset(file_path, output_path=None):
+    """
+    Load, clean, and save a dataset.
+    
+    Args:
+        file_path (str): Path to input CSV file.
+        output_path (str, optional): Path for cleaned output.
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame.
+    """
+    try:
+        df = pd.read_csv(file_path)
+        
+        if validate_dataframe(df):
+            original_count = len(df)
+            cleaned_df = remove_duplicates(df)
+            cleaned_count = len(cleaned_df)
+            
+            duplicates_removed = original_count - cleaned_count
+            print(f"Removed {duplicates_removed} duplicate rows")
+            
+            if output_path:
+                cleaned_df.to_csv(output_path, index=False)
+                print(f"Cleaned data saved to {output_path}")
+            
+            return cleaned_df
+            
+    except FileNotFoundError:
+        print(f"Error: File not found at {file_path}")
+        return None
+    except Exception as e:
+        print(f"Error processing file: {str(e)}")
+        return None
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'id': [1, 2, 2, 3, 4, 4, 4],
+        'name': ['Alice', 'Bob', 'Bob', 'Charlie', 'David', 'David', 'David'],
+        'value': [10, 20, 20, 30, 40, 40, 50]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\nCleaned DataFrame:")
+    cleaned = remove_duplicates(df, subset=['id', 'name'])
+    print(cleaned)
