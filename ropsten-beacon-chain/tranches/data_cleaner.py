@@ -671,3 +671,34 @@ if __name__ == "__main__":
     result = clean_data(sample_data)
     print(f"Original: {sample_data}")
     print(f"Cleaned: {result}")
+import pandas as pd
+
+def clean_dataframe(df):
+    """
+    Clean a pandas DataFrame by removing rows with null values
+    and standardizing column names to lowercase with underscores.
+    """
+    # Remove rows with any null values
+    df_cleaned = df.dropna()
+    
+    # Standardize column names
+    df_cleaned.columns = df_cleaned.columns.str.lower().str.replace(' ', '_')
+    
+    return df_cleaned
+
+def filter_by_threshold(df, column, threshold):
+    """
+    Filter DataFrame rows where values in specified column exceed threshold.
+    """
+    return df[df[column] > threshold]
+
+def summarize_data(df):
+    """
+    Generate basic summary statistics for numeric columns.
+    """
+    summary = {
+        'row_count': len(df),
+        'column_count': len(df.columns),
+        'numeric_summary': df.describe().to_dict()
+    }
+    return summary
