@@ -121,3 +121,65 @@ def validate_data(data, required_columns=None, allow_nan=False):
             raise ValueError(f"Columns contain NaN values: {nan_columns}")
     
     return True
+import pandas as pd
+
+def remove_duplicates(dataframe, subset=None, keep='first'):
+    """
+    Remove duplicate rows from a pandas DataFrame.
+    
+    Args:
+        dataframe: pandas DataFrame to clean
+        subset: column label or sequence of labels to consider for duplicates
+        keep: determines which duplicates to mark ('first', 'last', False)
+    
+    Returns:
+        Cleaned DataFrame with duplicates removed
+    """
+    if dataframe.empty:
+        return dataframe
+    
+    cleaned_df = dataframe.drop_duplicates(subset=subset, keep=keep)
+    
+    removed_count = len(dataframe) - len(cleaned_df)
+    if removed_count > 0:
+        print(f"Removed {removed_count} duplicate rows")
+    
+    return cleaned_df
+
+def clean_numeric_columns(dataframe, columns):
+    """
+    Clean numeric columns by converting to appropriate types and handling errors.
+    
+    Args:
+        dataframe: pandas DataFrame
+        columns: list of column names to clean
+    
+    Returns:
+        DataFrame with cleaned numeric columns
+    """
+    for col in columns:
+        if col in dataframe.columns:
+            dataframe[col] = pd.to_numeric(dataframe[col], errors='coerce')
+    
+    return dataframe
+
+def validate_dataframe(dataframe, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Args:
+        dataframe: pandas DataFrame to validate
+        required_columns: list of required column names
+    
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    if dataframe.empty:
+        return False, "DataFrame is empty"
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in dataframe.columns]
+        if missing_columns:
+            return False, f"Missing required columns: {missing_columns}"
+    
+    return True, "DataFrame is valid"
