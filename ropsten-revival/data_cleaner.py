@@ -1,123 +1,95 @@
 
 import pandas as pd
-import numpy as np
 
-def remove_outliers_iqr(df, column):
+def remove_duplicates(dataframe, subset=None, keep='first'):
     """
-    Remove outliers from a DataFrame column using the Interquartile Range (IQR) method.
+    Remove duplicate rows from a DataFrame.
     
-    Parameters:
-    df (pd.DataFrame): The input DataFrame.
-    column (str): The column name to clean.
+    Args:
+        dataframe (pd.DataFrame): Input DataFrame
+        subset (list, optional): Column names to consider for duplicates
+        keep (str, optional): Which duplicates to keep ('first', 'last', False)
     
     Returns:
-    pd.DataFrame: DataFrame with outliers removed.
+        pd.DataFrame: DataFrame with duplicates removed
     """
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
+    if dataframe.empty:
+        return dataframe
     
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
+    cleaned_df = dataframe.drop_duplicates(subset=subset, keep=keep)
     
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
+    removed_count = len(dataframe) - len(cleaned_df)
+    if removed_count > 0:
+        print(f"Removed {removed_count} duplicate rows")
     
-    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
-    
-    return filtered_df
+    return cleaned_df
 
-def calculate_summary_statistics(df, column):
+def clean_numeric_columns(dataframe, columns):
     """
-    Calculate summary statistics for a DataFrame column.
+    Clean numeric columns by converting to appropriate types.
     
-    Parameters:
-    df (pd.DataFrame): The input DataFrame.
-    column (str): The column name to analyze.
+    Args:
+        dataframe (pd.DataFrame): Input DataFrame
+        columns (list): List of column names to clean
     
     Returns:
-    dict: Dictionary containing summary statistics.
+        pd.DataFrame: DataFrame with cleaned numeric columns
     """
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
+    for column in columns:
+        if column in dataframe.columns:
+            dataframe[column] = pd.to_numeric(dataframe[column], errors='coerce')
     
-    stats = {
-        'mean': df[column].mean(),
-        'median': df[column].median(),
-        'std': df[column].std(),
-        'min': df[column].min(),
-        'max': df[column].max(),
-        'count': df[column].count(),
-        'missing': df[column].isnull().sum()
-    }
-    
-    return stats
+    return dataframe
 
-def clean_dataset(df, numeric_columns):
+def validate_dataframe(dataframe, required_columns):
     """
-    Clean a dataset by removing outliers from multiple numeric columns.
+    Validate that DataFrame contains required columns.
     
-    Parameters:
-    df (pd.DataFrame): The input DataFrame.
-    numeric_columns (list): List of column names to clean.
+    Args:
+        dataframe (pd.DataFrame): DataFrame to validate
+        required_columns (list): List of required column names
     
     Returns:
-    pd.DataFrame: Cleaned DataFrame.
-    dict: Dictionary of summary statistics for each column.
+        bool: True if all required columns are present
     """
-    cleaned_df = df.copy()
-    summary_stats = {}
+    missing_columns = [col for col in required_columns if col not in dataframe.columns]
     
-    for column in numeric_columns:
-        if column in cleaned_df.columns:
-            original_count = len(cleaned_df)
-            cleaned_df = remove_outliers_iqr(cleaned_df, column)
-            removed_count = original_count - len(cleaned_df)
-            
-            stats = calculate_summary_statistics(cleaned_df, column)
-            stats['outliers_removed'] = removed_count
-            summary_stats[column] = stats
+    if missing_columns:
+        print(f"Missing required columns: {missing_columns}")
+        return False
     
-    return cleaned_df, summary_stats
+    return True
 
-if __name__ == "__main__":
+def main():
+    # Example usage
     sample_data = {
-        'id': range(1, 101),
-        'value': np.random.normal(100, 15, 100)
+        'id': [1, 2, 2, 3, 4, 4],
+        'name': ['Alice', 'Bob', 'Bob', 'Charlie', 'David', 'David'],
+        'age': ['25', '30', '30', '35', '40', '40'],
+        'score': ['85.5', '90.0', '90.0', '78.5', '92.0', '92.0']
     }
     
-    sample_df = pd.DataFrame(sample_data)
-    sample_df.loc[95:99, 'value'] = [500, 600, 700, 800, 900]
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print()
     
-    print("Original dataset shape:", sample_df.shape)
-    print("\nOriginal summary statistics:")
-    print(sample_df['value'].describe())
+    # Remove duplicates
+    df_clean = remove_duplicates(df, subset=['id', 'name'])
+    print("After removing duplicates:")
+    print(df_clean)
+    print()
     
-    cleaned_df, stats = clean_dataset(sample_df, ['value'])
+    # Clean numeric columns
+    df_clean = clean_numeric_columns(df_clean, ['age', 'score'])
+    print("After cleaning numeric columns:")
+    print(df_clean)
+    print()
     
-    print("\nCleaned dataset shape:", cleaned_df.shape)
-    print("\nCleaned summary statistics:")
-    print(cleaned_df['value'].describe())
-    print("\nOutliers removed:", stats['value']['outliers_removed'])
-def remove_duplicates_preserve_order(sequence):
-    seen = set()
-    result = []
-    for item in sequence:
-        if item not in seen:
-            seen.add(item)
-            result.append(item)
-    return result
-def remove_duplicates_preserve_order(sequence):
-    seen = set()
-    result = []
-    for item in sequence:
-        if item not in seen:
-            seen.add(item)
-            result.append(item)
-    return result
+    # Validate required columns
+    required = ['id', 'name', 'age']
+    is_valid = validate_dataframe(df_clean, required)
+    print(f"DataFrame validation: {is_valid}")
 
 if __name__ == "__main__":
-    sample_data = [3, 1, 2, 1, 4, 3, 5, 2]
-    cleaned = remove_duplicates_preserve_order(sample_data)
-    print(f"Original: {sample_data}")
-    print(f"Cleaned: {cleaned}")
+    main()
