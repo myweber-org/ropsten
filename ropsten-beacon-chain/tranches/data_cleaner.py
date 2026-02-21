@@ -332,4 +332,113 @@ def example_usage():
 
 if __name__ == "__main__":
     result_df = example_usage()
-    print(f"\nRemoved {100 - len(result_df)} outliers")
+    print(f"\nRemoved {100 - len(result_df)} outliers")import numpy as np
+import pandas as pd
+from scipy import stats
+
+class DataCleaner:
+    def __init__(self, df):
+        self.df = df.copy()
+        self.numeric_columns = df.select_dtypes(include=[np.number]).columns.tolist()
+    
+    def remove_outliers_iqr(self, columns=None, threshold=1.5):
+        if columns is None:
+            columns = self.numeric_columns
+        
+        df_clean = self.df.copy()
+        for col in columns:
+            if col in self.numeric_columns:
+                Q1 = df_clean[col].quantile(0.25)
+                Q3 = df_clean[col].quantile(0.75)
+                IQR = Q3 - Q1
+                lower_bound = Q1 - threshold * IQR
+                upper_bound = Q3 + threshold * IQR
+                
+                mask = (df_clean[col] >= lower_bound) & (df_clean[col] <= upper_bound)
+                df_clean = df_clean[mask]
+        
+        return df_clean.reset_index(drop=True)
+    
+    def fill_missing_values(self, strategy='mean', custom_value=None):
+        df_filled = self.df.copy()
+        
+        for col in self.numeric_columns:
+            if df_filled[col].isnull().any():
+                if strategy == 'mean':
+                    fill_value = df_filled[col].mean()
+                elif strategy == 'median':
+                    fill_value = df_filled[col].median()
+                elif strategy == 'mode':
+                    fill_value = df_filled[col].mode()[0]
+                elif strategy == 'custom' and custom_value is not None:
+                    fill_value = custom_value
+                else:
+                    continue
+                
+                df_filled[col] = df_filled[col].fillna(fill_value)
+        
+        return df_filled
+    
+    def standardize_data(self, columns=None):
+        if columns is None:
+            columns = self.numeric_columns
+        
+        df_standardized = self.df.copy()
+        for col in columns:
+            if col in self.numeric_columns:
+                mean = df_standardized[col].mean()
+                std = df_standardized[col].std()
+                if std > 0:
+                    df_standardized[col] = (df_standardized[col] - mean) / std
+        
+        return df_standardized
+    
+    def get_summary(self):
+        summary = {
+            'original_shape': self.df.shape,
+            'missing_values': self.df.isnull().sum().to_dict(),
+            'numeric_columns': self.numeric_columns,
+            'data_types': self.df.dtypes.to_dict()
+        }
+        return summary
+
+def create_sample_data():
+    np.random.seed(42)
+    data = {
+        'feature_a': np.random.normal(100, 15, 100),
+        'feature_b': np.random.exponential(50, 100),
+        'feature_c': np.random.randint(1, 100, 100),
+        'category': np.random.choice(['A', 'B', 'C'], 100)
+    }
+    
+    df = pd.DataFrame(data)
+    
+    df.loc[np.random.choice(100, 5), 'feature_a'] = np.nan
+    df.loc[np.random.choice(100, 5), 'feature_b'] = np.nan
+    
+    outlier_indices = np.random.choice(100, 3)
+    df.loc[outlier_indices, 'feature_a'] = df['feature_a'].mean() + 5 * df['feature_a'].std()
+    
+    return df
+
+if __name__ == "__main__":
+    sample_df = create_sample_data()
+    print("Sample Data Created:")
+    print(f"Shape: {sample_df.shape}")
+    print(f"Missing values:\n{sample_df.isnull().sum()}")
+    
+    cleaner = DataCleaner(sample_df)
+    summary = cleaner.get_summary()
+    print(f"\nData Summary:")
+    print(f"Original shape: {summary['original_shape']}")
+    print(f"Numeric columns: {summary['numeric_columns']}")
+    
+    cleaned_df = cleaner.remove_outliers_iqr()
+    print(f"\nAfter outlier removal: {cleaned_df.shape}")
+    
+    filled_df = cleaner.fill_missing_values(strategy='median')
+    print(f"Missing values after imputation:\n{filled_df.isnull().sum()}")
+    
+    standardized_df = cleaner.standardize_data()
+    print(f"\nStandardized data sample:")
+    print(standardized_df[['feature_a', 'feature_b']].head())
