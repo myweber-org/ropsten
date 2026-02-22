@@ -1,74 +1,20 @@
 
-import pandas as pd
+import re
 
-def remove_duplicates(dataframe, subset=None, keep='first'):
+def filter_valid_emails(email_list):
     """
-    Remove duplicate rows from a pandas DataFrame.
-    
-    Args:
-        dataframe (pd.DataFrame): Input DataFrame
-        subset (list, optional): Column labels to consider for duplicates
-        keep (str, optional): Which duplicates to keep ('first', 'last', False)
-    
-    Returns:
-        pd.DataFrame: DataFrame with duplicates removed
+    Filters a list of email addresses, returning only those that match a basic
+    email pattern.
     """
-    if not isinstance(dataframe, pd.DataFrame):
-        raise TypeError("Input must be a pandas DataFrame")
-    
-    cleaned_df = dataframe.drop_duplicates(subset=subset, keep=keep)
-    
-    removed_count = len(dataframe) - len(cleaned_df)
-    print(f"Removed {removed_count} duplicate rows")
-    
-    return cleaned_df
+    if not isinstance(email_list, list):
+        raise TypeError("Input must be a list")
 
-def validate_dataframe(dataframe, required_columns=None):
-    """
-    Validate DataFrame structure and content.
-    
-    Args:
-        dataframe (pd.DataFrame): DataFrame to validate
-        required_columns (list, optional): List of required column names
-    
-    Returns:
-        bool: True if validation passes, False otherwise
-    """
-    if not isinstance(dataframe, pd.DataFrame):
-        print("Error: Input is not a pandas DataFrame")
-        return False
-    
-    if dataframe.empty:
-        print("Warning: DataFrame is empty")
-        return True
-    
-    if required_columns:
-        missing_columns = [col for col in required_columns if col not in dataframe.columns]
-        if missing_columns:
-            print(f"Error: Missing required columns: {missing_columns}")
-            return False
-    
-    return True
+    valid_emails = []
+    # Basic email regex pattern
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
 
-def clean_numeric_columns(dataframe, columns=None):
-    """
-    Clean numeric columns by converting to appropriate types and handling errors.
-    
-    Args:
-        dataframe (pd.DataFrame): Input DataFrame
-        columns (list, optional): Specific columns to clean
-    
-    Returns:
-        pd.DataFrame: DataFrame with cleaned numeric columns
-    """
-    if columns is None:
-        columns = dataframe.select_dtypes(include=['object']).columns
-    
-    for column in columns:
-        if column in dataframe.columns:
-            try:
-                dataframe[column] = pd.to_numeric(dataframe[column], errors='coerce')
-            except Exception as e:
-                print(f"Could not convert column {column}: {e}")
-    
-    return dataframe
+    for email in email_list:
+        if isinstance(email, str) and re.match(pattern, email):
+            valid_emails.append(email)
+
+    return valid_emails
