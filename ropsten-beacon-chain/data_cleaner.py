@@ -607,3 +607,119 @@ def process_dataset(data, column_to_clean):
     is_valid = validate_data(cleaned_data)
     
     return cleaned_data, statistics, is_valid
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df, columns_to_check=None, fill_strategy='mean'):
+    """
+    Clean a dataset by removing duplicates and handling missing values.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        columns_to_check (list): Columns to check for duplicates, defaults to all columns
+        fill_strategy (str): Strategy for filling missing values ('mean', 'median', 'mode', 'zero')
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame
+    """
+    original_shape = df.shape
+    
+    # Remove duplicates
+    if columns_to_check is None:
+        columns_to_check = df.columns.tolist()
+    
+    df_cleaned = df.drop_duplicates(subset=columns_to_check, keep='first')
+    
+    # Handle missing values
+    numeric_cols = df_cleaned.select_dtypes(include=[np.number]).columns
+    categorical_cols = df_cleaned.select_dtypes(exclude=[np.number]).columns
+    
+    for col in numeric_cols:
+        if df_cleaned[col].isnull().any():
+            if fill_strategy == 'mean':
+                fill_value = df_cleaned[col].mean()
+            elif fill_strategy == 'median':
+                fill_value = df_cleaned[col].median()
+            elif fill_strategy == 'zero':
+                fill_value = 0
+            else:
+                fill_value = df_cleaned[col].mean()  # default to mean
+            
+            df_cleaned[col] = df_cleaned[col].fillna(fill_value)
+    
+    for col in categorical_cols:
+        if df_cleaned[col].isnull().any():
+            mode_value = df_cleaned[col].mode()
+            if not mode_value.empty:
+                df_cleaned[col] = df_cleaned[col].fillna(mode_value.iloc[0])
+            else:
+                df_cleaned[col] = df_cleaned[col].fillna('Unknown')
+    
+    # Log cleaning results
+    duplicates_removed = original_shape[0] - df_cleaned.shape[0]
+    missing_values_filled = df.isnull().sum().sum() - df_cleaned.isnull().sum().sum()
+    
+    print(f"Original dataset shape: {original_shape}")
+    print(f"Cleaned dataset shape: {df_cleaned.shape}")
+    print(f"Duplicates removed: {duplicates_removed}")
+    print(f"Missing values filled: {missing_values_filled}")
+    
+    return df_cleaned
+
+def validate_dataset(df, required_columns=None, min_rows=1):
+    """
+    Validate dataset structure and content.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate
+        required_columns (list): List of required column names
+        min_rows (int): Minimum number of rows required
+    
+    Returns:
+        bool: True if validation passes, False otherwise
+    """
+    if df.empty:
+        print("Validation failed: DataFrame is empty")
+        return False
+    
+    if len(df) < min_rows:
+        print(f"Validation failed: Less than {min_rows} rows")
+        return False
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            print(f"Validation failed: Missing columns {missing_columns}")
+            return False
+    
+    return True
+
+# Example usage
+if __name__ == "__main__":
+    # Create sample data
+    sample_data = {
+        'id': [1, 2, 2, 3, 4, 5],
+        'name': ['Alice', 'Bob', 'Bob', 'Charlie', None, 'Eve'],
+        'age': [25, 30, 30, None, 35, 40],
+        'score': [85.5, 92.0, 92.0, 78.5, None, 95.0]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\n" + "="*50 + "\n")
+    
+    # Clean the dataset
+    cleaned_df = clean_dataset(df, fill_strategy='mean')
+    
+    print("\nCleaned DataFrame:")
+    print(cleaned_df)
+    
+    # Validate the cleaned dataset
+    validation_passed = validate_dataset(
+        cleaned_df, 
+        required_columns=['id', 'name', 'age', 'score'],
+        min_rows=3
+    )
+    
+    print(f"\nDataset validation passed: {validation_passed}")
