@@ -326,3 +326,123 @@ if __name__ == "__main__":
     cleaned_df = load_and_clean_data(input_file)
     save_cleaned_data(cleaned_df, output_file)
     print(f"Data cleaning complete. Cleaned data saved to {output_file}")
+import pandas as pd
+import numpy as np
+from pathlib import Path
+
+class CSVDataCleaner:
+    def __init__(self, file_path):
+        self.file_path = Path(file_path)
+        self.df = None
+        self.cleaning_report = {}
+        
+    def load_data(self):
+        try:
+            self.df = pd.read_csv(self.file_path)
+            self.cleaning_report['original_shape'] = self.df.shape
+            self.cleaning_report['original_columns'] = list(self.df.columns)
+            return True
+        except Exception as e:
+            print(f"Error loading file: {e}")
+            return False
+    
+    def handle_missing_values(self, strategy='mean', fill_value=None):
+        if self.df is None:
+            print("No data loaded. Call load_data() first.")
+            return
+        
+        missing_before = self.df.isnull().sum().sum()
+        
+        if strategy == 'drop':
+            self.df = self.df.dropna()
+        elif strategy == 'mean':
+            numeric_cols = self.df.select_dtypes(include=[np.number]).columns
+            self.df[numeric_cols] = self.df[numeric_cols].fillna(self.df[numeric_cols].mean())
+        elif strategy == 'median':
+            numeric_cols = self.df.select_dtypes(include=[np.number]).columns
+            self.df[numeric_cols] = self.df[numeric_cols].fillna(self.df[numeric_cols].median())
+        elif strategy == 'mode':
+            for col in self.df.columns:
+                self.df[col] = self.df[col].fillna(self.df[col].mode()[0] if not self.df[col].mode().empty else None)
+        elif strategy == 'custom' and fill_value is not None:
+            self.df = self.df.fillna(fill_value)
+        
+        missing_after = self.df.isnull().sum().sum()
+        self.cleaning_report['missing_removed'] = missing_before - missing_after
+        self.cleaning_report['missing_strategy'] = strategy
+    
+    def remove_duplicates(self):
+        if self.df is None:
+            print("No data loaded. Call load_data() first.")
+            return
+        
+        duplicates_before = self.df.duplicated().sum()
+        self.df = self.df.drop_duplicates()
+        duplicates_after = self.df.duplicated().sum()
+        
+        self.cleaning_report['duplicates_removed'] = duplicates_before - duplicates_after
+    
+    def normalize_numeric(self, columns=None):
+        if self.df is None:
+            print("No data loaded. Call load_data() first.")
+            return
+        
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
+        
+        for col in columns:
+            if col in self.df.columns and pd.api.types.is_numeric_dtype(self.df[col]):
+                col_min = self.df[col].min()
+                col_max = self.df[col].max()
+                
+                if col_max > col_min:
+                    self.df[col] = (self.df[col] - col_min) / (col_max - col_min)
+        
+        self.cleaning_report['normalized_columns'] = list(columns)
+    
+    def save_cleaned_data(self, output_path=None):
+        if self.df is None:
+            print("No data to save. Perform cleaning operations first.")
+            return False
+        
+        if output_path is None:
+            output_path = self.file_path.parent / f"cleaned_{self.file_path.name}"
+        
+        try:
+            self.df.to_csv(output_path, index=False)
+            self.cleaning_report['saved_path'] = str(output_path)
+            self.cleaning_report['final_shape'] = self.df.shape
+            return True
+        except Exception as e:
+            print(f"Error saving file: {e}")
+            return False
+    
+    def get_report(self):
+        return self.cleaning_report
+    
+    def print_report(self):
+        print("=== Data Cleaning Report ===")
+        for key, value in self.cleaning_report.items():
+            print(f"{key}: {value}")
+
+def clean_csv_file(input_file, output_file=None, missing_strategy='mean', remove_dups=True, normalize=True):
+    cleaner = CSVDataCleaner(input_file)
+    
+    if not cleaner.load_data():
+        return None
+    
+    cleaner.handle_missing_values(strategy=missing_strategy)
+    
+    if remove_dups:
+        cleaner.remove_duplicates()
+    
+    if normalize:
+        cleaner.normalize_numeric()
+    
+    if output_file:
+        cleaner.save_cleaned_data(output_file)
+    else:
+        cleaner.save_cleaned_data()
+    
+    cleaner.print_report()
+    return cleaner.get_report()
