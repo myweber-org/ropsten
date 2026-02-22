@@ -446,3 +446,11 @@ def clean_csv_file(input_file, output_file=None, missing_strategy='mean', remove
     
     cleaner.print_report()
     return cleaner.get_report()
+def remove_duplicates_preserve_order(sequence):
+    seen = set()
+    result = []
+    for item in sequence:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
