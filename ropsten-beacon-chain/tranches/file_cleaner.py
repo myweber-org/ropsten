@@ -61,4 +61,42 @@ if __name__ == "__main__":
         count = clean_temp_files(target_dir, temp_patterns)
         print(f"Cleaning completed. Removed {count} files.")
     except ValueError as e:
-        print(f"Error: {e}")
+        print(f"Error: {e}")import sys
+import hashlib
+
+def remove_duplicates(input_file, output_file=None):
+    seen_lines = set()
+    unique_lines = []
+    
+    try:
+        with open(input_file, 'r', encoding='utf-8') as f:
+            for line in f:
+                line_hash = hashlib.md5(line.strip().encode()).hexdigest()
+                if line_hash not in seen_lines:
+                    seen_lines.add(line_hash)
+                    unique_lines.append(line)
+    except FileNotFoundError:
+        print(f"Error: File '{input_file}' not found.")
+        return False
+    
+    if not output_file:
+        output_file = input_file + '.deduped'
+    
+    try:
+        with open(output_file, 'w', encoding='utf-8') as f:
+            f.writelines(unique_lines)
+        print(f"Successfully removed duplicates. Output saved to '{output_file}'")
+        return True
+    except IOError as e:
+        print(f"Error writing to file: {e}")
+        return False
+
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        print("Usage: python file_cleaner.py <input_file> [output_file]")
+        sys.exit(1)
+    
+    input_file = sys.argv[1]
+    output_file = sys.argv[2] if len(sys.argv) > 2 else None
+    
+    remove_duplicates(input_file, output_file)
