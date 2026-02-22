@@ -175,3 +175,37 @@ def clean_numeric_columns(df, columns):
             df[col] = pd.to_numeric(df[col], errors='coerce')
     
     return df
+import pandas as pd
+import numpy as np
+
+def clean_csv_data(input_file, output_file):
+    """
+    Load a CSV file, handle missing values by filling with column mean,
+    and save the cleaned data to a new CSV file.
+    """
+    try:
+        df = pd.read_csv(input_file)
+        print(f"Original data shape: {df.shape}")
+        print(f"Missing values per column:\n{df.isnull().sum()}")
+        
+        for column in df.select_dtypes(include=[np.number]).columns:
+            if df[column].isnull().any():
+                mean_value = df[column].mean()
+                df[column].fillna(mean_value, inplace=True)
+                print(f"Filled missing values in '{column}' with mean: {mean_value:.2f}")
+        
+        df.to_csv(output_file, index=False)
+        print(f"Cleaned data saved to: {output_file}")
+        print(f"Cleaned data shape: {df.shape}")
+        return True
+    except FileNotFoundError:
+        print(f"Error: Input file '{input_file}' not found.")
+        return False
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return False
+
+if __name__ == "__main__":
+    input_csv = "raw_data.csv"
+    output_csv = "cleaned_data.csv"
+    clean_csv_data(input_csv, output_csv)
