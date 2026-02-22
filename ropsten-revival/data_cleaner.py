@@ -198,4 +198,101 @@ def remove_outliers(df, column, method='iqr', threshold=1.5):
     else:
         raise ValueError("Method must be 'iqr' or 'zscore'")
     
-    return df[mask]
+    return df[mask]import pandas as pd
+
+def clean_dataset(df, remove_duplicates=True):
+    """
+    Clean a pandas DataFrame by removing null values and optionally duplicates.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame to clean.
+    remove_duplicates (bool): If True, remove duplicate rows after null removal.
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame.
+    """
+    # Remove rows with any null values
+    df_cleaned = df.dropna()
+    
+    # Remove duplicate rows if specified
+    if remove_duplicates:
+        df_cleaned = df_cleaned.drop_duplicates()
+    
+    # Reset index after cleaning
+    df_cleaned = df_cleaned.reset_index(drop=True)
+    
+    return df_cleaned
+
+def validate_dataset(df, required_columns=None):
+    """
+    Validate a DataFrame for required columns and basic integrity.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate.
+    required_columns (list): List of column names that must be present.
+    
+    Returns:
+    bool: True if validation passes, False otherwise.
+    """
+    if df.empty:
+        print("Warning: DataFrame is empty.")
+        return False
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            print(f"Missing required columns: {missing_columns}")
+            return False
+    
+    return True
+
+def get_cleaning_summary(original_df, cleaned_df):
+    """
+    Generate a summary of the cleaning process.
+    
+    Parameters:
+    original_df (pd.DataFrame): Original DataFrame before cleaning.
+    cleaned_df (pd.DataFrame): Cleaned DataFrame after processing.
+    
+    Returns:
+    dict: Summary statistics of the cleaning process.
+    """
+    summary = {
+        'original_rows': len(original_df),
+        'cleaned_rows': len(cleaned_df),
+        'rows_removed': len(original_df) - len(cleaned_df),
+        'removal_percentage': round((len(original_df) - len(cleaned_df)) / len(original_df) * 100, 2)
+    }
+    
+    return summary
+
+# Example usage
+if __name__ == "__main__":
+    # Create sample data with nulls and duplicates
+    data = {
+        'id': [1, 2, 3, 4, 5, 5],
+        'name': ['Alice', 'Bob', None, 'David', 'Eve', 'Eve'],
+        'age': [25, 30, 35, None, 28, 28],
+        'score': [85.5, 92.0, 78.5, 88.0, 95.5, 95.5]
+    }
+    
+    df = pd.DataFrame(data)
+    print("Original DataFrame:")
+    print(df)
+    print("\n" + "="*50 + "\n")
+    
+    # Clean the dataset
+    cleaned_df = clean_dataset(df, remove_duplicates=True)
+    print("Cleaned DataFrame:")
+    print(cleaned_df)
+    print("\n" + "="*50 + "\n")
+    
+    # Get cleaning summary
+    summary = get_cleaning_summary(df, cleaned_df)
+    print("Cleaning Summary:")
+    for key, value in summary.items():
+        print(f"{key}: {value}")
+    
+    # Validate the cleaned dataset
+    is_valid = validate_dataset(cleaned_df, required_columns=['id', 'name', 'age'])
+    print(f"\nDataset validation: {'PASS' if is_valid else 'FAIL'}")
