@@ -106,4 +106,83 @@ if __name__ == "__main__":
         print(f"Original shape: {pd.read_csv(input_file).shape}")
         print(f"Cleaned shape: {cleaned_df.shape}")
         print("Missing values after cleaning:")
-        print(cleaned_df.isnull().sum())
+        print(cleaned_df.isnull().sum())import numpy as np
+import pandas as pd
+from scipy import stats
+
+def detect_outliers_iqr(data, threshold=1.5):
+    """Detect outliers using the Interquartile Range method."""
+    q1 = np.percentile(data, 25)
+    q3 = np.percentile(data, 75)
+    iqr = q3 - q1
+    lower_bound = q1 - threshold * iqr
+    upper_bound = q3 + threshold * iqr
+    return (data < lower_bound) | (data > upper_bound)
+
+def remove_outliers(df, columns, threshold=1.5):
+    """Remove outliers from specified columns in a DataFrame."""
+    df_clean = df.copy()
+    for col in columns:
+        outliers = detect_outliers_iqr(df[col], threshold)
+        df_clean = df_clean[~outliers]
+    return df_clean.reset_index(drop=True)
+
+def normalize_minmax(data):
+    """Normalize data to [0, 1] range using min-max scaling."""
+    min_val = np.min(data)
+    max_val = np.max(data)
+    if max_val == min_val:
+        return np.zeros_like(data)
+    return (data - min_val) / (max_val - min_val)
+
+def standardize_zscore(data):
+    """Standardize data using z-score normalization."""
+    mean_val = np.mean(data)
+    std_val = np.std(data)
+    if std_val == 0:
+        return np.zeros_like(data)
+    return (data - mean_val) / std_val
+
+def clean_dataset(df, numeric_columns, outlier_threshold=1.5, normalization='standardize'):
+    """Complete data cleaning pipeline."""
+    df_clean = remove_outliers(df, numeric_columns, outlier_threshold)
+    
+    for col in numeric_columns:
+        if normalization == 'minmax':
+            df_clean[col] = normalize_minmax(df_clean[col].values)
+        elif normalization == 'standardize':
+            df_clean[col] = standardize_zscore(df_clean[col].values)
+    
+    return df_clean
+
+def validate_data(df, required_columns, numeric_columns):
+    """Validate dataset structure and content."""
+    missing_columns = [col for col in required_columns if col not in df.columns]
+    if missing_columns:
+        raise ValueError(f"Missing required columns: {missing_columns}")
+    
+    for col in numeric_columns:
+        if col in df.columns:
+            if not np.issubdtype(df[col].dtype, np.number):
+                raise TypeError(f"Column {col} must be numeric")
+    
+    return True
+
+if __name__ == "__main__":
+    sample_data = pd.DataFrame({
+        'feature1': np.random.normal(0, 1, 100),
+        'feature2': np.random.exponential(1, 100),
+        'feature3': np.random.randint(1, 100, 100)
+    })
+    
+    numeric_cols = ['feature1', 'feature2', 'feature3']
+    required_cols = ['feature1', 'feature2', 'feature3']
+    
+    try:
+        validate_data(sample_data, required_cols, numeric_cols)
+        cleaned_data = clean_dataset(sample_data, numeric_cols, normalization='standardize')
+        print(f"Original shape: {sample_data.shape}")
+        print(f"Cleaned shape: {cleaned_data.shape}")
+        print("Data cleaning completed successfully")
+    except Exception as e:
+        print(f"Data cleaning failed: {e}")
