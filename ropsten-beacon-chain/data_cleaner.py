@@ -283,3 +283,11 @@ if __name__ == "__main__":
     cleaned_df = clean_dataset(df_sample, outlier_removal=True, normalization=True)
     print("\nCleaned DataFrame:")
     print(cleaned_df)
+def remove_duplicates(sequence):
+    seen = set()
+    result = []
+    for item in sequence:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
