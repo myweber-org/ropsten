@@ -1,49 +1,74 @@
 
-import re
-
-def clean_string(text):
-    """
-    Cleans a string by:
-    - Stripping leading/trailing whitespace
-    - Replacing multiple spaces/newlines/tabs with a single space
-    - Converting to lowercase
-    """
-    if not isinstance(text, str):
-        return text
-    text = text.strip()
-    text = re.sub(r'\s+', ' ', text)
-    return text.lower()
-import numpy as np
 import pandas as pd
 
-def remove_outliers_iqr(df, column):
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
-    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
-    return filtered_df
-
-def clean_dataset(df, numeric_columns):
+def clean_dataset(df, remove_duplicates=True, fill_missing=None):
+    """
+    Clean a pandas DataFrame by handling missing values and duplicates.
+    
+    Args:
+        df: pandas DataFrame to clean
+        remove_duplicates: Boolean indicating whether to remove duplicate rows
+        fill_missing: Strategy for filling missing values ('mean', 'median', 'mode', or None)
+    
+    Returns:
+        Cleaned pandas DataFrame
+    """
     cleaned_df = df.copy()
-    for col in numeric_columns:
-        if col in cleaned_df.columns:
-            cleaned_df = remove_outliers_iqr(cleaned_df, col)
-    cleaned_df = cleaned_df.reset_index(drop=True)
+    
+    # Handle missing values
+    if fill_missing is not None:
+        if fill_missing == 'mean':
+            cleaned_df = cleaned_df.fillna(cleaned_df.mean(numeric_only=True))
+        elif fill_missing == 'median':
+            cleaned_df = cleaned_df.fillna(cleaned_df.median(numeric_only=True))
+        elif fill_missing == 'mode':
+            cleaned_df = cleaned_df.fillna(cleaned_df.mode().iloc[0])
+    
+    # Remove duplicates
+    if remove_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates()
+    
     return cleaned_df
 
-if __name__ == "__main__":
-    sample_data = pd.DataFrame({
-        'A': np.random.normal(100, 15, 200),
-        'B': np.random.exponential(50, 200),
-        'C': np.random.uniform(0, 1, 200)
-    })
-    sample_data.loc[10, 'A'] = 500
-    sample_data.loc[20, 'B'] = 1000
+def validate_dataset(df, required_columns=None):
+    """
+    Validate dataset structure and content.
     
-    numeric_cols = ['A', 'B']
-    result = clean_dataset(sample_data, numeric_cols)
-    print(f"Original shape: {sample_data.shape}")
-    print(f"Cleaned shape: {result.shape}")
-    print("Outliers removed successfully")
+    Args:
+        df: pandas DataFrame to validate
+        required_columns: List of column names that must be present
+    
+    Returns:
+        Dictionary with validation results
+    """
+    validation_results = {
+        'total_rows': len(df),
+        'total_columns': len(df.columns),
+        'missing_values': df.isnull().sum().sum(),
+        'duplicate_rows': df.duplicated().sum()
+    }
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        validation_results['missing_required_columns'] = missing_columns
+    
+    return validation_results
+
+def get_dataset_summary(df):
+    """
+    Generate a summary of the dataset.
+    
+    Args:
+        df: pandas DataFrame to summarize
+    
+    Returns:
+        Dictionary with dataset summary
+    """
+    summary = {
+        'dtypes': df.dtypes.to_dict(),
+        'numeric_columns': df.select_dtypes(include=['number']).columns.tolist(),
+        'categorical_columns': df.select_dtypes(include=['object', 'category']).columns.tolist(),
+        'memory_usage': df.memory_usage(deep=True).sum()
+    }
+    
+    return summary
