@@ -342,3 +342,139 @@ def example_usage():
 
 if __name__ == "__main__":
     cleaned_data = example_usage()
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(dataframe, column, threshold=1.5):
+    """
+    Remove outliers from a DataFrame column using IQR method.
+    
+    Parameters:
+    dataframe (pd.DataFrame): Input DataFrame
+    column (str): Column name to process
+    threshold (float): IQR multiplier (default 1.5)
+    
+    Returns:
+    pd.DataFrame: DataFrame with outliers removed
+    """
+    if column not in dataframe.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    q1 = dataframe[column].quantile(0.25)
+    q3 = dataframe[column].quantile(0.75)
+    iqr = q3 - q1
+    
+    lower_bound = q1 - threshold * iqr
+    upper_bound = q3 + threshold * iqr
+    
+    filtered_df = dataframe[(dataframe[column] >= lower_bound) & 
+                           (dataframe[column] <= upper_bound)]
+    
+    return filtered_df.copy()
+
+def normalize_minmax(dataframe, columns=None):
+    """
+    Normalize specified columns using min-max scaling.
+    
+    Parameters:
+    dataframe (pd.DataFrame): Input DataFrame
+    columns (list): List of column names to normalize (default: all numeric columns)
+    
+    Returns:
+    pd.DataFrame: DataFrame with normalized columns
+    """
+    if columns is None:
+        columns = dataframe.select_dtypes(include=[np.number]).columns.tolist()
+    
+    result_df = dataframe.copy()
+    
+    for col in columns:
+        if col not in result_df.columns:
+            continue
+            
+        if result_df[col].dtype in [np.float64, np.int64]:
+            min_val = result_df[col].min()
+            max_val = result_df[col].max()
+            
+            if max_val > min_val:
+                result_df[col] = (result_df[col] - min_val) / (max_val - min_val)
+    
+    return result_df
+
+def detect_skewed_columns(dataframe, skew_threshold=0.5):
+    """
+    Identify columns with significant skewness.
+    
+    Parameters:
+    dataframe (pd.DataFrame): Input DataFrame
+    skew_threshold (float): Absolute skewness threshold (default 0.5)
+    
+    Returns:
+    dict: Dictionary with column names and their skewness values
+    """
+    skewed_cols = {}
+    
+    numeric_cols = dataframe.select_dtypes(include=[np.number]).columns
+    
+    for col in numeric_cols:
+        skewness = stats.skew(dataframe[col].dropna())
+        if abs(skewness) > skew_threshold:
+            skewed_cols[col] = skewness
+    
+    return skewed_cols
+
+def log_transform_skewed(dataframe, skewed_columns):
+    """
+    Apply log transformation to reduce skewness.
+    
+    Parameters:
+    dataframe (pd.DataFrame): Input DataFrame
+    skewed_columns (list): List of column names to transform
+    
+    Returns:
+    pd.DataFrame: DataFrame with transformed columns
+    """
+    result_df = dataframe.copy()
+    
+    for col in skewed_columns:
+        if col in result_df.columns:
+            if result_df[col].min() <= 0:
+                offset = abs(result_df[col].min()) + 1
+                result_df[col] = np.log(result_df[col] + offset)
+            else:
+                result_df[col] = np.log(result_df[col])
+    
+    return result_df
+
+def clean_dataset(dataframe, outlier_columns=None, normalize=True, handle_skewness=True):
+    """
+    Comprehensive data cleaning pipeline.
+    
+    Parameters:
+    dataframe (pd.DataFrame): Input DataFrame
+    outlier_columns (list): Columns for outlier removal (default: all numeric)
+    normalize (bool): Whether to apply min-max normalization
+    handle_skewness (bool): Whether to handle skewed columns
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame
+    """
+    cleaned_df = dataframe.copy()
+    
+    if outlier_columns is None:
+        outlier_columns = cleaned_df.select_dtypes(include=[np.number]).columns.tolist()
+    
+    for col in outlier_columns:
+        if col in cleaned_df.columns:
+            cleaned_df = remove_outliers_iqr(cleaned_df, col)
+    
+    if handle_skewness:
+        skewed = detect_skewed_columns(cleaned_df)
+        if skewed:
+            cleaned_df = log_transform_skewed(cleaned_df, list(skewed.keys()))
+    
+    if normalize:
+        cleaned_df = normalize_minmax(cleaned_df)
+    
+    return cleaned_df.reset_index(drop=True)
