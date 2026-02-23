@@ -225,3 +225,11 @@ if __name__ == "__main__":
         subset_cols = [col.strip() for col in sys.argv[3].split(',')]
 
     remove_duplicates(input_csv, output_csv, subset_cols)
+def remove_duplicates_preserve_order(sequence):
+    seen = set()
+    result = []
+    for item in sequence:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
