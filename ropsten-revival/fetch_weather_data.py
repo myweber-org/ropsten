@@ -332,4 +332,75 @@ def main():
         fetcher.display_weather(weather)
 
 if __name__ == "__main__":
-    main()
+    main()import requests
+import json
+from datetime import datetime
+
+class WeatherFetcher:
+    def __init__(self, api_key):
+        self.api_key = api_key
+        self.base_url = "http://api.openweathermap.org/data/2.5/weather"
+        self.session = requests.Session()
+
+    def get_weather(self, city_name, units="metric"):
+        params = {
+            "q": city_name,
+            "appid": self.api_key,
+            "units": units
+        }
+        
+        try:
+            response = self.session.get(self.base_url, params=params, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+            
+            return {
+                "city": data["name"],
+                "country": data["sys"]["country"],
+                "temperature": data["main"]["temp"],
+                "feels_like": data["main"]["feels_like"],
+                "humidity": data["main"]["humidity"],
+                "pressure": data["main"]["pressure"],
+                "wind_speed": data["wind"]["speed"],
+                "description": data["weather"][0]["description"],
+                "timestamp": datetime.fromtimestamp(data["dt"]).isoformat()
+            }
+            
+        except requests.exceptions.RequestException as e:
+            print(f"Network error occurred: {e}")
+            return None
+        except KeyError as e:
+            print(f"Invalid data structure in API response: {e}")
+            return None
+        except json.JSONDecodeError as e:
+            print(f"Failed to parse JSON response: {e}")
+            return None
+
+def save_weather_data(data, filename="weather_data.json"):
+    if data:
+        try:
+            with open(filename, "a") as f:
+                json.dump(data, f, indent=2)
+                f.write("\n")
+            print(f"Weather data saved to {filename}")
+        except IOError as e:
+            print(f"Failed to save data: {e}")
+
+if __name__ == "__main__":
+    API_KEY = "your_api_key_here"
+    fetcher = WeatherFetcher(API_KEY)
+    
+    cities = ["London", "New York", "Tokyo", "Paris"]
+    
+    for city in cities:
+        print(f"Fetching weather for {city}...")
+        weather_data = fetcher.get_weather(city)
+        
+        if weather_data:
+            print(f"Temperature in {weather_data['city']}: {weather_data['temperature']}°C")
+            print(f"Conditions: {weather_data['description']}")
+            save_weather_data(weather_data)
+        else:
+            print(f"Failed to fetch weather data for {city}")
+        
+        print("-" * 40)
