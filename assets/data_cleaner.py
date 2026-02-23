@@ -6,12 +6,12 @@ def remove_outliers_iqr(df, column):
     """
     Remove outliers from a DataFrame column using the Interquartile Range method.
     
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    column (str): Column name to process
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        column (str): Column name to process
     
     Returns:
-    pd.DataFrame: DataFrame with outliers removed
+        pd.DataFrame: DataFrame with outliers removed
     """
     if column not in df.columns:
         raise ValueError(f"Column '{column}' not found in DataFrame")
@@ -32,85 +32,46 @@ def clean_numeric_data(df, columns=None):
     Clean numeric data by removing outliers from specified columns.
     If no columns specified, clean all numeric columns.
     
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    columns (list): List of column names to clean
+    Args:
+        df (pd.DataFrame): Input DataFrame
+        columns (list, optional): List of column names to clean
     
     Returns:
-    pd.DataFrame: Cleaned DataFrame
+        pd.DataFrame: Cleaned DataFrame
     """
     if columns is None:
         numeric_cols = df.select_dtypes(include=[np.number]).columns
         columns = list(numeric_cols)
     
     cleaned_df = df.copy()
-    
     for col in columns:
         if col in cleaned_df.columns:
-            original_count = len(cleaned_df)
             cleaned_df = remove_outliers_iqr(cleaned_df, col)
-            removed_count = original_count - len(cleaned_df)
-            print(f"Removed {removed_count} outliers from column '{col}'")
     
     return cleaned_df
 
-def validate_dataframe(df, required_columns=None):
+def calculate_statistics(df):
     """
-    Validate DataFrame structure and content.
+    Calculate basic statistics for numeric columns.
     
-    Parameters:
-    df (pd.DataFrame): DataFrame to validate
-    required_columns (list): List of required column names
+    Args:
+        df (pd.DataFrame): Input DataFrame
     
     Returns:
-    bool: True if validation passes
+        pd.DataFrame: Statistics summary
     """
-    if not isinstance(df, pd.DataFrame):
-        raise TypeError("Input must be a pandas DataFrame")
+    numeric_df = df.select_dtypes(include=[np.number])
     
-    if df.empty:
-        raise ValueError("DataFrame is empty")
+    if numeric_df.empty:
+        return pd.DataFrame()
     
-    if required_columns:
-        missing_cols = [col for col in required_columns if col not in df.columns]
-        if missing_cols:
-            raise ValueError(f"Missing required columns: {missing_cols}")
-    
-    return True
-
-def main():
-    """
-    Example usage of data cleaning functions.
-    """
-    np.random.seed(42)
-    
-    data = {
-        'id': range(100),
-        'value': np.random.normal(100, 15, 100),
-        'score': np.random.uniform(0, 1, 100)
+    stats = {
+        'mean': numeric_df.mean(),
+        'median': numeric_df.median(),
+        'std': numeric_df.std(),
+        'min': numeric_df.min(),
+        'max': numeric_df.max(),
+        'count': numeric_df.count()
     }
     
-    df = pd.DataFrame(data)
-    
-    df.loc[10, 'value'] = 500
-    df.loc[20, 'value'] = -200
-    df.loc[30, 'score'] = 5.0
-    
-    print("Original DataFrame shape:", df.shape)
-    print("\nDataFrame info:")
-    print(df.info())
-    
-    try:
-        validate_dataframe(df, ['id', 'value', 'score'])
-        
-        cleaned_df = clean_numeric_data(df, ['value', 'score'])
-        
-        print("\nCleaned DataFrame shape:", cleaned_df.shape)
-        print("\nSummary statistics:")
-        print(cleaned_df.describe())
-        
-    except Exception as e:
-        print(f"Error during data cleaning: {e}")
-
-if __name__ == "__main__":
-    main()
+    return pd.DataFrame(stats)
