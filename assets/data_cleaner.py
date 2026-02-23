@@ -450,3 +450,11 @@ def clean_dataset(df, outlier_columns=None, normalize=True, fill_missing=True):
     print(f"Data cleaning complete. Removed {summary['rows_removed']} rows.")
     
     return cleaner.get_cleaned_data()
+def remove_duplicates_preserve_order(sequence):
+    seen = set()
+    result = []
+    for item in sequence:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
