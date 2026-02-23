@@ -176,3 +176,11 @@ def load_and_clean_data(filepath, cleaning_steps=None):
                 cleaner.normalize_data(**step.get('params', {}))
     
     return cleaner.get_cleaned_data(), cleaner.get_cleaning_report()
+def remove_duplicates(seq):
+    seen = set()
+    result = []
+    for item in seq:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
