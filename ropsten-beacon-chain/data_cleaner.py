@@ -1,102 +1,108 @@
+
+import pandas as pd
 import numpy as np
-import pandas as pd
-from scipy import stats
+from pathlib import Path
 
-def remove_outliers_iqr(data, column):
-    Q1 = data[column].quantile(0.25)
-    Q3 = data[column].quantile(0.75)
-    IQR = Q3 - Q1
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
-    return data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
-
-def normalize_minmax(data, column):
-    min_val = data[column].min()
-    max_val = data[column].max()
-    data[column + '_normalized'] = (data[column] - min_val) / (max_val - min_val)
-    return data
-
-def standardize_zscore(data, column):
-    mean_val = data[column].mean()
-    std_val = data[column].std()
-    data[column + '_standardized'] = (data[column] - mean_val) / std_val
-    return data
-
-def clean_dataset(df, numeric_columns, outlier_removal=True, normalization='minmax'):
-    cleaned_df = df.copy()
-    
-    for col in numeric_columns:
-        if outlier_removal:
-            cleaned_df = remove_outliers_iqr(cleaned_df, col)
+def clean_csv_data(input_path, output_path=None):
+    """
+    Clean CSV data by handling missing values and converting data types.
+    """
+    try:
+        df = pd.read_csv(input_path)
         
-        if normalization == 'minmax':
-            cleaned_df = normalize_minmax(cleaned_df, col)
-        elif normalization == 'zscore':
-            cleaned_df = standardize_zscore(cleaned_df, col)
-    
-    return cleaned_df
+        original_shape = df.shape
+        print(f"Original data shape: {original_shape}")
+        
+        # Handle missing values
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        categorical_cols = df.select_dtypes(include=['object']).columns
+        
+        # Fill numeric missing values with median
+        for col in numeric_cols:
+            if df[col].isnull().any():
+                df[col] = df[col].fillna(df[col].median())
+        
+        # Fill categorical missing values with mode
+        for col in categorical_cols:
+            if df[col].isnull().any():
+                df[col] = df[col].fillna(df[col].mode()[0] if not df[col].mode().empty else 'Unknown')
+        
+        # Convert date columns if present
+        date_columns = [col for col in df.columns if 'date' in col.lower() or 'time' in col.lower()]
+        for col in date_columns:
+            try:
+                df[col] = pd.to_datetime(df[col], errors='coerce')
+            except:
+                pass
+        
+        # Remove duplicate rows
+        df = df.drop_duplicates()
+        
+        cleaned_shape = df.shape
+        print(f"Cleaned data shape: {cleaned_shape}")
+        print(f"Removed {original_shape[0] - cleaned_shape[0]} duplicate rows")
+        
+        # Save cleaned data
+        if output_path is None:
+            input_stem = Path(input_path).stem
+            output_path = f"{input_stem}_cleaned.csv"
+        
+        df.to_csv(output_path, index=False)
+        print(f"Cleaned data saved to: {output_path}")
+        
+        return df, output_path
+        
+    except FileNotFoundError:
+        print(f"Error: File not found at {input_path}")
+        return None, None
+    except Exception as e:
+        print(f"Error during data cleaning: {str(e)}")
+        return None, None
 
-def validate_data(df, required_columns):
-    missing_cols = [col for col in required_columns if col not in df.columns]
-    if missing_cols:
-        raise ValueError(f"Missing required columns: {missing_cols}")
-    
-    numeric_cols = df.select_dtypes(include=[np.number]).columns
-    if len(numeric_cols) == 0:
-        raise ValueError("No numeric columns found in dataset")
-    
-    return True
-import pandas as pd
-import re
-
-def clean_dataframe(df, column_mapping=None, drop_duplicates=True, normalize_text=True):
+def validate_dataframe(df):
     """
-    Clean a pandas DataFrame by removing duplicates and normalizing text columns.
-    
-    Args:
-        df: pandas DataFrame to clean
-        column_mapping: dictionary for renaming columns
-        drop_duplicates: whether to remove duplicate rows
-        normalize_text: whether to normalize text columns
-    
-    Returns:
-        Cleaned pandas DataFrame
+    Validate dataframe for common data quality issues.
     """
-    cleaned_df = df.copy()
-    
-    # Rename columns if mapping provided
-    if column_mapping:
-        cleaned_df = cleaned_df.rename(columns=column_mapping)
-    
-    # Remove duplicate rows
-    if drop_duplicates:
-        cleaned_df = cleaned_df.drop_duplicates().reset_index(drop=True)
-    
-    # Normalize text columns
-    if normalize_text:
-        text_columns = cleaned_df.select_dtypes(include=['object']).columns
-        for col in text_columns:
-            cleaned_df[col] = cleaned_df[col].apply(_normalize_string)
-    
-    return cleaned_df
-
-def _normalize_string(text):
-    """Normalize a string by converting to lowercase and removing extra whitespace."""
-    if pd.isna(text):
-        return text
-    
-    normalized = str(text).strip().lower()
-    normalized = re.sub(r'\s+', ' ', normalized)
-    return normalized
-
-def validate_email(email):
-    """Validate email format using regex pattern."""
-    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-    if pd.isna(email):
+    if df is None:
         return False
-    return bool(re.match(pattern, str(email)))
+    
+    validation_results = {
+        'has_data': not df.empty,
+        'total_rows': len(df),
+        'total_columns': len(df.columns),
+        'missing_values': df.isnull().sum().sum(),
+        'duplicate_rows': df.duplicated().sum(),
+        'numeric_columns': len(df.select_dtypes(include=[np.number]).columns),
+        'categorical_columns': len(df.select_dtypes(include=['object']).columns)
+    }
+    
+    print("Data Validation Results:")
+    for key, value in validation_results.items():
+        print(f"  {key}: {value}")
+    
+    return validation_results
 
-def filter_valid_emails(df, email_column):
-    """Filter DataFrame to only include rows with valid email addresses."""
-    mask = df[email_column].apply(validate_email)
-    return df[mask].reset_index(drop=True)
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'id': [1, 2, 3, 4, 5, 6],
+        'name': ['Alice', 'Bob', 'Charlie', None, 'Eve', 'Alice'],
+        'age': [25, 30, None, 35, 40, 25],
+        'salary': [50000, 60000, 70000, None, 90000, 50000],
+        'join_date': ['2020-01-01', '2021-03-15', '2022-06-30', '2023-09-01', None, '2020-01-01']
+    }
+    
+    # Create sample CSV
+    temp_df = pd.DataFrame(sample_data)
+    temp_df.to_csv('sample_data.csv', index=False)
+    
+    # Clean the data
+    cleaned_df, output_file = clean_csv_data('sample_data.csv')
+    
+    if cleaned_df is not None:
+        validate_dataframe(cleaned_df)
+    
+    # Clean up
+    import os
+    if os.path.exists('sample_data.csv'):
+        os.remove('sample_data.csv')
