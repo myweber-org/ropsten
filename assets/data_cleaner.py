@@ -336,3 +336,11 @@ def clean_dataset(data, columns_to_clean):
             cleaned_data = remove_outliers_iqr(cleaned_data, column)
     
     return cleaned_data
+def remove_duplicates_preserve_order(input_list):
+    seen = set()
+    result = []
+    for item in input_list:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
