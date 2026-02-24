@@ -1488,3 +1488,77 @@ if __name__ == "__main__":
     
     is_valid = validate_data(cleaned, required_columns=['id', 'name', 'age', 'score'], min_rows=3)
     print(f"\nData is valid: {is_valid}")
+import pandas as pd
+
+def clean_dataset(df, fill_method='mean'):
+    """
+    Clean a pandas DataFrame by removing duplicate rows and filling missing values.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean.
+        fill_method (str): Method for filling missing values. 
+                          Options: 'mean', 'median', 'mode', or 'zero'.
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame.
+    """
+    # Remove duplicate rows
+    df_cleaned = df.drop_duplicates().reset_index(drop=True)
+    
+    # Fill missing values based on specified method
+    if fill_method == 'mean':
+        df_cleaned = df_cleaned.fillna(df_cleaned.mean(numeric_only=True))
+    elif fill_method == 'median':
+        df_cleaned = df_cleaned.fillna(df_cleaned.median(numeric_only=True))
+    elif fill_method == 'mode':
+        df_cleaned = df_cleaned.fillna(df_cleaned.mode().iloc[0])
+    elif fill_method == 'zero':
+        df_cleaned = df_cleaned.fillna(0)
+    else:
+        raise ValueError(f"Unsupported fill method: {fill_method}")
+    
+    return df_cleaned
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate.
+        required_columns (list): List of required column names.
+    
+    Returns:
+        bool: True if DataFrame is valid, False otherwise.
+    """
+    if not isinstance(df, pd.DataFrame):
+        return False
+    
+    if df.empty:
+        return False
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            print(f"Missing required columns: {missing_columns}")
+            return False
+    
+    return True
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'A': [1, 2, 2, None, 5],
+        'B': [10, None, 30, 40, 50],
+        'C': ['x', 'y', 'y', 'z', None]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    
+    cleaned_df = clean_dataset(df, fill_method='mean')
+    print("\nCleaned DataFrame:")
+    print(cleaned_df)
+    
+    is_valid = validate_dataframe(cleaned_df, required_columns=['A', 'B'])
+    print(f"\nDataFrame is valid: {is_valid}")
