@@ -279,3 +279,54 @@ def remove_duplicates(sequence):
             seen.add(item)
             result.append(item)
     return result
+import pandas as pd
+import re
+
+def clean_dataframe(df, columns_to_clean=None):
+    """
+    Clean a pandas DataFrame by removing duplicates and normalizing string columns.
+    """
+    df_clean = df.copy()
+    
+    # Remove duplicate rows
+    df_clean = df_clean.drop_duplicates()
+    
+    # If specific columns are provided, clean only those; otherwise, clean all object columns
+    if columns_to_clean is None:
+        columns_to_clean = df_clean.select_dtypes(include=['object']).columns
+    
+    for col in columns_to_clean:
+        if df_clean[col].dtype == 'object':
+            df_clean[col] = df_clean[col].apply(normalize_string)
+    
+    return df_clean
+
+def normalize_string(s):
+    """
+    Normalize a string: lower case, strip whitespace, and remove extra spaces.
+    """
+    if pd.isna(s):
+        return s
+    s = str(s)
+    s = s.lower()
+    s = s.strip()
+    s = re.sub(r'\s+', ' ', s)
+    return s
+
+def example_usage():
+    # Example data
+    data = {
+        'Name': ['  Alice  ', 'Bob', 'Alice', '  CAROL  ', 'bob  '],
+        'Age': [25, 30, 25, 35, 30],
+        'City': ['New York', 'Los Angeles', 'new york', 'Chicago', 'los angeles']
+    }
+    df = pd.DataFrame(data)
+    print("Original DataFrame:")
+    print(df)
+    print("\nCleaned DataFrame:")
+    df_clean = clean_dataframe(df)
+    print(df_clean)
+    return df_clean
+
+if __name__ == "__main__":
+    example_usage()
