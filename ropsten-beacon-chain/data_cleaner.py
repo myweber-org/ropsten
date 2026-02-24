@@ -1,205 +1,61 @@
 import pandas as pd
-
-def remove_duplicates(df, subset=None, keep='first'):
-    """
-    Remove duplicate rows from a DataFrame.
-    
-    Parameters:
-    df (pd.DataFrame): Input DataFrame.
-    subset (list, optional): Column labels to consider for duplicates.
-    keep (str, optional): Which duplicates to keep.
-    
-    Returns:
-    pd.DataFrame: DataFrame with duplicates removed.
-    """
-    if df.empty:
-        return df
-    
-    cleaned_df = df.drop_duplicates(subset=subset, keep=keep)
-    
-    removed_count = len(df) - len(cleaned_df)
-    if removed_count > 0:
-        print(f"Removed {removed_count} duplicate row(s)")
-    
-    return cleaned_df
-
-def clean_numeric_column(df, column_name, fill_method='mean'):
-    """
-    Clean a numeric column by handling missing values.
-    
-    Parameters:
-    df (pd.DataFrame): Input DataFrame.
-    column_name (str): Name of the column to clean.
-    fill_method (str): Method to fill missing values ('mean', 'median', 'zero').
-    
-    Returns:
-    pd.DataFrame: DataFrame with cleaned column.
-    """
-    if column_name not in df.columns:
-        raise ValueError(f"Column '{column_name}' not found in DataFrame")
-    
-    if not pd.api.types.is_numeric_dtype(df[column_name]):
-        raise TypeError(f"Column '{column_name}' is not numeric")
-    
-    df_clean = df.copy()
-    
-    missing_count = df_clean[column_name].isna().sum()
-    if missing_count > 0:
-        print(f"Found {missing_count} missing value(s) in column '{column_name}'")
-        
-        if fill_method == 'mean':
-            fill_value = df_clean[column_name].mean()
-        elif fill_method == 'median':
-            fill_value = df_clean[column_name].median()
-        elif fill_method == 'zero':
-            fill_value = 0
-        else:
-            raise ValueError(f"Invalid fill_method: {fill_method}")
-        
-        df_clean[column_name] = df_clean[column_name].fillna(fill_value)
-        print(f"Filled missing values with {fill_method}: {fill_value}")
-    
-    return df_clean
-
-def validate_dataframe(df, required_columns=None):
-    """
-    Validate DataFrame structure and content.
-    
-    Parameters:
-    df (pd.DataFrame): DataFrame to validate.
-    required_columns (list, optional): List of columns that must be present.
-    
-    Returns:
-    bool: True if validation passes, False otherwise.
-    """
-    if not isinstance(df, pd.DataFrame):
-        print("Error: Input is not a pandas DataFrame")
-        return False
-    
-    if df.empty:
-        print("Warning: DataFrame is empty")
-        return True
-    
-    if required_columns:
-        missing_columns = [col for col in required_columns if col not in df.columns]
-        if missing_columns:
-            print(f"Error: Missing required columns: {missing_columns}")
-            return False
-    
-    print(f"DataFrame validation passed. Shape: {df.shape}")
-    return True
-
-if __name__ == "__main__":
-    sample_data = {
-        'id': [1, 2, 2, 3, 4, 4, 5],
-        'value': [10.5, None, 20.3, 30.1, 40.0, 40.0, None],
-        'category': ['A', 'B', 'B', 'C', 'D', 'D', 'E']
-    }
-    
-    df = pd.DataFrame(sample_data)
-    print("Original DataFrame:")
-    print(df)
-    print("\n" + "="*50 + "\n")
-    
-    if validate_dataframe(df, required_columns=['id', 'value']):
-        df_clean = remove_duplicates(df, subset=['id'], keep='first')
-        df_clean = clean_numeric_column(df_clean, 'value', fill_method='mean')
-        
-        print("\nCleaned DataFrame:")
-        print(df_clean)
-import pandas as pd
-import numpy as np
-
-def remove_outliers_iqr(df, column):
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
-    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
-
-def normalize_column(df, column):
-    min_val = df[column].min()
-    max_val = df[column].max()
-    df[column + '_normalized'] = (df[column] - min_val) / (max_val - min_val)
-    return df
-
-def clean_dataset(df, numeric_columns):
-    cleaned_df = df.copy()
-    for col in numeric_columns:
-        if col in cleaned_df.columns:
-            cleaned_df = remove_outliers_iqr(cleaned_df, col)
-            cleaned_df = normalize_column(cleaned_df, col)
-    return cleaned_df
-
-if __name__ == "__main__":
-    sample_data = {
-        'A': np.random.normal(100, 15, 100),
-        'B': np.random.exponential(50, 100),
-        'C': np.random.randint(1, 1000, 100)
-    }
-    df = pd.DataFrame(sample_data)
-    numeric_cols = ['A', 'B', 'C']
-    result = clean_dataset(df, numeric_cols)
-    print(f"Original shape: {df.shape}")
-    print(f"Cleaned shape: {result.shape}")
-    print(result.head())
-import pandas as pd
-import numpy as np
 import sys
 
-def clean_csv_data(input_file, output_file):
+def remove_duplicates(input_file, output_file=None, subset=None, keep='first'):
+    """
+    Remove duplicate rows from a CSV file.
+    
+    Args:
+        input_file (str): Path to input CSV file
+        output_file (str, optional): Path to output CSV file. If None, overwrites input file
+        subset (list, optional): Columns to consider for identifying duplicates
+        keep (str): Which duplicates to keep - 'first', 'last', or False to drop all
+        
+    Returns:
+        int: Number of duplicate rows removed
+    """
     try:
         df = pd.read_csv(input_file)
+        initial_rows = len(df)
         
-        print(f"Original data shape: {df.shape}")
-        print(f"Missing values per column:\n{df.isnull().sum()}")
+        df_cleaned = df.drop_duplicates(subset=subset, keep=keep)
+        final_rows = len(df_cleaned)
         
-        numeric_columns = df.select_dtypes(include=[np.number]).columns
-        categorical_columns = df.select_dtypes(exclude=[np.number]).columns
+        duplicates_removed = initial_rows - final_rows
         
-        for col in numeric_columns:
-            if df[col].isnull().sum() > 0:
-                df[col].fillna(df[col].median(), inplace=True)
-        
-        for col in categorical_columns:
-            if df[col].isnull().sum() > 0:
-                df[col].fillna(df[col].mode()[0] if not df[col].mode().empty else 'Unknown', inplace=True)
-        
-        df = df.drop_duplicates()
-        
-        Q1 = df[numeric_columns].quantile(0.25)
-        Q3 = df[numeric_columns].quantile(0.75)
-        IQR = Q3 - Q1
-        
-        outlier_condition = ((df[numeric_columns] < (Q1 - 1.5 * IQR)) | (df[numeric_columns] > (Q3 + 1.5 * IQR))).any(axis=1)
-        df_cleaned = df[~outlier_condition]
+        if output_file is None:
+            output_file = input_file
         
         df_cleaned.to_csv(output_file, index=False)
         
-        print(f"Cleaned data shape: {df_cleaned.shape}")
-        print(f"Removed {len(df) - len(df_cleaned)} outliers")
-        print(f"Cleaned data saved to: {output_file}")
+        print(f"Removed {duplicates_removed} duplicate rows")
+        print(f"Original rows: {initial_rows}")
+        print(f"Cleaned rows: {final_rows}")
+        print(f"Output saved to: {output_file}")
         
-        return True
+        return duplicates_removed
         
     except FileNotFoundError:
-        print(f"Error: Input file '{input_file}' not found.")
-        return False
+        print(f"Error: File '{input_file}' not found", file=sys.stderr)
+        return -1
     except pd.errors.EmptyDataError:
-        print("Error: Input file is empty.")
-        return False
+        print(f"Error: File '{input_file}' is empty", file=sys.stderr)
+        return -1
     except Exception as e:
-        print(f"Error during data cleaning: {str(e)}")
-        return False
+        print(f"Error processing file: {str(e)}", file=sys.stderr)
+        return -1
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
-        print("Usage: python data_cleaner.py <input_file.csv> <output_file.csv>")
+    if len(sys.argv) < 2:
+        print("Usage: python data_cleaner.py <input_file> [output_file]")
         sys.exit(1)
     
     input_file = sys.argv[1]
-    output_file = sys.argv[2]
+    output_file = sys.argv[2] if len(sys.argv) > 2 else None
     
-    success = clean_csv_data(input_file, output_file)
-    sys.exit(0 if success else 1)
+    result = remove_duplicates(input_file, output_file)
+    
+    if result >= 0:
+        sys.exit(0)
+    else:
+        sys.exit(1)
