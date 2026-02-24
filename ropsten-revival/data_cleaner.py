@@ -774,3 +774,61 @@ if __name__ == "__main__":
     print("\nCleaned DataFrame shape:", cleaned_df.shape)
     print("Cleaned summary statistics:")
     print(calculate_summary_stats(cleaned_df, 'value'))
+import pandas as pd
+import re
+
+def clean_dataframe(df, column_mapping=None, drop_duplicates=True, normalize_text=True):
+    """
+    Clean a pandas DataFrame by removing duplicates and normalizing text columns.
+    
+    Args:
+        df: pandas DataFrame to clean
+        column_mapping: dictionary mapping old column names to new ones
+        drop_duplicates: whether to remove duplicate rows
+        normalize_text: whether to normalize text columns (lowercase, strip whitespace)
+    
+    Returns:
+        Cleaned pandas DataFrame
+    """
+    cleaned_df = df.copy()
+    
+    if column_mapping:
+        cleaned_df = cleaned_df.rename(columns=column_mapping)
+    
+    if drop_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates().reset_index(drop=True)
+    
+    if normalize_text:
+        for column in cleaned_df.select_dtypes(include=['object']).columns:
+            cleaned_df[column] = cleaned_df[column].astype(str).apply(
+                lambda x: re.sub(r'\s+', ' ', x.strip().lower())
+            )
+    
+    return cleaned_df
+
+def validate_email(email):
+    """
+    Validate email format using regex.
+    
+    Args:
+        email: string to validate as email
+    
+    Returns:
+        Boolean indicating if email is valid
+    """
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return bool(re.match(pattern, email))
+
+def filter_valid_emails(df, email_column):
+    """
+    Filter DataFrame to only include rows with valid email addresses.
+    
+    Args:
+        df: pandas DataFrame
+        email_column: name of column containing email addresses
+    
+    Returns:
+        Filtered DataFrame with valid emails only
+    """
+    mask = df[email_column].apply(validate_email)
+    return df[mask].reset_index(drop=True)
