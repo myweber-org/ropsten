@@ -1562,3 +1562,111 @@ if __name__ == "__main__":
     
     is_valid = validate_dataframe(cleaned_df, required_columns=['A', 'B'])
     print(f"\nDataFrame is valid: {is_valid}")
+import pandas as pd
+import re
+
+def clean_dataframe(df, columns_to_clean=None):
+    """
+    Clean a pandas DataFrame by removing duplicates and normalizing string columns.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean.
+        columns_to_clean (list, optional): List of column names to apply string normalization.
+            If None, all object dtype columns are cleaned.
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame.
+    """
+    cleaned_df = df.copy()
+    
+    # Remove duplicate rows
+    initial_rows = len(cleaned_df)
+    cleaned_df = cleaned_df.drop_duplicates()
+    removed_duplicates = initial_rows - len(cleaned_df)
+    
+    # Determine columns to normalize
+    if columns_to_clean is None:
+        columns_to_clean = cleaned_df.select_dtypes(include=['object']).columns.tolist()
+    
+    # Normalize string columns
+    for col in columns_to_clean:
+        if col in cleaned_df.columns and cleaned_df[col].dtype == 'object':
+            cleaned_df[col] = cleaned_df[col].apply(_normalize_string)
+    
+    return cleaned_df
+
+def _normalize_string(value):
+    """
+    Normalize a string by converting to lowercase, removing extra whitespace,
+    and stripping special characters.
+    
+    Args:
+        value: Input value to normalize.
+    
+    Returns:
+        Normalized string or original value if not a string.
+    """
+    if not isinstance(value, str):
+        return value
+    
+    # Convert to lowercase
+    normalized = value.lower()
+    
+    # Remove extra whitespace
+    normalized = re.sub(r'\s+', ' ', normalized).strip()
+    
+    # Remove special characters (keep alphanumeric and spaces)
+    normalized = re.sub(r'[^a-z0-9\s]', '', normalized)
+    
+    return normalized
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate a DataFrame for required columns and non-null values.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate.
+        required_columns (list, optional): List of required column names.
+    
+    Returns:
+        tuple: (is_valid, error_message)
+    """
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            return False, f"Missing required columns: {missing_columns}"
+    
+    # Check for completely empty DataFrame
+    if df.empty:
+        return False, "DataFrame is empty"
+    
+    # Check for all null values in any column
+    null_columns = df.columns[df.isnull().all()].tolist()
+    if null_columns:
+        return False, f"Columns with all null values: {null_columns}"
+    
+    return True, "DataFrame is valid"
+
+# Example usage
+if __name__ == "__main__":
+    # Create sample data
+    sample_data = {
+        'name': ['John Doe', 'john doe', 'Jane Smith  ', 'ALICE', 'Bob'],
+        'age': [25, 25, 30, 35, 40],
+        'email': ['john@example.com', 'john@example.com', 'jane@test.com', None, 'bob@test.com']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print(f"\nOriginal shape: {df.shape}")
+    
+    # Clean the data
+    cleaned_df = clean_dataframe(df)
+    print("\nCleaned DataFrame:")
+    print(cleaned_df)
+    print(f"Cleaned shape: {cleaned_df.shape}")
+    
+    # Validate the data
+    is_valid, message = validate_dataframe(cleaned_df, required_columns=['name', 'age'])
+    print(f"\nValidation: {message}")
