@@ -150,3 +150,7 @@ def get_summary_statistics(data):
     summary['missing_pct'] = (summary['missing'] / len(data)) * 100
     
     return summary
+def remove_duplicates(seq):
+    seen = set()
+    seen_add = seen.add
+    return [x for x in seq if not (x in seen or seen_add(x))]
