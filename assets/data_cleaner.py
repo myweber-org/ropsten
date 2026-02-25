@@ -220,3 +220,74 @@ if __name__ == "__main__":
     cleaned_data = clean_dataset(sample_data, ['A', 'B', 'C'])
     print(f"Original shape: {sample_data.shape}")
     print(f"Cleaned shape: {cleaned_data.shape}")
+import pandas as pd
+import numpy as np
+from pathlib import Path
+
+def clean_data(input_file, output_file=None):
+    """
+    Clean and preprocess CSV data by handling missing values,
+    removing duplicates, and standardizing column names.
+    """
+    try:
+        df = pd.read_csv(input_file)
+        
+        # Standardize column names
+        df.columns = df.columns.str.strip().str.lower().str.replace(' ', '_')
+        
+        # Remove duplicate rows
+        initial_count = len(df)
+        df.drop_duplicates(inplace=True)
+        duplicates_removed = initial_count - len(df)
+        
+        # Handle missing values
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        for col in numeric_cols:
+            df[col].fillna(df[col].median(), inplace=True)
+        
+        categorical_cols = df.select_dtypes(include=['object']).columns
+        for col in categorical_cols:
+            df[col].fillna('unknown', inplace=True)
+        
+        # Remove rows where critical columns are still null
+        critical_cols = ['id', 'timestamp', 'value']
+        existing_critical = [col for col in critical_cols if col in df.columns]
+        if existing_critical:
+            df.dropna(subset=existing_critical, inplace=True)
+        
+        # Generate output filename if not provided
+        if output_file is None:
+            input_path = Path(input_file)
+            output_file = input_path.parent / f"cleaned_{input_path.name}"
+        
+        # Save cleaned data
+        df.to_csv(output_file, index=False)
+        
+        # Print cleaning summary
+        print(f"Data cleaning completed:")
+        print(f"  - Removed {duplicates_removed} duplicate rows")
+        print(f"  - Processed {len(numeric_cols)} numeric columns")
+        print(f"  - Processed {len(categorical_cols)} categorical columns")
+        print(f"  - Final dataset: {len(df)} rows, {len(df.columns)} columns")
+        print(f"  - Cleaned data saved to: {output_file}")
+        
+        return df
+        
+    except FileNotFoundError:
+        print(f"Error: Input file '{input_file}' not found.")
+        return None
+    except pd.errors.EmptyDataError:
+        print(f"Error: Input file '{input_file}' is empty.")
+        return None
+    except Exception as e:
+        print(f"Error during data cleaning: {str(e)}")
+        return None
+
+if __name__ == "__main__":
+    # Example usage
+    input_csv = "raw_data.csv"
+    cleaned_df = clean_data(input_csv)
+    
+    if cleaned_df is not None:
+        print("\nFirst 5 rows of cleaned data:")
+        print(cleaned_df.head())
