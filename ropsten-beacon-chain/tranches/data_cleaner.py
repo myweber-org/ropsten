@@ -293,3 +293,11 @@ def validate_dataframe(df, required_columns=None):
 #     print("\nCleaned DataFrame:")
 #     cleaned = clean_dataset(df, columns_to_check=['id'], fill_missing='mean')
 #     print(cleaned)
+def remove_duplicates_preserve_order(input_list):
+    seen = set()
+    result = []
+    for item in input_list:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
