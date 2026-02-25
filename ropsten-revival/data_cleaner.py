@@ -136,4 +136,98 @@ def clean_dataset(data, outlier_columns=None, normalize_columns=None,
             if col in cleaned_data.columns:
                 cleaned_data[f'{col}_standardized'] = standardize_zscore(cleaned_data, col)
     
-    return cleaned_data
+    return cleaned_dataimport pandas as pd
+import numpy as np
+from typing import Union, List, Dict, Any
+
+def remove_duplicates(df: pd.DataFrame, subset: Union[List[str], None] = None) -> pd.DataFrame:
+    """
+    Remove duplicate rows from DataFrame.
+    """
+    return df.drop_duplicates(subset=subset, keep='first')
+
+def convert_column_types(df: pd.DataFrame, 
+                         type_mapping: Dict[str, str]) -> pd.DataFrame:
+    """
+    Convert column types based on mapping dictionary.
+    """
+    df_copy = df.copy()
+    for column, dtype in type_mapping.items():
+        if column in df_copy.columns:
+            try:
+                if dtype == 'datetime':
+                    df_copy[column] = pd.to_datetime(df_copy[column])
+                elif dtype == 'numeric':
+                    df_copy[column] = pd.to_numeric(df_copy[column], errors='coerce')
+                elif dtype == 'category':
+                    df_copy[column] = df_copy[column].astype('category')
+                else:
+                    df_copy[column] = df_copy[column].astype(dtype)
+            except Exception as e:
+                print(f"Error converting column {column}: {e}")
+    return df_copy
+
+def handle_missing_values(df: pd.DataFrame, 
+                          strategy: str = 'drop',
+                          fill_value: Any = None) -> pd.DataFrame:
+    """
+    Handle missing values using specified strategy.
+    """
+    if strategy == 'drop':
+        return df.dropna()
+    elif strategy == 'fill':
+        if fill_value is not None:
+            return df.fillna(fill_value)
+        else:
+            return df.fillna(df.mean(numeric_only=True))
+    else:
+        return df
+
+def normalize_column(df: pd.DataFrame, 
+                     column: str,
+                     method: str = 'minmax') -> pd.DataFrame:
+    """
+    Normalize specified column using given method.
+    """
+    if column not in df.columns:
+        return df
+    
+    df_copy = df.copy()
+    
+    if method == 'minmax':
+        min_val = df_copy[column].min()
+        max_val = df_copy[column].max()
+        if max_val > min_val:
+            df_copy[column] = (df_copy[column] - min_val) / (max_val - min_val)
+    
+    elif method == 'zscore':
+        mean_val = df_copy[column].mean()
+        std_val = df_copy[column].std()
+        if std_val > 0:
+            df_copy[column] = (df_copy[column] - mean_val) / std_val
+    
+    return df_copy
+
+def clean_dataframe(df: pd.DataFrame,
+                    deduplicate: bool = True,
+                    type_conversions: Union[Dict[str, str], None] = None,
+                    missing_strategy: str = 'drop',
+                    normalize_columns: Union[List[str], None] = None) -> pd.DataFrame:
+    """
+    Comprehensive data cleaning pipeline.
+    """
+    cleaned_df = df.copy()
+    
+    if deduplicate:
+        cleaned_df = remove_duplicates(cleaned_df)
+    
+    if type_conversions:
+        cleaned_df = convert_column_types(cleaned_df, type_conversions)
+    
+    cleaned_df = handle_missing_values(cleaned_df, strategy=missing_strategy)
+    
+    if normalize_columns:
+        for column in normalize_columns:
+            cleaned_df = normalize_column(cleaned_df, column)
+    
+    return cleaned_df
