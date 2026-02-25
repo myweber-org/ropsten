@@ -282,4 +282,133 @@ if __name__ == "__main__":
     # Validate the cleaned data
     validation = validate_dataset(cleaned, required_columns=['A', 'B', 'C'])
     print("Validation Result:")
-    print(validation)
+    print(validation)import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(data, column):
+    """
+    Remove outliers from a pandas Series using the IQR method.
+    Returns cleaned Series and outlier indices.
+    """
+    Q1 = data[column].quantile(0.25)
+    Q3 = data[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    outlier_mask = (data[column] < lower_bound) | (data[column] > upper_bound)
+    cleaned_data = data[~outlier_mask].copy()
+    
+    return cleaned_data, data[outlier_mask].index.tolist()
+
+def normalize_minmax(data, column):
+    """
+    Apply min-max normalization to a column.
+    Returns normalized Series.
+    """
+    min_val = data[column].min()
+    max_val = data[column].max()
+    
+    if max_val == min_val:
+        return data[column].apply(lambda x: 0.0)
+    
+    normalized = (data[column] - min_val) / (max_val - min_val)
+    return normalized
+
+def standardize_zscore(data, column):
+    """
+    Apply z-score standardization to a column.
+    Returns standardized Series.
+    """
+    mean_val = data[column].mean()
+    std_val = data[column].std()
+    
+    if std_val == 0:
+        return data[column].apply(lambda x: 0.0)
+    
+    standardized = (data[column] - mean_val) / std_val
+    return standardized
+
+def handle_missing_interpolation(data, column, method='linear'):
+    """
+    Handle missing values using interpolation.
+    Returns Series with missing values filled.
+    """
+    if method not in ['linear', 'time', 'index', 'values']:
+        method = 'linear'
+    
+    filled = data[column].interpolate(method=method, limit_direction='both')
+    return filled
+
+def clean_dataset(df, numeric_columns, outlier_threshold=1.5):
+    """
+    Main cleaning function for datasets.
+    Applies outlier removal and normalization to specified columns.
+    """
+    cleaned_df = df.copy()
+    outlier_report = {}
+    
+    for col in numeric_columns:
+        if col in cleaned_df.columns:
+            # Remove outliers
+            cleaned_df, outliers = remove_outliers_iqr(cleaned_df, col)
+            outlier_report[col] = len(outliers)
+            
+            # Normalize
+            cleaned_df[f'{col}_normalized'] = normalize_minmax(cleaned_df, col)
+            cleaned_df[f'{col}_standardized'] = standardize_zscore(cleaned_df, col)
+    
+    return cleaned_df, outlier_report
+
+def validate_data_quality(df, threshold=0.3):
+    """
+    Validate data quality by checking missing values and data types.
+    Returns quality report dictionary.
+    """
+    report = {
+        'total_rows': len(df),
+        'total_columns': len(df.columns),
+        'missing_values': df.isnull().sum().to_dict(),
+        'missing_percentage': (df.isnull().sum() / len(df)).to_dict(),
+        'data_types': df.dtypes.astype(str).to_dict()
+    }
+    
+    high_missing_cols = [
+        col for col, perc in report['missing_percentage'].items() 
+        if perc > threshold
+    ]
+    report['high_missing_columns'] = high_missing_cols
+    
+    return report
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = pd.DataFrame({
+        'feature_a': np.random.normal(100, 15, 1000),
+        'feature_b': np.random.exponential(50, 1000),
+        'feature_c': np.random.uniform(0, 1, 1000)
+    })
+    
+    # Introduce some outliers and missing values
+    sample_data.loc[50:55, 'feature_a'] = 500
+    sample_data.loc[100:105, 'feature_b'] = -100
+    sample_data.loc[200:210, 'feature_c'] = np.nan
+    
+    print("Original data shape:", sample_data.shape)
+    
+    # Clean the data
+    cleaned_data, outliers = clean_dataset(
+        sample_data, 
+        ['feature_a', 'feature_b', 'feature_c']
+    )
+    
+    print("Cleaned data shape:", cleaned_data.shape)
+    print("Outliers removed:", outliers)
+    
+    # Validate quality
+    quality_report = validate_data_quality(cleaned_data)
+    print("\nQuality Report:")
+    for key, value in quality_report.items():
+        if key not in ['missing_values', 'missing_percentage', 'data_types']:
+            print(f"{key}: {value}")
