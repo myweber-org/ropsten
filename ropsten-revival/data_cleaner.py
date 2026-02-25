@@ -154,3 +154,41 @@ def remove_duplicates(seq):
     seen = set()
     seen_add = seen.add
     return [x for x in seq if not (x in seen or seen_add(x))]
+import pandas as pd
+import re
+
+def clean_dataframe(df, column_name):
+    """
+    Clean a specified column in a pandas DataFrame by removing duplicates,
+    stripping whitespace, and converting to lowercase.
+    """
+    if column_name not in df.columns:
+        raise ValueError(f"Column '{column_name}' not found in DataFrame")
+
+    df[column_name] = df[column_name].astype(str)
+    df[column_name] = df[column_name].str.strip()
+    df[column_name] = df[column_name].str.lower()
+    df.drop_duplicates(subset=[column_name], inplace=True)
+    df.reset_index(drop=True, inplace=True)
+    return df
+
+def remove_special_characters(text):
+    """
+    Remove special characters from a string, keeping only alphanumeric and spaces.
+    """
+    return re.sub(r'[^a-zA-Z0-9\s]', '', text)
+
+if __name__ == "__main__":
+    sample_data = {'Name': [' Alice ', 'bob', 'Alice', 'Charlie!', '  david  ']}
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+
+    cleaned_df = clean_dataframe(df, 'Name')
+    print("\nCleaned DataFrame:")
+    print(cleaned_df)
+
+    test_string = "Hello! This is a test@string#123"
+    cleaned_string = remove_special_characters(test_string)
+    print(f"\nOriginal string: {test_string}")
+    print(f"Cleaned string: {cleaned_string}")
