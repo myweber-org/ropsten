@@ -300,3 +300,47 @@ if __name__ == "__main__":
     
     is_valid, message = validate_dataset(cleaned, required_columns=['id', 'value'], min_rows=3)
     print(f"\nValidation: {message}")
+import numpy as np
+import pandas as pd
+
+def remove_outliers_iqr(dataframe, column):
+    Q1 = dataframe[column].quantile(0.25)
+    Q3 = dataframe[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    return dataframe[(dataframe[column] >= lower_bound) & (dataframe[column] <= upper_bound)]
+
+def normalize_column(dataframe, column):
+    min_val = dataframe[column].min()
+    max_val = dataframe[column].max()
+    if max_val - min_val == 0:
+        return dataframe[column]
+    return (dataframe[column] - min_val) / (max_val - min_val)
+
+def clean_dataset(dataframe, numeric_columns):
+    cleaned_df = dataframe.copy()
+    for col in numeric_columns:
+        if col in cleaned_df.columns:
+            cleaned_df = remove_outliers_iqr(cleaned_df, col)
+            cleaned_df[col] = normalize_column(cleaned_df, col)
+    return cleaned_df.dropna()
+
+def generate_summary(dataframe):
+    summary = {
+        'original_rows': len(dataframe),
+        'cleaned_rows': len(dataframe.dropna()),
+        'numeric_columns': list(dataframe.select_dtypes(include=[np.number]).columns),
+        'missing_values': dataframe.isnull().sum().to_dict()
+    }
+    return summary
+
+if __name__ == "__main__":
+    sample_data = pd.DataFrame({
+        'A': np.random.normal(100, 15, 1000),
+        'B': np.random.exponential(50, 1000),
+        'C': np.random.randint(1, 100, 1000)
+    })
+    sample_data.loc[np.random.choice(sample_data.index, 50), 'A'] = np.nan
+    cleaned = clean_dataset(sample_data, ['A', 'B', 'C'])
+    print(generate_summary(cleaned))
