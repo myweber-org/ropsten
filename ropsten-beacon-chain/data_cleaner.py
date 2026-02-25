@@ -832,3 +832,142 @@ if __name__ == "__main__":
     print(summary)
     print(f"\nOriginal data shape: {sample_data.shape}")
     print(f"Cleaned data shape: {cleaned_data.shape}")
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+def detect_outliers_iqr(data, column, threshold=1.5):
+    """
+    Detect outliers using the Interquartile Range method.
+    
+    Args:
+        data: pandas DataFrame
+        column: column name to analyze
+        threshold: multiplier for IQR (default 1.5)
+    
+    Returns:
+        Boolean mask of outliers
+    """
+    Q1 = data[column].quantile(0.25)
+    Q3 = data[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - threshold * IQR
+    upper_bound = Q3 + threshold * IQR
+    
+    return (data[column] < lower_bound) | (data[column] > upper_bound)
+
+def detect_outliers_zscore(data, column, threshold=3):
+    """
+    Detect outliers using Z-score method.
+    
+    Args:
+        data: pandas DataFrame
+        column: column name to analyze
+        threshold: z-score threshold (default 3)
+    
+    Returns:
+        Boolean mask of outliers
+    """
+    z_scores = np.abs(stats.zscore(data[column].dropna()))
+    return z_scores > threshold
+
+def normalize_minmax(data, column):
+    """
+    Normalize data using Min-Max scaling.
+    
+    Args:
+        data: pandas DataFrame
+        column: column name to normalize
+    
+    Returns:
+        Normalized Series
+    """
+    col_data = data[column]
+    min_val = col_data.min()
+    max_val = col_data.max()
+    
+    if max_val == min_val:
+        return pd.Series([0.5] * len(col_data), index=col_data.index)
+    
+    return (col_data - min_val) / (max_val - min_val)
+
+def normalize_zscore(data, column):
+    """
+    Normalize data using Z-score standardization.
+    
+    Args:
+        data: pandas DataFrame
+        column: column name to normalize
+    
+    Returns:
+        Standardized Series
+    """
+    col_data = data[column]
+    mean_val = col_data.mean()
+    std_val = col_data.std()
+    
+    if std_val == 0:
+        return pd.Series([0] * len(col_data), index=col_data.index)
+    
+    return (col_data - mean_val) / std_val
+
+def clean_dataset(df, numeric_columns=None, outlier_method='iqr', normalize_method=None):
+    """
+    Main function to clean dataset by handling outliers and normalization.
+    
+    Args:
+        df: pandas DataFrame
+        numeric_columns: list of numeric columns to process (default: all numeric)
+        outlier_method: 'iqr', 'zscore', or None
+        normalize_method: 'minmax', 'zscore', or None
+    
+    Returns:
+        Cleaned DataFrame
+    """
+    df_clean = df.copy()
+    
+    if numeric_columns is None:
+        numeric_columns = df.select_dtypes(include=[np.number]).columns.tolist()
+    
+    for col in numeric_columns:
+        if col not in df.columns:
+            continue
+            
+        # Handle outliers
+        if outlier_method == 'iqr':
+            outliers = detect_outliers_iqr(df_clean, col)
+            df_clean.loc[outliers, col] = np.nan
+        elif outlier_method == 'zscore':
+            outliers = detect_outliers_zscore(df_clean, col)
+            df_clean.loc[outliers, col] = np.nan
+        
+        # Normalize data
+        if normalize_method == 'minmax':
+            df_clean[col] = normalize_minmax(df_clean, col)
+        elif normalize_method == 'zscore':
+            df_clean[col] = normalize_zscore(df_clean, col)
+    
+    return df_clean
+
+def summarize_cleaning(df_original, df_cleaned):
+    """
+    Generate summary statistics of cleaning process.
+    
+    Args:
+        df_original: original DataFrame
+        df_cleaned: cleaned DataFrame
+    
+    Returns:
+        Dictionary with cleaning summary
+    """
+    summary = {
+        'original_rows': len(df_original),
+        'cleaned_rows': len(df_cleaned),
+        'original_columns': len(df_original.columns),
+        'cleaned_columns': len(df_cleaned.columns),
+        'missing_values_original': df_original.isnull().sum().sum(),
+        'missing_values_cleaned': df_cleaned.isnull().sum().sum(),
+        'numeric_columns_processed': list(df_cleaned.select_dtypes(include=[np.number]).columns)
+    }
+    
+    return summary
