@@ -196,3 +196,59 @@ def get_summary_statistics(df):
     summary.loc['skewness'] = df.skew()
     summary.loc['kurtosis'] = df.kurtosis()
     return summary
+import pandas as pd
+import numpy as np
+
+def clean_dataframe(df, missing_strategy='mean', outlier_threshold=3):
+    """
+    Clean a pandas DataFrame by handling missing values and outliers.
+
+    Parameters:
+    df (pd.DataFrame): The input DataFrame.
+    missing_strategy (str): Strategy for handling missing values.
+                            Options: 'mean', 'median', 'mode', 'drop'.
+    outlier_threshold (float): Number of standard deviations to consider a point an outlier.
+
+    Returns:
+    pd.DataFrame: Cleaned DataFrame.
+    """
+    cleaned_df = df.copy()
+
+    # Handle missing values
+    if missing_strategy == 'mean':
+        cleaned_df = cleaned_df.fillna(cleaned_df.mean(numeric_only=True))
+    elif missing_strategy == 'median':
+        cleaned_df = cleaned_df.fillna(cleaned_df.median(numeric_only=True))
+    elif missing_strategy == 'mode':
+        cleaned_df = cleaned_df.fillna(cleaned_df.mode().iloc[0])
+    elif missing_strategy == 'drop':
+        cleaned_df = cleaned_df.dropna()
+    else:
+        raise ValueError("Invalid missing_strategy. Choose from 'mean', 'median', 'mode', 'drop'.")
+
+    # Handle outliers for numeric columns
+    numeric_cols = cleaned_df.select_dtypes(include=[np.number]).columns
+    for col in numeric_cols:
+        mean = cleaned_df[col].mean()
+        std = cleaned_df[col].std()
+        if std > 0:  # Avoid division by zero
+            z_scores = np.abs((cleaned_df[col] - mean) / std)
+            cleaned_df.loc[z_scores > outlier_threshold, col] = np.nan
+
+    # Fill outlier-induced missing values with column mean
+    cleaned_df = cleaned_df.fillna(cleaned_df.mean(numeric_only=True))
+
+    return cleaned_df
+
+# Example usage (commented out)
+# if __name__ == "__main__":
+#     data = pd.DataFrame({
+#         'A': [1, 2, np.nan, 4, 100],
+#         'B': [5, 6, 7, np.nan, 9],
+#         'C': ['x', 'y', 'z', 'x', 'y']
+#     })
+#     cleaned = clean_dataframe(data, missing_strategy='mean', outlier_threshold=2)
+#     print("Original DataFrame:")
+#     print(data)
+#     print("\nCleaned DataFrame:")
+#     print(cleaned)
