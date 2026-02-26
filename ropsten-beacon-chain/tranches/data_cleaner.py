@@ -250,3 +250,87 @@ if __name__ == "__main__":
     cleaned_data = clean_dataset('sample_data.csv', ['age', 'salary', 'score'])
     cleaned_data.to_csv('cleaned_data.csv', index=False)
     print(f"Data cleaned. Original shape: {pd.read_csv('sample_data.csv').shape}, Cleaned shape: {cleaned_data.shape}")
+import pandas as pd
+import numpy as np
+from typing import List, Optional
+
+class DataCleaner:
+    def __init__(self, df: pd.DataFrame):
+        self.df = df.copy()
+        self.original_shape = df.shape
+        
+    def remove_duplicates(self, subset: Optional[List[str]] = None) -> pd.DataFrame:
+        initial_count = len(self.df)
+        self.df = self.df.drop_duplicates(subset=subset, keep='first')
+        removed = initial_count - len(self.df)
+        print(f"Removed {removed} duplicate rows")
+        return self.df
+    
+    def normalize_column(self, column_name: str) -> pd.DataFrame:
+        if column_name not in self.df.columns:
+            raise ValueError(f"Column '{column_name}' not found in DataFrame")
+        
+        col_data = self.df[column_name]
+        if pd.api.types.is_numeric_dtype(col_data):
+            mean_val = col_data.mean()
+            std_val = col_data.std()
+            if std_val > 0:
+                self.df[f"{column_name}_normalized"] = (col_data - mean_val) / std_val
+            else:
+                self.df[f"{column_name}_normalized"] = 0
+        else:
+            print(f"Column '{column_name}' is not numeric, skipping normalization")
+        
+        return self.df
+    
+    def fill_missing_values(self, strategy: str = 'mean', custom_value: Optional[float] = None) -> pd.DataFrame:
+        numeric_cols = self.df.select_dtypes(include=[np.number]).columns
+        
+        for col in numeric_cols:
+            missing_count = self.df[col].isnull().sum()
+            if missing_count > 0:
+                if strategy == 'mean':
+                    fill_value = self.df[col].mean()
+                elif strategy == 'median':
+                    fill_value = self.df[col].median()
+                elif strategy == 'custom' and custom_value is not None:
+                    fill_value = custom_value
+                else:
+                    fill_value = 0
+                
+                self.df[col].fillna(fill_value, inplace=True)
+                print(f"Filled {missing_count} missing values in column '{col}' with {fill_value}")
+        
+        return self.df
+    
+    def get_summary(self) -> dict:
+        return {
+            'original_rows': self.original_shape[0],
+            'original_columns': self.original_shape[1],
+            'current_rows': self.df.shape[0],
+            'current_columns': self.df.shape[1],
+            'missing_values': self.df.isnull().sum().sum(),
+            'duplicate_rows': self.df.duplicated().sum()
+        }
+
+def clean_dataset(file_path: str, output_path: Optional[str] = None) -> pd.DataFrame:
+    df = pd.read_csv(file_path)
+    cleaner = DataCleaner(df)
+    
+    cleaner.remove_duplicates()
+    cleaner.fill_missing_values(strategy='median')
+    
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    for col in numeric_cols[:3]:
+        cleaner.normalize_column(col)
+    
+    summary = cleaner.get_summary()
+    print("Cleaning Summary:")
+    for key, value in summary.items():
+        print(f"{key}: {value}")
+    
+    if output_path:
+        cleaner.df.to_csv(output_path, index=False)
+        print(f"Cleaned data saved to {output_path}")
+    
+    return cleaner.df
