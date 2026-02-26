@@ -256,3 +256,52 @@ def clean_dataset(data, outlier_method='iqr', normalize=True, handle_missing=Tru
                 cleaned_data[col] = normalize_minmax(cleaned_data, col)
     
     return cleaned_data.reset_index(drop=True)
+import pandas as pd
+import re
+
+def clean_text_column(df, column_name):
+    """
+    Standardize text by converting to lowercase, removing extra spaces,
+    and stripping leading/trailing whitespace.
+    """
+    if column_name not in df.columns:
+        raise ValueError(f"Column '{column_name}' not found in DataFrame")
+    
+    df[column_name] = df[column_name].astype(str).str.lower()
+    df[column_name] = df[column_name].apply(lambda x: re.sub(r'\s+', ' ', x))
+    df[column_name] = df[column_name].str.strip()
+    return df
+
+def remove_duplicates(df, subset=None, keep='first'):
+    """
+    Remove duplicate rows from DataFrame.
+    """
+    return df.drop_duplicates(subset=subset, keep=keep)
+
+def clean_numeric_column(df, column_name, fill_na=0):
+    """
+    Clean numeric column by filling NaN values and converting to appropriate type.
+    """
+    if column_name not in df.columns:
+        raise ValueError(f"Column '{column_name}' not found in DataFrame")
+    
+    df[column_name] = pd.to_numeric(df[column_name], errors='coerce')
+    df[column_name] = df[column_name].fillna(fill_na)
+    return df
+
+def process_dataframe(df, text_columns=None, numeric_columns=None, deduplicate=True):
+    """
+    Main function to process DataFrame with multiple cleaning operations.
+    """
+    if text_columns:
+        for col in text_columns:
+            df = clean_text_column(df, col)
+    
+    if numeric_columns:
+        for col in numeric_columns:
+            df = clean_numeric_column(df, col)
+    
+    if deduplicate:
+        df = remove_duplicates(df)
+    
+    return df
