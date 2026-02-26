@@ -200,3 +200,65 @@ if __name__ == "__main__":
     
     print("\nSummary statistics:")
     print(cleaned_df['value'].describe())
+import pandas as pd
+import numpy as np
+
+def clean_dataframe(df, drop_duplicates=True, fill_missing='mean'):
+    """
+    Cleans a pandas DataFrame by removing duplicates and handling missing values.
+
+    Args:
+        df (pd.DataFrame): The input DataFrame to clean.
+        drop_duplicates (bool): If True, removes duplicate rows. Defaults to True.
+        fill_missing (str): Strategy to fill missing values. Options: 'mean', 'median', 'mode', or 'drop'.
+                            Defaults to 'mean'. If 'drop', rows with missing values are removed.
+
+    Returns:
+        pd.DataFrame: The cleaned DataFrame.
+    """
+    cleaned_df = df.copy()
+
+    if drop_duplicates:
+        initial_rows = cleaned_df.shape[0]
+        cleaned_df.drop_duplicates(inplace=True, ignore_index=True)
+        removed = initial_rows - cleaned_df.shape[0]
+        print(f"Removed {removed} duplicate row(s).")
+
+    if fill_missing == 'drop':
+        initial_rows = cleaned_df.shape[0]
+        cleaned_df.dropna(inplace=True, ignore_index=True)
+        removed = initial_rows - cleaned_df.shape[0]
+        print(f"Removed {removed} row(s) with missing values.")
+    elif fill_missing in ['mean', 'median']:
+        numeric_cols = cleaned_df.select_dtypes(include=[np.number]).columns
+        for col in numeric_cols:
+            if cleaned_df[col].isnull().any():
+                if fill_missing == 'mean':
+                    fill_value = cleaned_df[col].mean()
+                else:  # median
+                    fill_value = cleaned_df[col].median()
+                cleaned_df[col].fillna(fill_value, inplace=True)
+                print(f"Filled missing values in column '{col}' with {fill_missing}: {fill_value:.4f}")
+    elif fill_missing == 'mode':
+        for col in cleaned_df.columns:
+            if cleaned_df[col].isnull().any():
+                fill_value = cleaned_df[col].mode()[0] if not cleaned_df[col].mode().empty else None
+                if fill_value is not None:
+                    cleaned_df[col].fillna(fill_value, inplace=True)
+                    print(f"Filled missing values in column '{col}' with mode: {fill_value}")
+
+    print(f"Data cleaning complete. Final shape: {cleaned_df.shape}")
+    return cleaned_df
+
+if __name__ == "__main__":
+    sample_data = {
+        'A': [1, 2, 2, 4, None, 6],
+        'B': [5, None, 7, 7, 9, 10],
+        'C': ['x', 'y', 'y', 'x', 'z', None]
+    }
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\n--- Cleaning with default parameters ---")
+    cleaned = clean_dataframe(df)
+    print(cleaned)
