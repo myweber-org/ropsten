@@ -390,3 +390,11 @@ if __name__ == "__main__":
     print("Original data:", sample_data)
     print("Cleaned data:", remove_duplicates(sample_data))
     print("Cleaned with threshold 4:", clean_data_with_threshold(sample_data, 4))
+def remove_duplicates(sequence):
+    seen = set()
+    result = []
+    for item in sequence:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
