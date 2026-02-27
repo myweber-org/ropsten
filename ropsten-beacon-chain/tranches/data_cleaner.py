@@ -234,4 +234,128 @@ if __name__ == "__main__":
     clean_data = cleaner.get_clean_data()
     print(f"\nCleaned data shape: {clean_data.shape}")
     print("First 5 rows of cleaned data:")
-    print(clean_data.head())
+    print(clean_data.head())import pandas as pd
+import numpy as np
+from typing import Optional
+
+def clean_csv_data(filepath: str, 
+                   missing_strategy: str = 'drop',
+                   fill_value: Optional[float] = None) -> pd.DataFrame:
+    """
+    Load and clean CSV data by handling missing values.
+    
+    Args:
+        filepath: Path to CSV file
+        missing_strategy: Strategy for handling missing values ('drop', 'fill', 'interpolate')
+        fill_value: Value to fill missing entries when strategy is 'fill'
+    
+    Returns:
+        Cleaned pandas DataFrame
+    """
+    try:
+        df = pd.read_csv(filepath)
+    except FileNotFoundError:
+        raise FileNotFoundError(f"File not found at path: {filepath}")
+    
+    original_shape = df.shape
+    
+    if missing_strategy == 'drop':
+        df_cleaned = df.dropna()
+    elif missing_strategy == 'fill':
+        if fill_value is None:
+            fill_value = df.select_dtypes(include=[np.number]).mean().mean()
+        df_cleaned = df.fillna(fill_value)
+    elif missing_strategy == 'interpolate':
+        df_cleaned = df.interpolate(method='linear', limit_direction='both')
+    else:
+        raise ValueError("Invalid missing_strategy. Choose from 'drop', 'fill', or 'interpolate'")
+    
+    cleaned_shape = df_cleaned.shape
+    rows_removed = original_shape[0] - cleaned_shape[0]
+    
+    print(f"Data cleaning completed:")
+    print(f"  Original shape: {original_shape}")
+    print(f"  Cleaned shape: {cleaned_shape}")
+    print(f"  Rows removed: {rows_removed}")
+    print(f"  Strategy used: {missing_strategy}")
+    
+    return df_cleaned
+
+def detect_outliers_iqr(df: pd.DataFrame, column: str, threshold: float = 1.5) -> pd.Series:
+    """
+    Detect outliers using Interquartile Range method.
+    
+    Args:
+        df: Input DataFrame
+        column: Column name to check for outliers
+        threshold: IQR multiplier threshold
+    
+    Returns:
+        Boolean Series indicating outliers
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - threshold * IQR
+    upper_bound = Q3 + threshold * IQR
+    
+    outliers = (df[column] < lower_bound) | (df[column] > upper_bound)
+    
+    outlier_count = outliers.sum()
+    if outlier_count > 0:
+        print(f"Detected {outlier_count} outliers in column '{column}'")
+    
+    return outliers
+
+def normalize_column(df: pd.DataFrame, column: str, method: str = 'minmax') -> pd.DataFrame:
+    """
+    Normalize a column using specified method.
+    
+    Args:
+        df: Input DataFrame
+        column: Column name to normalize
+        method: Normalization method ('minmax' or 'zscore')
+    
+    Returns:
+        DataFrame with normalized column
+    """
+    df_copy = df.copy()
+    
+    if method == 'minmax':
+        min_val = df_copy[column].min()
+        max_val = df_copy[column].max()
+        if max_val != min_val:
+            df_copy[f'{column}_normalized'] = (df_copy[column] - min_val) / (max_val - min_val)
+        else:
+            df_copy[f'{column}_normalized'] = 0.5
+    
+    elif method == 'zscore':
+        mean_val = df_copy[column].mean()
+        std_val = df_copy[column].std()
+        if std_val > 0:
+            df_copy[f'{column}_normalized'] = (df_copy[column] - mean_val) / std_val
+        else:
+            df_copy[f'{column}_normalized'] = 0
+    
+    else:
+        raise ValueError("Invalid method. Choose from 'minmax' or 'zscore'")
+    
+    return df_copy
+
+if __name__ == "__main__":
+    sample_data = {
+        'temperature': [22.5, np.nan, 24.0, 21.8, 25.2, np.nan, 23.1],
+        'humidity': [45, 50, np.nan, 48, 52, 47, 49],
+        'pressure': [1013, 1012, 1015, 1011, 1014, 1013, 1012]
+    }
+    
+    df_sample = pd.DataFrame(sample_data)
+    df_sample.to_csv('sample_data.csv', index=False)
+    
+    cleaned_df = clean_csv_data('sample_data.csv', missing_strategy='fill')
+    print("\nSample data cleaned successfully")
+    print(cleaned_df.head())
