@@ -143,3 +143,71 @@ if __name__ == "__main__":
     target_directory = input("Enter the directory path to organize: ").strip()
     organize_files(target_directory)
     print("File organization complete.")
+import os
+import shutil
+from pathlib import Path
+
+def organize_files(directory):
+    """
+    Organizes files in the given directory by moving them into subfolders
+    based on their file extensions.
+    """
+    # Define file type categories and their associated extensions
+    file_categories = {
+        'Images': ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.svg'],
+        'Documents': ['.pdf', '.docx', '.txt', '.xlsx', '.pptx', '.md'],
+        'Archives': ['.zip', '.tar', '.gz', '.rar', '.7z'],
+        'Code': ['.py', '.js', '.html', '.css', '.json', '.xml'],
+        'Audio': ['.mp3', '.wav', '.flac', '.aac'],
+        'Video': ['.mp4', '.avi', '.mov', '.mkv', '.wmv']
+    }
+
+    # Create a reverse lookup dictionary: extension -> category
+    extension_to_category = {}
+    for category, extensions in file_categories.items():
+        for ext in extensions:
+            extension_to_category[ext.lower()] = category
+
+    # Ensure the directory exists
+    if not os.path.exists(directory):
+        print(f"Directory '{directory}' does not exist.")
+        return
+
+    # Get all items in the directory
+    items = os.listdir(directory)
+    
+    for item in items:
+        item_path = os.path.join(directory, item)
+        
+        # Skip if it's a directory
+        if os.path.isdir(item_path):
+            continue
+        
+        # Get file extension
+        _, ext = os.path.splitext(item)
+        ext = ext.lower()
+        
+        # Determine category
+        category = extension_to_category.get(ext, 'Other')
+        
+        # Create category folder if it doesn't exist
+        category_folder = os.path.join(directory, category)
+        os.makedirs(category_folder, exist_ok=True)
+        
+        # Move file to category folder
+        try:
+            shutil.move(item_path, os.path.join(category_folder, item))
+            print(f"Moved: {item} -> {category}/")
+        except Exception as e:
+            print(f"Failed to move {item}: {e}")
+
+def main():
+    # Get current working directory or specify a different one
+    target_directory = os.getcwd()
+    
+    print(f"Organizing files in: {target_directory}")
+    organize_files(target_directory)
+    print("File organization completed.")
+
+if __name__ == "__main__":
+    main()
