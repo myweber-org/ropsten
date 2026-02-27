@@ -359,3 +359,34 @@ if __name__ == "__main__":
     cleaned_df = clean_csv_data('sample_data.csv', missing_strategy='fill')
     print("\nSample data cleaned successfully")
     print(cleaned_df.head())
+def remove_duplicates(input_list):
+    """
+    Remove duplicate elements from a list while preserving order.
+    Returns a new list with unique elements.
+    """
+    seen = set()
+    result = []
+    for item in input_list:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
+
+def clean_data_with_threshold(data, threshold=None):
+    """
+    Clean data by removing duplicates and optionally filtering by threshold.
+    If threshold is provided, only items meeting the threshold are kept.
+    """
+    unique_data = remove_duplicates(data)
+    
+    if threshold is not None:
+        filtered_data = [item for item in unique_data if item >= threshold]
+        return filtered_data
+    
+    return unique_data
+
+if __name__ == "__main__":
+    sample_data = [1, 3, 2, 1, 5, 3, 7, 2, 8]
+    print("Original data:", sample_data)
+    print("Cleaned data:", remove_duplicates(sample_data))
+    print("Cleaned with threshold 4:", clean_data_with_threshold(sample_data, 4))
