@@ -1015,4 +1015,74 @@ def main():
             save_weather_data(weather_data)
 
 if __name__ == "__main__":
-    main()
+    main()import requests
+import json
+import os
+
+def get_weather(city_name, api_key=None):
+    """
+    Fetch current weather data for a given city.
+    
+    Args:
+        city_name (str): Name of the city
+        api_key (str): OpenWeatherMap API key. If None, uses environment variable.
+    
+    Returns:
+        dict: Weather data or error information
+    """
+    if api_key is None:
+        api_key = os.getenv('OPENWEATHER_API_KEY')
+    
+    if not api_key:
+        return {"error": "API key not provided"}
+    
+    base_url = "http://api.openweathermap.org/data/2.5/weather"
+    
+    params = {
+        'q': city_name,
+        'appid': api_key,
+        'units': 'metric'
+    }
+    
+    try:
+        response = requests.get(base_url, params=params, timeout=10)
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        return {"error": f"Request failed: {str(e)}"}
+    except json.JSONDecodeError:
+        return {"error": "Invalid JSON response"}
+
+def display_weather(weather_data):
+    """
+    Display weather information in a readable format.
+    
+    Args:
+        weather_data (dict): Weather data from OpenWeatherMap API
+    """
+    if 'error' in weather_data:
+        print(f"Error: {weather_data['error']}")
+        return
+    
+    if weather_data.get('cod') != 200:
+        print(f"API Error: {weather_data.get('message', 'Unknown error')}")
+        return
+    
+    main = weather_data.get('main', {})
+    weather = weather_data.get('weather', [{}])[0]
+    
+    print(f"Weather in {weather_data.get('name', 'Unknown')}:")
+    print(f"  Temperature: {main.get('temp', 'N/A')}°C")
+    print(f"  Feels like: {main.get('feels_like', 'N/A')}°C")
+    print(f"  Humidity: {main.get('humidity', 'N/A')}%")
+    print(f"  Pressure: {main.get('pressure', 'N/A')} hPa")
+    print(f"  Conditions: {weather.get('description', 'N/A').title()}")
+    print(f"  Wind Speed: {weather_data.get('wind', {}).get('speed', 'N/A')} m/s")
+
+if __name__ == "__main__":
+    # Example usage
+    city = "London"
+    api_key = "your_api_key_here"  # Replace with actual API key or set environment variable
+    
+    weather_info = get_weather(city, api_key)
+    display_weather(weather_info)
