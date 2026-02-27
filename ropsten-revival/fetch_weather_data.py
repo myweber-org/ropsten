@@ -117,4 +117,145 @@ def main():
             print(json.dumps(weather, indent=2))
 
 if __name__ == "__main__":
-    main()
+    main()import requests
+import json
+from datetime import datetime
+from typing import Optional, Dict, Any
+
+class WeatherFetcher:
+    def __init__(self, api_key: str, base_url: str = "http://api.openweathermap.org/data/2.5"):
+        self.api_key = api_key
+        self.base_url = base_url
+        self.session = requests.Session()
+    
+    def get_current_weather(self, city: str, country_code: Optional[str] = None) -> Dict[str, Any]:
+        location = f"{city},{country_code}" if country_code else city
+        params = {
+            'q': location,
+            'appid': self.api_key,
+            'units': 'metric'
+        }
+        
+        try:
+            response = self.session.get(
+                f"{self.base_url}/weather",
+                params=params,
+                timeout=10
+            )
+            response.raise_for_status()
+            data = response.json()
+            
+            return {
+                'timestamp': datetime.now().isoformat(),
+                'location': data['name'],
+                'country': data['sys']['country'],
+                'temperature': data['main']['temp'],
+                'feels_like': data['main']['feels_like'],
+                'humidity': data['main']['humidity'],
+                'pressure': data['main']['pressure'],
+                'weather': data['weather'][0]['main'],
+                'description': data['weather'][0]['description'],
+                'wind_speed': data['wind']['speed'],
+                'wind_deg': data['wind'].get('deg', 0),
+                'visibility': data.get('visibility', 0),
+                'clouds': data['clouds']['all']
+            }
+            
+        except requests.exceptions.RequestException as e:
+            return {
+                'error': True,
+                'message': f"Network error: {str(e)}",
+                'timestamp': datetime.now().isoformat()
+            }
+        except (KeyError, json.JSONDecodeError) as e:
+            return {
+                'error': True,
+                'message': f"Data parsing error: {str(e)}",
+                'timestamp': datetime.now().isoformat()
+            }
+    
+    def get_weather_forecast(self, city: str, days: int = 5) -> Dict[str, Any]:
+        params = {
+            'q': city,
+            'appid': self.api_key,
+            'units': 'metric',
+            'cnt': days * 8
+        }
+        
+        try:
+            response = self.session.get(
+                f"{self.base_url}/forecast",
+                params=params,
+                timeout=10
+            )
+            response.raise_for_status()
+            data = response.json()
+            
+            forecast = []
+            for item in data['list']:
+                forecast.append({
+                    'datetime': item['dt_txt'],
+                    'temperature': item['main']['temp'],
+                    'feels_like': item['main']['feels_like'],
+                    'humidity': item['main']['humidity'],
+                    'weather': item['weather'][0]['main'],
+                    'description': item['weather'][0]['description'],
+                    'wind_speed': item['wind']['speed']
+                })
+            
+            return {
+                'city': data['city']['name'],
+                'country': data['city']['country'],
+                'forecast_days': days,
+                'forecast': forecast,
+                'timestamp': datetime.now().isoformat()
+            }
+            
+        except requests.exceptions.RequestException as e:
+            return {
+                'error': True,
+                'message': f"Network error: {str(e)}",
+                'timestamp': datetime.now().isoformat()
+            }
+        except (KeyError, json.JSONDecodeError) as e:
+            return {
+                'error': True,
+                'message': f"Data parsing error: {str(e)}",
+                'timestamp': datetime.now().isoformat()
+            }
+
+def save_weather_data(data: Dict[str, Any], filename: str = "weather_data.json"):
+    try:
+        with open(filename, 'w') as f:
+            json.dump(data, f, indent=2)
+        return True
+    except (IOError, TypeError) as e:
+        print(f"Error saving data: {e}")
+        return False
+
+def display_weather_summary(weather_data: Dict[str, Any]):
+    if weather_data.get('error'):
+        print(f"Error: {weather_data['message']}")
+        return
+    
+    print(f"Weather in {weather_data['location']}, {weather_data['country']}:")
+    print(f"Temperature: {weather_data['temperature']}°C")
+    print(f"Feels like: {weather_data['feels_like']}°C")
+    print(f"Conditions: {weather_data['weather']} - {weather_data['description']}")
+    print(f"Humidity: {weather_data['humidity']}%")
+    print(f"Wind: {weather_data['wind_speed']} m/s")
+
+if __name__ == "__main__":
+    API_KEY = "your_api_key_here"
+    
+    fetcher = WeatherFetcher(API_KEY)
+    
+    current_weather = fetcher.get_current_weather("London", "UK")
+    display_weather_summary(current_weather)
+    
+    if not current_weather.get('error'):
+        save_weather_data(current_weather, "london_weather.json")
+    
+    forecast = fetcher.get_weather_forecast("Tokyo", 3)
+    if not forecast.get('error'):
+        save_weather_data(forecast, "tokyo_forecast.json")
