@@ -415,3 +415,61 @@ if __name__ == "__main__":
     cleaned = remove_duplicates_preserve_order(sample_data)
     print(f"Original: {sample_data}")
     print(f"Cleaned: {cleaned}")
+import pandas as pd
+import numpy as np
+
+def clean_csv_data(filepath, missing_strategy='mean', columns_to_drop=None):
+    """
+    Load and clean CSV data by handling missing values and dropping specified columns.
+    
+    Parameters:
+    filepath (str): Path to the CSV file.
+    missing_strategy (str): Strategy for handling missing values ('mean', 'median', 'mode', 'drop').
+    columns_to_drop (list): List of column names to drop.
+    
+    Returns:
+    pandas.DataFrame: Cleaned DataFrame.
+    """
+    try:
+        df = pd.read_csv(filepath)
+    except FileNotFoundError:
+        raise FileNotFoundError(f"File not found: {filepath}")
+    
+    original_shape = df.shape
+    
+    if columns_to_drop:
+        df = df.drop(columns=columns_to_drop, errors='ignore')
+    
+    if missing_strategy == 'drop':
+        df = df.dropna()
+    elif missing_strategy in ['mean', 'median']:
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        for col in numeric_cols:
+            if missing_strategy == 'mean':
+                df[col].fillna(df[col].mean(), inplace=True)
+            else:
+                df[col].fillna(df[col].median(), inplace=True)
+    elif missing_strategy == 'mode':
+        for col in df.columns:
+            df[col].fillna(df[col].mode()[0] if not df[col].mode().empty else None, inplace=True)
+    
+    print(f"Original shape: {original_shape}")
+    print(f"Cleaned shape: {df.shape}")
+    print(f"Missing values after cleaning: {df.isnull().sum().sum()}")
+    
+    return df
+
+def save_cleaned_data(df, output_path):
+    """
+    Save cleaned DataFrame to a new CSV file.
+    
+    Parameters:
+    df (pandas.DataFrame): Cleaned DataFrame.
+    output_path (str): Path for the output CSV file.
+    """
+    df.to_csv(output_path, index=False)
+    print(f"Cleaned data saved to: {output_path}")
+
+if __name__ == "__main__":
+    cleaned_df = clean_csv_data('sample_data.csv', missing_strategy='mean', columns_to_drop=['unused_column'])
+    save_cleaned_data(cleaned_df, 'cleaned_sample_data.csv')
