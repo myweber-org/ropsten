@@ -2570,3 +2570,51 @@ def validate_dataframe(dataframe, required_columns=None):
             return False, f"Missing required columns: {missing_cols}"
     
     return True, "DataFrame is valid"
+import pandas as pd
+import re
+
+def clean_dataframe(df, columns_to_clean=None):
+    """
+    Clean a pandas DataFrame by removing duplicates and normalizing string columns.
+    """
+    df_clean = df.copy()
+    
+    # Remove duplicate rows
+    initial_rows = df_clean.shape[0]
+    df_clean.drop_duplicates(inplace=True)
+    removed_duplicates = initial_rows - df_clean.shape[0]
+    
+    # If specific columns are provided, clean only those; otherwise clean all object columns
+    if columns_to_clean is None:
+        columns_to_clean = df_clean.select_dtypes(include=['object']).columns
+    
+    for col in columns_to_clean:
+        if col in df_clean.columns and df_clean[col].dtype == 'object':
+            df_clean[col] = df_clean[col].apply(normalize_string)
+    
+    return df_clean, removed_duplicates
+
+def normalize_string(text):
+    """
+    Normalize a string by converting to lowercase, removing extra whitespace,
+    and stripping special characters (except basic punctuation).
+    """
+    if pd.isna(text):
+        return text
+    
+    text = str(text)
+    text = text.lower().strip()
+    text = re.sub(r'\s+', ' ', text)
+    text = re.sub(r'[^\w\s.,!?-]', '', text)
+    
+    return text
+
+def validate_email_column(df, email_column):
+    """
+    Validate email addresses in a specified column and return a boolean mask.
+    """
+    if email_column not in df.columns:
+        raise ValueError(f"Column '{email_column}' not found in DataFrame")
+    
+    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return df[email_column].str.match(email_pattern, na=False)
