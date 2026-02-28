@@ -844,4 +844,83 @@ def clean_dataset(df, outlier_method='iqr', normalize_method='minmax'):
         cleaner.fill_missing_mean(col)
     
     cleaner.drop_duplicates()
-    return cleaner.get_cleaned_data()
+    return cleaner.get_cleaned_data()import numpy as np
+import pandas as pd
+from scipy import stats
+
+class DataCleaner:
+    def __init__(self, df):
+        self.df = df.copy()
+        self.numeric_columns = df.select_dtypes(include=[np.number]).columns
+        self.report = {}
+    
+    def detect_outliers_iqr(self, column, threshold=1.5):
+        Q1 = self.df[column].quantile(0.25)
+        Q3 = self.df[column].quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - threshold * IQR
+        upper_bound = Q3 + threshold * IQR
+        outliers = self.df[(self.df[column] < lower_bound) | (self.df[column] > upper_bound)]
+        return outliers.index.tolist()
+    
+    def remove_outliers(self, method='iqr', threshold=1.5):
+        outliers_indices = []
+        for col in self.numeric_columns:
+            if method == 'iqr':
+                col_outliers = self.detect_outliers_iqr(col, threshold)
+            outliers_indices.extend(col_outliers)
+        
+        unique_outliers = list(set(outliers_indices))
+        cleaned_df = self.df.drop(index=unique_outliers)
+        self.report['outliers_removed'] = len(unique_outliers)
+        self.df = cleaned_df
+        return self
+    
+    def impute_missing(self, strategy='median'):
+        for col in self.numeric_columns:
+            if self.df[col].isnull().any():
+                if strategy == 'median':
+                    fill_value = self.df[col].median()
+                elif strategy == 'mean':
+                    fill_value = self.df[col].mean()
+                elif strategy == 'mode':
+                    fill_value = self.df[col].mode()[0]
+                else:
+                    fill_value = 0
+                
+                self.df[col].fillna(fill_value, inplace=True)
+                self.report[f'imputed_{col}'] = strategy
+        
+        return self
+    
+    def normalize_data(self, method='zscore'):
+        if method == 'zscore':
+            for col in self.numeric_columns:
+                self.df[col] = stats.zscore(self.df[col])
+        elif method == 'minmax':
+            for col in self.numeric_columns:
+                min_val = self.df[col].min()
+                max_val = self.df[col].max()
+                self.df[col] = (self.df[col] - min_val) / (max_val - min_val)
+        
+        self.report['normalization'] = method
+        return self
+    
+    def get_cleaned_data(self):
+        return self.df
+    
+    def get_report(self):
+        return self.report
+
+def process_dataset(file_path):
+    df = pd.read_csv(file_path)
+    cleaner = DataCleaner(df)
+    
+    cleaner.impute_missing(strategy='median')
+    cleaner.remove_outliers(threshold=1.5)
+    cleaner.normalize_data(method='zscore')
+    
+    cleaned_df = cleaner.get_cleaned_data()
+    report = cleaner.get_report()
+    
+    return cleaned_df, report
