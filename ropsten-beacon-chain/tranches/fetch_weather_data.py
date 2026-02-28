@@ -1085,4 +1085,58 @@ if __name__ == "__main__":
     api_key = "your_api_key_here"  # Replace with actual API key or set environment variable
     
     weather_info = get_weather(city, api_key)
-    display_weather(weather_info)
+    display_weather(weather_info)import requests
+import json
+from datetime import datetime
+
+class WeatherFetcher:
+    def __init__(self, api_key):
+        self.api_key = api_key
+        self.base_url = "http://api.openweathermap.org/data/2.5/weather"
+        self.session = requests.Session()
+
+    def get_weather(self, city_name):
+        params = {
+            'q': city_name,
+            'appid': self.api_key,
+            'units': 'metric'
+        }
+        
+        try:
+            response = self.session.get(self.base_url, params=params, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+            
+            return {
+                'city': data['name'],
+                'temperature': data['main']['temp'],
+                'humidity': data['main']['humidity'],
+                'description': data['weather'][0]['description'],
+                'timestamp': datetime.fromtimestamp(data['dt']).isoformat()
+            }
+            
+        except requests.exceptions.RequestException as e:
+            print(f"Network error occurred: {e}")
+            return None
+        except (KeyError, json.JSONDecodeError) as e:
+            print(f"Data parsing error: {e}")
+            return None
+
+def main():
+    api_key = "your_api_key_here"
+    fetcher = WeatherFetcher(api_key)
+    
+    cities = ["London", "New York", "Tokyo", "Paris"]
+    
+    for city in cities:
+        weather_data = fetcher.get_weather(city)
+        if weather_data:
+            print(f"Weather in {weather_data['city']}:")
+            print(f"  Temperature: {weather_data['temperature']}°C")
+            print(f"  Humidity: {weather_data['humidity']}%")
+            print(f"  Conditions: {weather_data['description']}")
+            print(f"  Last updated: {weather_data['timestamp']}")
+            print("-" * 40)
+
+if __name__ == "__main__":
+    main()
