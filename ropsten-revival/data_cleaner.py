@@ -2198,3 +2198,11 @@ def clean_dataframe(df: pd.DataFrame,
                 cleaned_df = clean_numeric_outliers(cleaned_df, col)
     
     return cleaned_df
+def remove_duplicates_preserve_order(sequence):
+    seen = set()
+    result = []
+    for item in sequence:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
