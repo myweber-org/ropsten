@@ -199,3 +199,132 @@ def example_usage():
 
 if __name__ == "__main__":
     example_usage()
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(data, column, threshold=1.5):
+    """
+    Remove outliers using IQR method
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    Q1 = data[column].quantile(0.25)
+    Q3 = data[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - threshold * IQR
+    upper_bound = Q3 + threshold * IQR
+    
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    outliers_removed = len(data) - len(filtered_data)
+    
+    return filtered_data, outliers_removed
+
+def remove_outliers_zscore(data, column, threshold=3):
+    """
+    Remove outliers using Z-score method
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    z_scores = np.abs(stats.zscore(data[column]))
+    filtered_data = data[z_scores < threshold]
+    outliers_removed = len(data) - len(filtered_data)
+    
+    return filtered_data, outliers_removed
+
+def normalize_minmax(data, columns=None):
+    """
+    Normalize data using Min-Max scaling
+    """
+    if columns is None:
+        columns = data.select_dtypes(include=[np.number]).columns
+    
+    normalized_data = data.copy()
+    for col in columns:
+        if col in data.columns and np.issubdtype(data[col].dtype, np.number):
+            min_val = normalized_data[col].min()
+            max_val = normalized_data[col].max()
+            
+            if max_val != min_val:
+                normalized_data[col] = (normalized_data[col] - min_val) / (max_val - min_val)
+    
+    return normalized_data
+
+def normalize_zscore(data, columns=None):
+    """
+    Normalize data using Z-score standardization
+    """
+    if columns is None:
+        columns = data.select_dtypes(include=[np.number]).columns
+    
+    standardized_data = data.copy()
+    for col in columns:
+        if col in data.columns and np.issubdtype(data[col].dtype, np.number):
+            mean_val = standardized_data[col].mean()
+            std_val = standardized_data[col].std()
+            
+            if std_val > 0:
+                standardized_data[col] = (standardized_data[col] - mean_val) / std_val
+    
+    return standardized_data
+
+def clean_dataset(data, outlier_method='iqr', outlier_threshold=1.5, 
+                  normalize_method='minmax', columns_to_clean=None):
+    """
+    Comprehensive data cleaning pipeline
+    """
+    cleaned_data = data.copy()
+    
+    if columns_to_clean is None:
+        columns_to_clean = data.select_dtypes(include=[np.number]).columns
+    
+    report = {
+        'original_rows': len(data),
+        'outliers_removed': {},
+        'cleaned_rows': None
+    }
+    
+    for column in columns_to_clean:
+        if column in data.columns and np.issubdtype(data[column].dtype, np.number):
+            if outlier_method == 'iqr':
+                cleaned_data, outliers = remove_outliers_iqr(cleaned_data, column, outlier_threshold)
+            elif outlier_method == 'zscore':
+                cleaned_data, outliers = remove_outliers_zscore(cleaned_data, column, outlier_threshold)
+            else:
+                outliers = 0
+            
+            report['outliers_removed'][column] = outliers
+    
+    if normalize_method == 'minmax':
+        cleaned_data = normalize_minmax(cleaned_data, columns_to_clean)
+    elif normalize_method == 'zscore':
+        cleaned_data = normalize_zscore(cleaned_data, columns_to_clean)
+    
+    report['cleaned_rows'] = len(cleaned_data)
+    
+    return cleaned_data, report
+
+def validate_data(data, check_missing=True, check_duplicates=True, check_types=True):
+    """
+    Validate data quality
+    """
+    validation_report = {}
+    
+    if check_missing:
+        missing_values = data.isnull().sum()
+        validation_report['missing_values'] = missing_values[missing_values > 0].to_dict()
+    
+    if check_duplicates:
+        duplicate_count = data.duplicated().sum()
+        validation_report['duplicate_rows'] = duplicate_count
+    
+    if check_types:
+        type_info = {}
+        for col in data.columns:
+            type_info[col] = str(data[col].dtype)
+        validation_report['column_types'] = type_info
+    
+    return validation_report
