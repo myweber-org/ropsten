@@ -2426,3 +2426,147 @@ def example_usage():
 
 if __name__ == "__main__":
     example_usage()
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(dataframe, column, threshold=1.5):
+    """
+    Remove outliers from a DataFrame column using IQR method.
+    
+    Args:
+        dataframe: pandas DataFrame
+        column: column name to process
+        threshold: IQR multiplier (default 1.5)
+    
+    Returns:
+        DataFrame with outliers removed
+    """
+    if column not in dataframe.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    q1 = dataframe[column].quantile(0.25)
+    q3 = dataframe[column].quantile(0.75)
+    iqr = q3 - q1
+    
+    lower_bound = q1 - threshold * iqr
+    upper_bound = q3 + threshold * iqr
+    
+    filtered_df = dataframe[(dataframe[column] >= lower_bound) & 
+                           (dataframe[column] <= upper_bound)]
+    
+    return filtered_df
+
+def z_score_normalize(dataframe, columns):
+    """
+    Apply Z-score normalization to specified columns.
+    
+    Args:
+        dataframe: pandas DataFrame
+        columns: list of column names to normalize
+    
+    Returns:
+        DataFrame with normalized columns
+    """
+    result_df = dataframe.copy()
+    
+    for col in columns:
+        if col not in result_df.columns:
+            raise ValueError(f"Column '{col}' not found in DataFrame")
+        
+        mean_val = result_df[col].mean()
+        std_val = result_df[col].std()
+        
+        if std_val > 0:
+            result_df[col] = (result_df[col] - mean_val) / std_val
+        else:
+            result_df[col] = 0
+    
+    return result_df
+
+def min_max_normalize(dataframe, columns, feature_range=(0, 1)):
+    """
+    Apply Min-Max normalization to specified columns.
+    
+    Args:
+        dataframe: pandas DataFrame
+        columns: list of column names to normalize
+        feature_range: tuple of (min, max) for output range
+    
+    Returns:
+        DataFrame with normalized columns
+    """
+    result_df = dataframe.copy()
+    min_range, max_range = feature_range
+    
+    for col in columns:
+        if col not in result_df.columns:
+            raise ValueError(f"Column '{col}' not found in DataFrame")
+        
+        min_val = result_df[col].min()
+        max_val = result_df[col].max()
+        
+        if max_val > min_val:
+            result_df[col] = ((result_df[col] - min_val) / (max_val - min_val)) * \
+                            (max_range - min_range) + min_range
+        else:
+            result_df[col] = min_range
+    
+    return result_df
+
+def clean_dataset(dataframe, numeric_columns, outlier_threshold=1.5, 
+                  normalization_method='zscore', feature_range=(0, 1)):
+    """
+    Complete data cleaning pipeline for numeric columns.
+    
+    Args:
+        dataframe: pandas DataFrame
+        numeric_columns: list of numeric column names to process
+        outlier_threshold: IQR multiplier for outlier removal
+        normalization_method: 'zscore' or 'minmax'
+        feature_range: output range for min-max normalization
+    
+    Returns:
+        Cleaned DataFrame
+    """
+    if not isinstance(dataframe, pd.DataFrame):
+        raise TypeError("Input must be a pandas DataFrame")
+    
+    cleaned_df = dataframe.copy()
+    
+    for col in numeric_columns:
+        if col in cleaned_df.columns:
+            cleaned_df = remove_outliers_iqr(cleaned_df, col, outlier_threshold)
+    
+    if normalization_method == 'zscore':
+        cleaned_df = z_score_normalize(cleaned_df, numeric_columns)
+    elif normalization_method == 'minmax':
+        cleaned_df = min_max_normalize(cleaned_df, numeric_columns, feature_range)
+    else:
+        raise ValueError("Normalization method must be 'zscore' or 'minmax'")
+    
+    return cleaned_df
+
+def validate_dataframe(dataframe, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Args:
+        dataframe: pandas DataFrame to validate
+        required_columns: list of required column names
+    
+    Returns:
+        tuple of (is_valid, error_message)
+    """
+    if not isinstance(dataframe, pd.DataFrame):
+        return False, "Input is not a pandas DataFrame"
+    
+    if dataframe.empty:
+        return False, "DataFrame is empty"
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in dataframe.columns]
+        if missing_cols:
+            return False, f"Missing required columns: {missing_cols}"
+    
+    return True, "DataFrame is valid"
