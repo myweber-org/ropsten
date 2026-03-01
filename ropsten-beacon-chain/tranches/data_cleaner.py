@@ -1317,3 +1317,140 @@ def get_data_summary(df):
     }
     
     return summary
+import pandas as pd
+import numpy as np
+from scipy import stats
+
+def normalize_column(data, column_name, method='zscore'):
+    """
+    Normalize specified column using chosen method.
+    
+    Args:
+        data: pandas DataFrame
+        column_name: str, name of column to normalize
+        method: str, normalization method ('zscore', 'minmax', 'robust')
+    
+    Returns:
+        pandas Series with normalized values
+    """
+    if column_name not in data.columns:
+        raise ValueError(f"Column '{column_name}' not found in data")
+    
+    column_data = data[column_name]
+    
+    if method == 'zscore':
+        return (column_data - column_data.mean()) / column_data.std()
+    elif method == 'minmax':
+        return (column_data - column_data.min()) / (column_data.max() - column_data.min())
+    elif method == 'robust':
+        median = column_data.median()
+        iqr = stats.iqr(column_data)
+        return (column_data - median) / iqr
+    else:
+        raise ValueError(f"Unknown normalization method: {method}")
+
+def remove_outliers_iqr(data, column_name, multiplier=1.5):
+    """
+    Remove outliers from specified column using IQR method.
+    
+    Args:
+        data: pandas DataFrame
+        column_name: str, name of column to process
+        multiplier: float, IQR multiplier for outlier detection
+    
+    Returns:
+        pandas DataFrame with outliers removed
+    """
+    if column_name not in data.columns:
+        raise ValueError(f"Column '{column_name}' not found in data")
+    
+    column_data = data[column_name]
+    q1 = column_data.quantile(0.25)
+    q3 = column_data.quantile(0.75)
+    iqr = q3 - q1
+    
+    lower_bound = q1 - multiplier * iqr
+    upper_bound = q3 + multiplier * iqr
+    
+    return data[(column_data >= lower_bound) & (column_data <= upper_bound)]
+
+def clean_dataset(data, numeric_columns=None, normalization_method='zscore'):
+    """
+    Clean dataset by handling missing values and normalizing numeric columns.
+    
+    Args:
+        data: pandas DataFrame
+        numeric_columns: list of str, columns to normalize (default: all numeric)
+        normalization_method: str, method for normalization
+    
+    Returns:
+        Cleaned pandas DataFrame
+    """
+    cleaned_data = data.copy()
+    
+    if numeric_columns is None:
+        numeric_columns = cleaned_data.select_dtypes(include=[np.number]).columns.tolist()
+    
+    for column in numeric_columns:
+        if column in cleaned_data.columns:
+            cleaned_data[column] = normalize_column(cleaned_data, column, normalization_method)
+    
+    return cleaned_data
+
+def validate_data(data, required_columns=None, min_rows=1):
+    """
+    Validate dataset structure and content.
+    
+    Args:
+        data: pandas DataFrame
+        required_columns: list of str, columns that must be present
+        min_rows: int, minimum number of rows required
+    
+    Returns:
+        tuple: (bool, str) indicating validation result and message
+    """
+    if len(data) < min_rows:
+        return False, f"Dataset must have at least {min_rows} rows"
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in data.columns]
+        if missing_columns:
+            return False, f"Missing required columns: {missing_columns}"
+    
+    numeric_cols = data.select_dtypes(include=[np.number]).columns
+    if len(numeric_cols) == 0:
+        return False, "No numeric columns found in dataset"
+    
+    return True, "Dataset validation passed"
+
+def calculate_statistics(data, column_name):
+    """
+    Calculate comprehensive statistics for a column.
+    
+    Args:
+        data: pandas DataFrame
+        column_name: str, name of column to analyze
+    
+    Returns:
+        dict with statistical measures
+    """
+    if column_name not in data.columns:
+        raise ValueError(f"Column '{column_name}' not found in data")
+    
+    column_data = data[column_name]
+    
+    stats_dict = {
+        'mean': column_data.mean(),
+        'median': column_data.median(),
+        'std': column_data.std(),
+        'min': column_data.min(),
+        'max': column_data.max(),
+        'q1': column_data.quantile(0.25),
+        'q3': column_data.quantile(0.75),
+        'skewness': column_data.skew(),
+        'kurtosis': column_data.kurtosis(),
+        'count': len(column_data),
+        'missing': column_data.isnull().sum()
+    }
+    
+    return stats_dict
