@@ -235,3 +235,132 @@ if __name__ == "__main__":
     is_valid, message = validate_data(cleaned_df, required_columns=['A', 'B', 'C'], min_rows=2)
     print(f"\nValidation result: {is_valid}")
     print(f"Validation message: {message}")
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(dataframe, column, multiplier=1.5):
+    """
+    Remove outliers from a DataFrame column using the IQR method.
+    
+    Args:
+        dataframe: pandas DataFrame
+        column: column name to process
+        multiplier: IQR multiplier for outlier detection
+    
+    Returns:
+        DataFrame with outliers removed
+    """
+    q1 = dataframe[column].quantile(0.25)
+    q3 = dataframe[column].quantile(0.75)
+    iqr = q3 - q1
+    lower_bound = q1 - multiplier * iqr
+    upper_bound = q3 + multiplier * iqr
+    
+    return dataframe[(dataframe[column] >= lower_bound) & 
+                     (dataframe[column] <= upper_bound)]
+
+def normalize_column(dataframe, column, method='minmax'):
+    """
+    Normalize a column in DataFrame.
+    
+    Args:
+        dataframe: pandas DataFrame
+        column: column name to normalize
+        method: normalization method ('minmax' or 'zscore')
+    
+    Returns:
+        DataFrame with normalized column
+    """
+    df_copy = dataframe.copy()
+    
+    if method == 'minmax':
+        min_val = df_copy[column].min()
+        max_val = df_copy[column].max()
+        if max_val != min_val:
+            df_copy[column] = (df_copy[column] - min_val) / (max_val - min_val)
+    
+    elif method == 'zscore':
+        mean_val = df_copy[column].mean()
+        std_val = df_copy[column].std()
+        if std_val > 0:
+            df_copy[column] = (df_copy[column] - mean_val) / std_val
+    
+    return df_copy
+
+def clean_dataset(dataframe, numeric_columns, outlier_multiplier=1.5, normalize_method='minmax'):
+    """
+    Comprehensive data cleaning pipeline.
+    
+    Args:
+        dataframe: pandas DataFrame to clean
+        numeric_columns: list of numeric column names to process
+        outlier_multiplier: multiplier for IQR outlier detection
+        normalize_method: normalization method to apply
+    
+    Returns:
+        Cleaned DataFrame
+    """
+    cleaned_df = dataframe.copy()
+    
+    for column in numeric_columns:
+        if column in cleaned_df.columns:
+            cleaned_df = remove_outliers_iqr(cleaned_df, column, outlier_multiplier)
+            cleaned_df = normalize_column(cleaned_df, column, normalize_method)
+    
+    cleaned_df = cleaned_df.dropna()
+    cleaned_df = cleaned_df.reset_index(drop=True)
+    
+    return cleaned_df
+
+def calculate_statistics(dataframe, column):
+    """
+    Calculate descriptive statistics for a column.
+    
+    Args:
+        dataframe: pandas DataFrame
+        column: column name to analyze
+    
+    Returns:
+        Dictionary of statistics
+    """
+    if column not in dataframe.columns:
+        return {}
+    
+    stats_dict = {
+        'mean': dataframe[column].mean(),
+        'median': dataframe[column].median(),
+        'std': dataframe[column].std(),
+        'min': dataframe[column].min(),
+        'max': dataframe[column].max(),
+        'q1': dataframe[column].quantile(0.25),
+        'q3': dataframe[column].quantile(0.75),
+        'skewness': dataframe[column].skew(),
+        'kurtosis': dataframe[column].kurtosis()
+    }
+    
+    return stats_dict
+
+def validate_dataframe(dataframe, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Args:
+        dataframe: pandas DataFrame to validate
+        required_columns: list of required column names
+    
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    if dataframe.empty:
+        return False, "DataFrame is empty"
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in dataframe.columns]
+        if missing_columns:
+            return False, f"Missing required columns: {missing_columns}"
+    
+    if dataframe.isnull().all().any():
+        return False, "Some columns contain only null values"
+    
+    return True, "DataFrame is valid"
