@@ -199,3 +199,14 @@ def clean_dataset(data, outlier_method='iqr', normalize_method='minmax', missing
                 cleaned_data[f'{col}_standardized'] = normalize_zscore(cleaned_data, col)
     
     return cleaned_data
+def filter_none_values(input_list):
+    """
+    Return a new list with all None values removed.
+    
+    Args:
+        input_list (list): The list to filter.
+    
+    Returns:
+        list: A new list without None values.
+    """
+    return [item for item in input_list if item is not None]
