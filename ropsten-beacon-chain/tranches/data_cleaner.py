@@ -651,3 +651,159 @@ def validate_email_column(df, email_column):
     return df[email_column].apply(
         lambda x: bool(re.match(email_pattern, str(x))) if pd.notna(x) else False
     )
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df, missing_strategy='mean', outlier_method='iqr', threshold=1.5):
+    """
+    Clean dataset by handling missing values and outliers.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    missing_strategy (str): Strategy for missing values ('mean', 'median', 'mode', 'drop')
+    outlier_method (str): Method for outlier detection ('iqr', 'zscore')
+    threshold (float): Threshold for outlier detection
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame
+    """
+    
+    cleaned_df = df.copy()
+    
+    # Handle missing values
+    if missing_strategy == 'mean':
+        cleaned_df = cleaned_df.fillna(cleaned_df.mean(numeric_only=True))
+    elif missing_strategy == 'median':
+        cleaned_df = cleaned_df.fillna(cleaned_df.median(numeric_only=True))
+    elif missing_strategy == 'mode':
+        cleaned_df = cleaned_df.fillna(cleaned_df.mode().iloc[0])
+    elif missing_strategy == 'drop':
+        cleaned_df = cleaned_df.dropna()
+    
+    # Handle outliers for numeric columns only
+    numeric_cols = cleaned_df.select_dtypes(include=[np.number]).columns
+    
+    for col in numeric_cols:
+        if outlier_method == 'iqr':
+            Q1 = cleaned_df[col].quantile(0.25)
+            Q3 = cleaned_df[col].quantile(0.75)
+            IQR = Q3 - Q1
+            lower_bound = Q1 - threshold * IQR
+            upper_bound = Q3 + threshold * IQR
+            
+            # Cap outliers
+            cleaned_df[col] = cleaned_df[col].clip(lower=lower_bound, upper=upper_bound)
+            
+        elif outlier_method == 'zscore':
+            mean = cleaned_df[col].mean()
+            std = cleaned_df[col].std()
+            
+            if std > 0:  # Avoid division by zero
+                z_scores = np.abs((cleaned_df[col] - mean) / std)
+                mask = z_scores > threshold
+                
+                # Replace outliers with mean
+                cleaned_df.loc[mask, col] = mean
+    
+    return cleaned_df
+
+def validate_data(df, required_columns=None, min_rows=1):
+    """
+    Validate dataset structure and content.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate
+    required_columns (list): List of required column names
+    min_rows (int): Minimum number of rows required
+    
+    Returns:
+    tuple: (is_valid, error_message)
+    """
+    
+    if len(df) < min_rows:
+        return False, f"Dataset must have at least {min_rows} rows"
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            return False, f"Missing required columns: {missing_cols}"
+    
+    # Check for infinite values
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    if not numeric_cols.empty:
+        inf_mask = np.isinf(df[numeric_cols]).any().any()
+        if inf_mask:
+            return False, "Dataset contains infinite values"
+    
+    return True, "Dataset is valid"
+
+def get_data_summary(df):
+    """
+    Generate summary statistics for the dataset.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    
+    Returns:
+    dict: Summary statistics
+    """
+    
+    summary = {
+        'shape': df.shape,
+        'missing_values': df.isnull().sum().to_dict(),
+        'data_types': df.dtypes.astype(str).to_dict(),
+        'numeric_stats': {},
+        'categorical_stats': {}
+    }
+    
+    # Numeric columns statistics
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    for col in numeric_cols:
+        summary['numeric_stats'][col] = {
+            'mean': df[col].mean(),
+            'std': df[col].std(),
+            'min': df[col].min(),
+            'max': df[col].max(),
+            'median': df[col].median()
+        }
+    
+    # Categorical columns statistics
+    categorical_cols = df.select_dtypes(include=['object', 'category']).columns
+    for col in categorical_cols:
+        summary['categorical_stats'][col] = {
+            'unique_count': df[col].nunique(),
+            'top_value': df[col].mode().iloc[0] if not df[col].mode().empty else None,
+            'top_count': df[col].value_counts().iloc[0] if not df[col].value_counts().empty else 0
+        }
+    
+    return summary
+
+# Example usage
+if __name__ == "__main__":
+    # Create sample data
+    sample_data = pd.DataFrame({
+        'A': [1, 2, np.nan, 4, 100],
+        'B': [5, 6, 7, 8, 9],
+        'C': ['x', 'y', 'z', 'x', 'y']
+    })
+    
+    print("Original data:")
+    print(sample_data)
+    print()
+    
+    # Clean the data
+    cleaned = clean_dataset(sample_data, missing_strategy='mean', outlier_method='iqr')
+    print("Cleaned data:")
+    print(cleaned)
+    print()
+    
+    # Validate data
+    is_valid, message = validate_data(cleaned, required_columns=['A', 'B', 'C'])
+    print(f"Validation: {is_valid} - {message}")
+    print()
+    
+    # Get summary
+    summary = get_data_summary(cleaned)
+    print("Data summary:")
+    print(f"Shape: {summary['shape']}")
+    print(f"Missing values: {summary['missing_values']}")
