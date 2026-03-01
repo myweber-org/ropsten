@@ -128,3 +128,136 @@ def clean_dataset(df, remove_outliers=True, normalize=True):
         cleaner.normalize_numeric(method='standard')
     
     return cleaner.get_cleaned_data(), cleaner.get_cleaning_report()
+import pandas as pd
+import numpy as np
+
+def clean_csv_data(file_path, fill_method='mean', remove_threshold=0.5):
+    """
+    Load and clean CSV data by handling missing values.
+    
+    Parameters:
+    file_path (str): Path to the CSV file
+    fill_method (str): Method for filling missing values ('mean', 'median', 'mode', 'zero')
+    remove_threshold (float): Remove columns with missing ratio above this threshold
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame
+    dict: Cleaning statistics
+    """
+    
+    df = pd.read_csv(file_path)
+    original_shape = df.shape
+    
+    stats = {
+        'original_rows': original_shape[0],
+        'original_columns': original_shape[1],
+        'missing_values': df.isnull().sum().sum(),
+        'cleaning_applied': []
+    }
+    
+    for column in df.columns:
+        missing_ratio = df[column].isnull().sum() / len(df)
+        
+        if missing_ratio > remove_threshold:
+            df = df.drop(columns=[column])
+            stats['cleaning_applied'].append(f'Removed column {column} (missing: {missing_ratio:.1%})')
+            continue
+            
+        if df[column].isnull().any():
+            if fill_method == 'mean' and pd.api.types.is_numeric_dtype(df[column]):
+                fill_value = df[column].mean()
+            elif fill_method == 'median' and pd.api.types.is_numeric_dtype(df[column]):
+                fill_value = df[column].median()
+            elif fill_method == 'mode':
+                fill_value = df[column].mode()[0] if not df[column].mode().empty else np.nan
+            elif fill_method == 'zero':
+                fill_value = 0
+            else:
+                fill_value = df[column].ffill().bfill().iloc[0] if not df[column].isnull().all() else np.nan
+            
+            df[column] = df[column].fillna(fill_value)
+            stats['cleaning_applied'].append(f'Filled missing values in {column} using {fill_method}')
+    
+    stats['final_rows'] = df.shape[0]
+    stats['final_columns'] = df.shape[1]
+    stats['remaining_missing'] = df.isnull().sum().sum()
+    
+    return df, stats
+
+def validate_dataframe(df, required_columns=None, numeric_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate
+    required_columns (list): List of required column names
+    numeric_columns (list): List of columns that should be numeric
+    
+    Returns:
+    bool: True if validation passes
+    list: List of validation errors
+    """
+    
+    errors = []
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            errors.append(f'Missing required columns: {missing_columns}')
+    
+    if numeric_columns:
+        for column in numeric_columns:
+            if column in df.columns and not pd.api.types.is_numeric_dtype(df[column]):
+                errors.append(f'Column {column} should be numeric but has type {df[column].dtype}')
+    
+    if df.empty:
+        errors.append('DataFrame is empty')
+    
+    return len(errors) == 0, errors
+
+def export_cleaned_data(df, output_path, format='csv'):
+    """
+    Export cleaned DataFrame to file.
+    
+    Parameters:
+    df (pd.DataFrame): Cleaned DataFrame
+    output_path (str): Path for output file
+    format (str): Output format ('csv', 'excel', 'json')
+    """
+    
+    if format == 'csv':
+        df.to_csv(output_path, index=False)
+    elif format == 'excel':
+        df.to_excel(output_path, index=False)
+    elif format == 'json':
+        df.to_json(output_path, orient='records')
+    else:
+        raise ValueError(f"Unsupported format: {format}")
+
+if __name__ == "__main__":
+    sample_data = pd.DataFrame({
+        'A': [1, 2, np.nan, 4, 5],
+        'B': [np.nan, np.nan, np.nan, 10, 11],
+        'C': ['x', 'y', 'z', np.nan, 'w'],
+        'D': [100, 200, 300, 400, 500]
+    })
+    
+    sample_data.to_csv('sample_data.csv', index=False)
+    
+    cleaned_df, cleaning_stats = clean_csv_data('sample_data.csv', fill_method='mean')
+    
+    print(f"Original shape: {cleaning_stats['original_rows']}x{cleaning_stats['original_columns']}")
+    print(f"Final shape: {cleaning_stats['final_rows']}x{cleaning_stats['final_columns']}")
+    print(f"Missing values removed: {cleaning_stats['missing_values']}")
+    
+    is_valid, validation_errors = validate_dataframe(
+        cleaned_df, 
+        required_columns=['A', 'D'],
+        numeric_columns=['A', 'D']
+    )
+    
+    if is_valid:
+        export_cleaned_data(cleaned_df, 'cleaned_data.csv')
+        print("Data cleaning completed successfully")
+    else:
+        print(f"Validation errors: {validation_errors}")
