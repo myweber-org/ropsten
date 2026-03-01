@@ -630,3 +630,160 @@ if __name__ == "__main__":
     
     is_valid, message = validate_dataframe(cleaned, required_columns=['A', 'B', 'C'])
     print(f"\nValidation: {is_valid} - {message}")
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(data, column, factor=1.5):
+    """
+    Remove outliers using Interquartile Range method
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    Q1 = data[column].quantile(0.25)
+    Q3 = data[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - factor * IQR
+    upper_bound = Q3 + factor * IQR
+    
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    removed_count = len(data) - len(filtered_data)
+    
+    return filtered_data, removed_count
+
+def normalize_minmax(data, column):
+    """
+    Normalize data using Min-Max scaling
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    min_val = data[column].min()
+    max_val = data[column].max()
+    
+    if max_val == min_val:
+        return data[column].apply(lambda x: 0.5)
+    
+    normalized = (data[column] - min_val) / (max_val - min_val)
+    return normalized
+
+def standardize_zscore(data, column):
+    """
+    Standardize data using Z-score normalization
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    mean_val = data[column].mean()
+    std_val = data[column].std()
+    
+    if std_val == 0:
+        return data[column].apply(lambda x: 0)
+    
+    standardized = (data[column] - mean_val) / std_val
+    return standardized
+
+def clean_dataset(df, numeric_columns=None, outlier_factor=1.5, normalize_method='standardize'):
+    """
+    Comprehensive data cleaning pipeline
+    """
+    if numeric_columns is None:
+        numeric_columns = df.select_dtypes(include=[np.number]).columns.tolist()
+    
+    cleaned_df = df.copy()
+    stats_report = {}
+    
+    for col in numeric_columns:
+        if col not in df.columns:
+            continue
+            
+        original_count = len(cleaned_df)
+        cleaned_df, removed = remove_outliers_iqr(cleaned_df, col, outlier_factor)
+        stats_report[col] = {'outliers_removed': removed}
+        
+        if normalize_method == 'minmax':
+            cleaned_df[f'{col}_normalized'] = normalize_minmax(cleaned_df, col)
+        elif normalize_method == 'standardize':
+            cleaned_df[f'{col}_standardized'] = standardize_zscore(cleaned_df, col)
+    
+    stats_report['total_rows_removed'] = len(df) - len(cleaned_df)
+    stats_report['final_row_count'] = len(cleaned_df)
+    
+    return cleaned_df, stats_report
+
+def validate_data(df, required_columns, numeric_ranges=None):
+    """
+    Validate data structure and content
+    """
+    validation_results = {
+        'missing_columns': [],
+        'null_values': {},
+        'range_violations': {}
+    }
+    
+    for col in required_columns:
+        if col not in df.columns:
+            validation_results['missing_columns'].append(col)
+        else:
+            null_count = df[col].isnull().sum()
+            if null_count > 0:
+                validation_results['null_values'][col] = null_count
+    
+    if numeric_ranges:
+        for col, (min_val, max_val) in numeric_ranges.items():
+            if col in df.columns:
+                below_min = (df[col] < min_val).sum()
+                above_max = (df[col] > max_val).sum()
+                if below_min > 0 or above_max > 0:
+                    validation_results['range_violations'][col] = {
+                        'below_min': below_min,
+                        'above_max': above_max
+                    }
+    
+    validation_results['is_valid'] = (
+        len(validation_results['missing_columns']) == 0 and
+        len(validation_results['range_violations']) == 0
+    )
+    
+    return validation_results
+
+if __name__ == "__main__":
+    sample_data = pd.DataFrame({
+        'temperature': [22.5, 23.1, 100.0, 21.8, 22.9, -5.0, 24.2, 22.7],
+        'humidity': [45, 48, 52, 150, 47, 49, 46, 48],
+        'pressure': [1013, 1012, 1015, 1014, 2000, 1013, 1011, 1012]
+    })
+    
+    print("Original Data:")
+    print(sample_data)
+    print("\n" + "="*50 + "\n")
+    
+    cleaned_data, report = clean_dataset(
+        sample_data, 
+        numeric_columns=['temperature', 'humidity', 'pressure'],
+        outlier_factor=1.5,
+        normalize_method='standardize'
+    )
+    
+    print("Cleaned Data:")
+    print(cleaned_data)
+    print("\nCleaning Report:")
+    for key, value in report.items():
+        print(f"{key}: {value}")
+    
+    validation = validate_data(
+        cleaned_data,
+        required_columns=['temperature', 'humidity', 'pressure'],
+        numeric_ranges={
+            'temperature': (15, 30),
+            'humidity': (0, 100),
+            'pressure': (900, 1100)
+        }
+    )
+    
+    print("\nValidation Results:")
+    print(f"Is Valid: {validation['is_valid']}")
+    if validation['range_violations']:
+        print("Range Violations:", validation['range_violations'])
