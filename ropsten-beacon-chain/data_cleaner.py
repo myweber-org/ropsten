@@ -1118,3 +1118,11 @@ def validate_data_types(data, schema):
             errors.append(f"Column '{column}' expected {expected_type}, got {actual_type}")
     
     return len(errors) == 0, errors
+def remove_duplicates(sequence):
+    seen = set()
+    result = []
+    for item in sequence:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
