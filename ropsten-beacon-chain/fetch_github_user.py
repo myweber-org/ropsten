@@ -180,3 +180,85 @@ if __name__ == "__main__":
         display_user_info(data)
     else:
         print(f"Failed to fetch data for user '{username}'.")
+import requests
+import sys
+import time
+
+def fetch_github_user(username):
+    """
+    Fetch public information for a GitHub user.
+    Handles API rate limits and common HTTP errors.
+    """
+    url = f"https://api.github.com/users/{username}"
+    headers = {
+        "Accept": "application/vnd.github.v3+json",
+        "User-Agent": "Python-Script"
+    }
+    
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        
+        # Check remaining rate limit
+        remaining = int(response.headers.get('X-RateLimit-Remaining', 0))
+        if remaining < 10:
+            print(f"Warning: Only {remaining} API requests remaining this hour")
+        
+        return response.json()
+        
+    except requests.exceptions.HTTPError as e:
+        if response.status_code == 404:
+            print(f"Error: User '{username}' not found on GitHub")
+        elif response.status_code == 403:
+            reset_time = response.headers.get('X-RateLimit-Reset')
+            if reset_time:
+                wait_time = int(reset_time) - int(time.time())
+                print(f"Rate limit exceeded. Try again in {wait_time} seconds")
+            else:
+                print("API rate limit exceeded. Please try again later")
+        else:
+            print(f"HTTP Error: {e}")
+        return None
+    except requests.exceptions.Timeout:
+        print("Error: Request timed out")
+        return None
+    except requests.exceptions.RequestException as e:
+        print(f"Request Error: {e}")
+        return None
+
+def display_user_info(user_data):
+    """Display formatted user information."""
+    if not user_data:
+        return
+    
+    print("\n" + "="*40)
+    print(f"GitHub User: {user_data.get('login')}")
+    print("="*40)
+    print(f"Name: {user_data.get('name', 'Not provided')}")
+    print(f"Bio: {user_data.get('bio', 'Not provided')}")
+    print(f"Public Repos: {user_data.get('public_repos', 0)}")
+    print(f"Followers: {user_data.get('followers', 0)}")
+    print(f"Following: {user_data.get('following', 0)}")
+    print(f"Profile URL: {user_data.get('html_url')}")
+    print("="*40)
+
+def main():
+    if len(sys.argv) != 2:
+        print("Usage: python fetch_github_user.py <username>")
+        sys.exit(1)
+    
+    username = sys.argv[1].strip()
+    if not username:
+        print("Error: Username cannot be empty")
+        sys.exit(1)
+    
+    print(f"Fetching GitHub user data for: {username}")
+    user_data = fetch_github_user(username)
+    
+    if user_data:
+        display_user_info(user_data)
+    else:
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()
