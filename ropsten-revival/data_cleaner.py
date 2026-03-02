@@ -197,3 +197,112 @@ if __name__ == "__main__":
     cleaned_data = clean_dataset('raw_data.csv')
     cleaned_data.to_csv('cleaned_data.csv', index=False)
     print(f"Data cleaning complete. Original shape: {pd.read_csv('raw_data.csv').shape}, Cleaned shape: {cleaned_data.shape}")
+import pandas as pd
+import numpy as np
+
+def remove_duplicates(df, subset=None, keep='first'):
+    """
+    Remove duplicate rows from a DataFrame.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    subset (list, optional): Columns to consider for duplicates
+    keep (str, optional): Which duplicates to keep ('first', 'last', False)
+    
+    Returns:
+    pd.DataFrame: DataFrame with duplicates removed
+    """
+    if df.empty:
+        return df
+    
+    if subset is None:
+        subset = df.columns.tolist()
+    
+    cleaned_df = df.drop_duplicates(subset=subset, keep=keep)
+    
+    removed_count = len(df) - len(cleaned_df)
+    if removed_count > 0:
+        print(f"Removed {removed_count} duplicate rows")
+    
+    return cleaned_df
+
+def clean_missing_values(df, strategy='drop', fill_value=None):
+    """
+    Handle missing values in DataFrame.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    strategy (str): 'drop' to remove rows, 'fill' to fill values
+    fill_value: Value to use when strategy is 'fill'
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame
+    """
+    if df.empty:
+        return df
+    
+    if strategy == 'drop':
+        cleaned_df = df.dropna()
+        removed_count = len(df) - len(cleaned_df)
+        if removed_count > 0:
+            print(f"Removed {removed_count} rows with missing values")
+    elif strategy == 'fill':
+        if fill_value is None:
+            fill_value = df.mean(numeric_only=True)
+        cleaned_df = df.fillna(fill_value)
+        print("Filled missing values")
+    else:
+        raise ValueError("Strategy must be 'drop' or 'fill'")
+    
+    return cleaned_df
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate
+    required_columns (list): List of columns that must be present
+    
+    Returns:
+    bool: True if validation passes, False otherwise
+    """
+    if not isinstance(df, pd.DataFrame):
+        print("Input is not a pandas DataFrame")
+        return False
+    
+    if df.empty:
+        print("DataFrame is empty")
+        return False
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            print(f"Missing required columns: {missing_columns}")
+            return False
+    
+    return True
+
+def get_data_summary(df):
+    """
+    Generate summary statistics for DataFrame.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    
+    Returns:
+    dict: Summary statistics
+    """
+    summary = {
+        'shape': df.shape,
+        'columns': df.columns.tolist(),
+        'dtypes': df.dtypes.to_dict(),
+        'missing_values': df.isnull().sum().to_dict(),
+        'unique_counts': {col: df[col].nunique() for col in df.columns}
+    }
+    
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    if len(numeric_cols) > 0:
+        summary['numeric_stats'] = df[numeric_cols].describe().to_dict()
+    
+    return summary
