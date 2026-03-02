@@ -584,4 +584,11 @@ def remove_outliers_iqr(df, column, multiplier=1.5):
     
     filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
     
-    return filtered_df.reset_index(drop=True)
+    return filtered_df.reset_index(drop=True)def remove_duplicates(sequence):
+    seen = set()
+    result = []
+    for item in sequence:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
