@@ -152,3 +152,114 @@ if __name__ == "__main__":
     for col in cleaned_df.columns:
         stats = calculate_summary_statistics(cleaned_df, col)
         print(f"{col}: {stats}")
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+class DataCleaner:
+    def __init__(self, df):
+        self.df = df.copy()
+        self.original_shape = df.shape
+        
+    def remove_outliers_iqr(self, columns=None, factor=1.5):
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
+            
+        clean_df = self.df.copy()
+        for col in columns:
+            if col in clean_df.columns:
+                Q1 = clean_df[col].quantile(0.25)
+                Q3 = clean_df[col].quantile(0.75)
+                IQR = Q3 - Q1
+                lower_bound = Q1 - factor * IQR
+                upper_bound = Q3 + factor * IQR
+                clean_df = clean_df[(clean_df[col] >= lower_bound) & (clean_df[col] <= upper_bound)]
+        
+        removed_count = len(self.df) - len(clean_df)
+        self.df = clean_df
+        return removed_count
+    
+    def normalize_minmax(self, columns=None):
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
+            
+        normalized_df = self.df.copy()
+        for col in columns:
+            if col in normalized_df.columns:
+                col_min = normalized_df[col].min()
+                col_max = normalized_df[col].max()
+                if col_max != col_min:
+                    normalized_df[col] = (normalized_df[col] - col_min) / (col_max - col_min)
+        
+        self.df = normalized_df
+        return self
+    
+    def standardize_zscore(self, columns=None):
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
+            
+        standardized_df = self.df.copy()
+        for col in columns:
+            if col in standardized_df.columns:
+                mean_val = standardized_df[col].mean()
+                std_val = standardized_df[col].std()
+                if std_val > 0:
+                    standardized_df[col] = (standardized_df[col] - mean_val) / std_val
+        
+        self.df = standardized_df
+        return self
+    
+    def fill_missing_median(self, columns=None):
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
+            
+        filled_df = self.df.copy()
+        for col in columns:
+            if col in filled_df.columns and filled_df[col].isnull().any():
+                median_val = filled_df[col].median()
+                filled_df[col] = filled_df[col].fillna(median_val)
+        
+        self.df = filled_df
+        return self
+    
+    def get_cleaned_data(self):
+        return self.df
+    
+    def get_summary(self):
+        original_rows, original_cols = self.original_shape
+        cleaned_rows, cleaned_cols = self.df.shape
+        return {
+            'original_rows': original_rows,
+            'original_cols': original_cols,
+            'cleaned_rows': cleaned_rows,
+            'cleaned_cols': cleaned_cols,
+            'rows_removed': original_rows - cleaned_rows,
+            'numeric_columns': list(self.df.select_dtypes(include=[np.number]).columns)
+        }
+
+def process_dataset(file_path, output_path=None):
+    try:
+        df = pd.read_csv(file_path)
+        cleaner = DataCleaner(df)
+        
+        print(f"Original dataset shape: {cleaner.original_shape}")
+        
+        removed = cleaner.remove_outliers_iqr()
+        print(f"Removed {removed} outliers using IQR method")
+        
+        cleaner.fill_missing_median()
+        cleaner.standardize_zscore()
+        
+        summary = cleaner.get_summary()
+        print(f"Cleaned dataset shape: {cleaner.df.shape}")
+        print(f"Numeric columns processed: {len(summary['numeric_columns'])}")
+        
+        if output_path:
+            cleaner.df.to_csv(output_path, index=False)
+            print(f"Cleaned data saved to: {output_path}")
+        
+        return cleaner.get_cleaned_data()
+        
+    except Exception as e:
+        print(f"Error processing dataset: {e}")
+        return None
