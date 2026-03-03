@@ -100,3 +100,28 @@ def validate_dataframe(df):
         if not check(df):
             raise ValueError(message)
     return True
+import pandas as pd
+import numpy as np
+
+def clean_csv_data(input_file, output_file):
+    df = pd.read_csv(input_file)
+    
+    df.replace('', np.nan, inplace=True)
+    df.dropna(subset=['critical_column'], inplace=True)
+    
+    numeric_columns = df.select_dtypes(include=[np.number]).columns
+    for col in numeric_columns:
+        df[col].fillna(df[col].median(), inplace=True)
+    
+    categorical_columns = df.select_dtypes(include=['object']).columns
+    for col in categorical_columns:
+        df[col].fillna(df[col].mode()[0] if not df[col].mode().empty else 'Unknown', inplace=True)
+    
+    df.to_csv(output_file, index=False)
+    print(f"Cleaned data saved to {output_file}")
+    
+    return df
+
+if __name__ == "__main__":
+    cleaned_df = clean_csv_data('raw_data.csv', 'cleaned_data.csv')
+    print(f"Data cleaning complete. Shape: {cleaned_df.shape}")
