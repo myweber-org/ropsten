@@ -591,4 +591,162 @@ def remove_outliers_iqr(df, column, multiplier=1.5):
         if item not in seen:
             seen.add(item)
             result.append(item)
-    return result
+    return resultimport numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(data, column, multiplier=1.5):
+    """
+    Remove outliers from a pandas Series using the IQR method.
+    
+    Parameters:
+    data (pd.Series): Input data series
+    column (str): Column name to process
+    multiplier (float): IQR multiplier for outlier detection
+    
+    Returns:
+    pd.Series: Data with outliers removed
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in data")
+    
+    series = data[column]
+    q1 = series.quantile(0.25)
+    q3 = series.quantile(0.75)
+    iqr = q3 - q1
+    
+    lower_bound = q1 - multiplier * iqr
+    upper_bound = q3 + multiplier * iqr
+    
+    return data[(series >= lower_bound) & (series <= upper_bound)]
+
+def normalize_minmax(data, column):
+    """
+    Normalize data to [0, 1] range using min-max scaling.
+    
+    Parameters:
+    data (pd.Series or np.ndarray): Input data
+    column (str): Column name to normalize
+    
+    Returns:
+    pd.Series: Normalized data
+    """
+    if isinstance(data, pd.DataFrame):
+        series = data[column]
+    else:
+        series = pd.Series(data)
+    
+    min_val = series.min()
+    max_val = series.max()
+    
+    if max_val == min_val:
+        return pd.Series([0.5] * len(series))
+    
+    normalized = (series - min_val) / (max_val - min_val)
+    return normalized
+
+def z_score_normalize(data, column):
+    """
+    Normalize data using z-score standardization.
+    
+    Parameters:
+    data (pd.DataFrame): Input dataframe
+    column (str): Column name to normalize
+    
+    Returns:
+    pd.Series: Z-score normalized data
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in data")
+    
+    series = data[column]
+    mean = series.mean()
+    std = series.std()
+    
+    if std == 0:
+        return pd.Series([0] * len(series))
+    
+    normalized = (series - mean) / std
+    return normalized
+
+def clean_dataset(df, numeric_columns=None, outlier_multiplier=1.5):
+    """
+    Comprehensive data cleaning pipeline.
+    
+    Parameters:
+    df (pd.DataFrame): Input dataframe
+    numeric_columns (list): List of numeric columns to clean
+    outlier_multiplier (float): IQR multiplier for outlier removal
+    
+    Returns:
+    pd.DataFrame: Cleaned dataframe
+    """
+    if numeric_columns is None:
+        numeric_columns = df.select_dtypes(include=[np.number]).columns.tolist()
+    
+    cleaned_df = df.copy()
+    
+    for column in numeric_columns:
+        if column in df.columns:
+            # Remove outliers
+            cleaned_df = remove_outliers_iqr(cleaned_df, column, outlier_multiplier)
+            
+            # Normalize using z-score
+            cleaned_df[f"{column}_normalized"] = z_score_normalize(cleaned_df, column)
+    
+    return cleaned_df
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate dataframe structure and content.
+    
+    Parameters:
+    df (pd.DataFrame): Dataframe to validate
+    required_columns (list): List of required column names
+    
+    Returns:
+    tuple: (is_valid, error_message)
+    """
+    if not isinstance(df, pd.DataFrame):
+        return False, "Input is not a pandas DataFrame"
+    
+    if df.empty:
+        return False, "DataFrame is empty"
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            return False, f"Missing required columns: {missing_columns}"
+    
+    return True, "DataFrame is valid"
+
+# Example usage demonstration
+if __name__ == "__main__":
+    # Create sample data
+    np.random.seed(42)
+    sample_data = {
+        'feature_a': np.random.normal(100, 15, 100),
+        'feature_b': np.random.exponential(50, 100),
+        'category': np.random.choice(['A', 'B', 'C'], 100)
+    }
+    
+    df = pd.DataFrame(sample_data)
+    
+    # Add some outliers
+    df.loc[0, 'feature_a'] = 500
+    df.loc[1, 'feature_b'] = 1000
+    
+    print("Original DataFrame shape:", df.shape)
+    print("Original statistics:")
+    print(df[['feature_a', 'feature_b']].describe())
+    
+    # Clean the data
+    cleaned_df = clean_dataset(df, ['feature_a', 'feature_b'])
+    
+    print("\nCleaned DataFrame shape:", cleaned_df.shape)
+    print("Cleaned statistics:")
+    print(cleaned_df[['feature_a', 'feature_b']].describe())
+    
+    # Validate the cleaned data
+    is_valid, message = validate_dataframe(cleaned_df, ['feature_a', 'feature_b'])
+    print(f"\nData validation: {message}")
