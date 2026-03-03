@@ -560,4 +560,76 @@ if __name__ == "__main__":
     print("\nCleaned summary statistics:")
     for col in cleaned_df.columns:
         stats = calculate_summary_statistics(cleaned_df, col)
-        print(f"{col}: {stats}")
+        print(f"{col}: {stats}")import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(df, columns, factor=1.5):
+    """
+    Remove outliers using the Interquartile Range method.
+    Returns a cleaned DataFrame.
+    """
+    df_clean = df.copy()
+    for col in columns:
+        if col in df_clean.columns:
+            Q1 = df_clean[col].quantile(0.25)
+            Q3 = df_clean[col].quantile(0.75)
+            IQR = Q3 - Q1
+            lower_bound = Q1 - factor * IQR
+            upper_bound = Q3 + factor * IQR
+            df_clean = df_clean[(df_clean[col] >= lower_bound) & (df_clean[col] <= upper_bound)]
+    return df_clean.reset_index(drop=True)
+
+def normalize_minmax(df, columns):
+    """
+    Normalize specified columns using Min-Max scaling.
+    Returns a DataFrame with normalized columns.
+    """
+    df_norm = df.copy()
+    for col in columns:
+        if col in df_norm.columns:
+            min_val = df_norm[col].min()
+            max_val = df_norm[col].max()
+            if max_val > min_val:
+                df_norm[col] = (df_norm[col] - min_val) / (max_val - min_val)
+    return df_norm
+
+def z_score_filter(df, columns, threshold=3):
+    """
+    Filter rows based on Z-score threshold.
+    Returns a DataFrame with rows where all specified columns have |Z| < threshold.
+    """
+    df_filtered = df.copy()
+    mask = pd.Series(True, index=df_filtered.index)
+    for col in columns:
+        if col in df_filtered.columns:
+            z_scores = np.abs(stats.zscore(df_filtered[col], nan_policy='omit'))
+            mask = mask & (z_scores < threshold)
+    return df_filtered[mask].reset_index(drop=True)
+
+def handle_missing_interpolate(df, columns, method='linear'):
+    """
+    Handle missing values using interpolation.
+    Returns a DataFrame with interpolated values.
+    """
+    df_filled = df.copy()
+    for col in columns:
+        if col in df_filled.columns:
+            df_filled[col] = df_filled[col].interpolate(method=method, limit_direction='both')
+    return df_filled
+
+def clean_dataset(df, numeric_columns, outlier_method='iqr', norm_method='minmax', z_threshold=3, missing_method='linear'):
+    """
+    Comprehensive data cleaning pipeline.
+    """
+    if outlier_method == 'iqr':
+        df = remove_outliers_iqr(df, numeric_columns)
+    elif outlier_method == 'zscore':
+        df = z_score_filter(df, numeric_columns, threshold=z_threshold)
+    
+    df = handle_missing_interpolate(df, numeric_columns, method=missing_method)
+    
+    if norm_method == 'minmax':
+        df = normalize_minmax(df, numeric_columns)
+    
+    return df
