@@ -1046,3 +1046,121 @@ if __name__ == "__main__":
     cleaned_df = clean_dataset(sample_df)
     print(f"Cleaned dataset shape: {cleaned_df.shape}")
     print(f"Outliers removed: {len(sample_df) - len(cleaned_df)}")
+import numpy as np
+import pandas as pd
+
+def remove_outliers_iqr(data, column, factor=1.5):
+    """
+    Remove outliers from a DataFrame column using the IQR method.
+    
+    Parameters:
+    data (pd.DataFrame): Input DataFrame
+    column (str): Column name to process
+    factor (float): Multiplier for IQR (default 1.5)
+    
+    Returns:
+    pd.DataFrame: DataFrame with outliers removed
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    q1 = data[column].quantile(0.25)
+    q3 = data[column].quantile(0.75)
+    iqr = q3 - q1
+    
+    lower_bound = q1 - factor * iqr
+    upper_bound = q3 + factor * iqr
+    
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    return filtered_data
+
+def normalize_minmax(data, column):
+    """
+    Normalize a column using min-max scaling to [0, 1] range.
+    
+    Parameters:
+    data (pd.DataFrame): Input DataFrame
+    column (str): Column name to normalize
+    
+    Returns:
+    pd.Series: Normalized values
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    min_val = data[column].min()
+    max_val = data[column].max()
+    
+    if max_val == min_val:
+        return pd.Series([0.5] * len(data), index=data.index)
+    
+    normalized = (data[column] - min_val) / (max_val - min_val)
+    return normalized
+
+def clean_dataset(df, numeric_columns=None, outlier_factor=1.5):
+    """
+    Clean dataset by removing outliers and normalizing numeric columns.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    numeric_columns (list): List of numeric column names to process
+    outlier_factor (float): Factor for IQR outlier detection
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame
+    """
+    if numeric_columns is None:
+        numeric_columns = df.select_dtypes(include=[np.number]).columns.tolist()
+    
+    cleaned_df = df.copy()
+    
+    for col in numeric_columns:
+        if col in df.columns:
+            cleaned_df = remove_outliers_iqr(cleaned_df, col, outlier_factor)
+            cleaned_df[f"{col}_normalized"] = normalize_minmax(cleaned_df, col)
+    
+    return cleaned_df
+
+def calculate_statistics(df, column):
+    """
+    Calculate basic statistics for a column.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    column (str): Column name
+    
+    Returns:
+    dict: Dictionary containing statistics
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    stats = {
+        'mean': df[column].mean(),
+        'median': df[column].median(),
+        'std': df[column].std(),
+        'min': df[column].min(),
+        'max': df[column].max(),
+        'count': df[column].count(),
+        'missing': df[column].isnull().sum()
+    }
+    
+    return stats
+
+if __name__ == "__main__":
+    sample_data = pd.DataFrame({
+        'temperature': [22.5, 23.1, 21.8, 100.2, 22.9, 19.5, 24.3, 20.1],
+        'humidity': [45, 48, 42, 150, 47, 40, 50, 38],
+        'pressure': [1013, 1012, 1015, 1011, 1014, 1016, 1010, 1017]
+    })
+    
+    print("Original data:")
+    print(sample_data)
+    print("\nCleaned data:")
+    cleaned = clean_dataset(sample_data, ['temperature', 'humidity'])
+    print(cleaned)
+    
+    print("\nTemperature statistics:")
+    stats = calculate_statistics(sample_data, 'temperature')
+    for key, value in stats.items():
+        print(f"{key}: {value:.2f}")
