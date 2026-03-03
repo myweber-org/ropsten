@@ -159,3 +159,72 @@ def organize_files(directory):
 if __name__ == "__main__":
     target_directory = input("Enter directory path to organize: ").strip()
     organize_files(target_directory)
+import os
+import shutil
+from pathlib import Path
+
+def organize_files(source_dir, target_dir=None):
+    if target_dir is None:
+        target_dir = source_dir
+    
+    source_path = Path(source_dir)
+    target_path = Path(target_dir)
+    
+    if not source_path.exists():
+        print(f"Source directory {source_dir} does not exist.")
+        return
+    
+    target_path.mkdir(parents=True, exist_ok=True)
+    
+    extension_categories = {
+        'images': ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.svg'],
+        'documents': ['.pdf', '.docx', '.txt', '.xlsx', '.pptx', '.md'],
+        'audio': ['.mp3', '.wav', '.flac', '.aac'],
+        'video': ['.mp4', '.avi', '.mov', '.mkv'],
+        'archives': ['.zip', '.tar', '.gz', '.rar'],
+        'code': ['.py', '.js', '.html', '.css', '.java', '.cpp']
+    }
+    
+    for item in source_path.iterdir():
+        if item.is_file():
+            file_extension = item.suffix.lower()
+            category_found = False
+            
+            for category, extensions in extension_categories.items():
+                if file_extension in extensions:
+                    category_folder = target_path / category
+                    category_folder.mkdir(exist_ok=True)
+                    
+                    destination = category_folder / item.name
+                    if destination.exists():
+                        base_name = item.stem
+                        counter = 1
+                        while destination.exists():
+                            new_name = f"{base_name}_{counter}{item.suffix}"
+                            destination = category_folder / new_name
+                            counter += 1
+                    
+                    shutil.move(str(item), str(destination))
+                    print(f"Moved {item.name} to {category}/")
+                    category_found = True
+                    break
+            
+            if not category_found:
+                other_folder = target_path / 'other'
+                other_folder.mkdir(exist_ok=True)
+                destination = other_folder / item.name
+                shutil.move(str(item), str(destination))
+                print(f"Moved {item.name} to other/")
+
+if __name__ == "__main__":
+    import sys
+    
+    if len(sys.argv) > 1:
+        source_directory = sys.argv[1]
+        target_directory = sys.argv[2] if len(sys.argv) > 2 else None
+    else:
+        source_directory = input("Enter source directory path: ").strip()
+        target_input = input("Enter target directory (press Enter to use source): ").strip()
+        target_directory = target_input if target_input else None
+    
+    organize_files(source_directory, target_directory)
