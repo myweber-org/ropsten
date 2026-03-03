@@ -97,4 +97,11 @@ if __name__ == "__main__":
     
     numeric_data = ["1.5", "invalid", None, 3.2, "4.7"]
     print("Numeric data:", numeric_data)
-    print("Cleaned numeric:", clean_numeric_data(numeric_data))
+    print("Cleaned numeric:", clean_numeric_data(numeric_data))def remove_duplicates_preserve_order(sequence):
+    seen = set()
+    result = []
+    for item in sequence:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
