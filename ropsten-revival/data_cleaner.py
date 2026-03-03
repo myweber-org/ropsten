@@ -375,3 +375,100 @@ if __name__ == "__main__":
     print(f"Original shape: {sample_data.shape}")
     print(f"Cleaned shape: {result.shape}")
     print(result.head())
+import pandas as pd
+import numpy as np
+from typing import Optional, Dict, List
+
+class DataCleaner:
+    def __init__(self, df: pd.DataFrame):
+        self.df = df.copy()
+        self.original_shape = df.shape
+        
+    def handle_missing_values(self, strategy: str = 'mean', columns: Optional[List[str]] = None) -> 'DataCleaner':
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns.tolist()
+        
+        for col in columns:
+            if col not in self.df.columns:
+                continue
+                
+            if strategy == 'mean':
+                self.df[col].fillna(self.df[col].mean(), inplace=True)
+            elif strategy == 'median':
+                self.df[col].fillna(self.df[col].median(), inplace=True)
+            elif strategy == 'mode':
+                self.df[col].fillna(self.df[col].mode()[0], inplace=True)
+            elif strategy == 'drop':
+                self.df = self.df.dropna(subset=[col])
+            elif isinstance(strategy, (int, float)):
+                self.df[col].fillna(strategy, inplace=True)
+                
+        return self
+    
+    def convert_types(self, type_map: Dict[str, str]) -> 'DataCleaner':
+        for col, dtype in type_map.items():
+            if col in self.df.columns:
+                try:
+                    if dtype == 'datetime':
+                        self.df[col] = pd.to_datetime(self.df[col])
+                    else:
+                        self.df[col] = self.df[col].astype(dtype)
+                except Exception as e:
+                    print(f"Error converting column {col} to {dtype}: {e}")
+                    
+        return self
+    
+    def remove_duplicates(self, subset: Optional[List[str]] = None, keep: str = 'first') -> 'DataCleaner':
+        self.df = self.df.drop_duplicates(subset=subset, keep=keep)
+        return self
+    
+    def normalize_columns(self, columns: List[str], method: str = 'minmax') -> 'DataCleaner':
+        for col in columns:
+            if col not in self.df.columns:
+                continue
+                
+            if method == 'minmax':
+                min_val = self.df[col].min()
+                max_val = self.df[col].max()
+                if max_val > min_val:
+                    self.df[col] = (self.df[col] - min_val) / (max_val - min_val)
+            elif method == 'zscore':
+                mean_val = self.df[col].mean()
+                std_val = self.df[col].std()
+                if std_val > 0:
+                    self.df[col] = (self.df[col] - mean_val) / std_val
+                    
+        return self
+    
+    def get_cleaned_data(self) -> pd.DataFrame:
+        return self.df
+    
+    def get_summary(self) -> Dict:
+        return {
+            'original_shape': self.original_shape,
+            'cleaned_shape': self.df.shape,
+            'missing_values': self.df.isnull().sum().to_dict(),
+            'data_types': self.df.dtypes.to_dict()
+        }
+
+def clean_csv_file(input_path: str, output_path: str, cleaning_steps: Optional[Dict] = None) -> pd.DataFrame:
+    df = pd.read_csv(input_path)
+    cleaner = DataCleaner(df)
+    
+    if cleaning_steps:
+        if 'missing_values' in cleaning_steps:
+            cleaner.handle_missing_values(**cleaning_steps['missing_values'])
+        if 'convert_types' in cleaning_steps:
+            cleaner.convert_types(cleaning_steps['convert_types'])
+        if 'remove_duplicates' in cleaning_steps:
+            cleaner.remove_duplicates(**cleaning_steps['remove_duplicates'])
+        if 'normalize_columns' in cleaning_steps:
+            cleaner.normalize_columns(**cleaning_steps['normalize_columns'])
+    
+    cleaned_df = cleaner.get_cleaned_data()
+    cleaned_df.to_csv(output_path, index=False)
+    
+    print(f"Data cleaning completed. Original shape: {cleaner.original_shape}, Cleaned shape: {cleaned_df.shape}")
+    print(f"Cleaned data saved to: {output_path}")
+    
+    return cleaned_df
