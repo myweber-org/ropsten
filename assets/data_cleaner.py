@@ -104,4 +104,90 @@ if __name__ == "__main__":
         if item not in seen:
             seen.add(item)
             result.append(item)
-    return result
+    return resultimport numpy as np
+import pandas as pd
+from scipy import stats
+
+class DataCleaner:
+    def __init__(self, df):
+        self.df = df.copy()
+        self.original_shape = df.shape
+        
+    def detect_outliers_iqr(self, column, threshold=1.5):
+        Q1 = self.df[column].quantile(0.25)
+        Q3 = self.df[column].quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - threshold * IQR
+        upper_bound = Q3 + threshold * IQR
+        outliers = self.df[(self.df[column] < lower_bound) | (self.df[column] > upper_bound)]
+        return outliers
+    
+    def remove_outliers(self, column, method='iqr', threshold=1.5):
+        if method == 'iqr':
+            Q1 = self.df[column].quantile(0.25)
+            Q3 = self.df[column].quantile(0.75)
+            IQR = Q3 - Q1
+            lower_bound = Q1 - threshold * IQR
+            upper_bound = Q3 + threshold * IQR
+            self.df = self.df[(self.df[column] >= lower_bound) & (self.df[column] <= upper_bound)]
+        elif method == 'zscore':
+            z_scores = np.abs(stats.zscore(self.df[column]))
+            self.df = self.df[z_scores < threshold]
+        return self
+    
+    def normalize_column(self, column, method='minmax'):
+        if method == 'minmax':
+            min_val = self.df[column].min()
+            max_val = self.df[column].max()
+            self.df[column] = (self.df[column] - min_val) / (max_val - min_val)
+        elif method == 'standard':
+            mean_val = self.df[column].mean()
+            std_val = self.df[column].std()
+            self.df[column] = (self.df[column] - mean_val) / std_val
+        return self
+    
+    def fill_missing(self, column, method='mean'):
+        if method == 'mean':
+            fill_value = self.df[column].mean()
+        elif method == 'median':
+            fill_value = self.df[column].median()
+        elif method == 'mode':
+            fill_value = self.df[column].mode()[0]
+        else:
+            fill_value = method
+            
+        self.df[column].fillna(fill_value, inplace=True)
+        return self
+    
+    def get_cleaned_data(self):
+        return self.df
+    
+    def get_removed_count(self):
+        return self.original_shape[0] - self.df.shape[0]
+
+def example_usage():
+    data = {
+        'age': [25, 30, 35, 200, 28, 32, 150, 29, np.nan, 31],
+        'income': [50000, 60000, 55000, 1000000, 52000, 58000, 900000, 54000, 56000, 53000],
+        'score': [85, 90, 88, 30, 87, 92, 25, 89, 86, 91]
+    }
+    df = pd.DataFrame(data)
+    
+    cleaner = DataCleaner(df)
+    print(f"Original data shape: {cleaner.original_shape}")
+    
+    cleaner.fill_missing('age', 'mean')
+    cleaner.remove_outliers('age', 'iqr', 1.5)
+    cleaner.remove_outliers('income', 'zscore', 3)
+    cleaner.normalize_column('score', 'minmax')
+    
+    cleaned_df = cleaner.get_cleaned_data()
+    print(f"Cleaned data shape: {cleaned_df.shape}")
+    print(f"Rows removed: {cleaner.get_removed_count()}")
+    print("\nCleaned DataFrame:")
+    print(cleaned_df)
+    
+    return cleaned_df
+
+if __name__ == "__main__":
+    example_usage()
