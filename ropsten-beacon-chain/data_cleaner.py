@@ -480,3 +480,58 @@ def clean_dataset(df, numeric_columns=None):
             seen.add(item)
             result.append(item)
     return result
+import pandas as pd
+import numpy as np
+
+def remove_missing_rows(df, columns=None):
+    if columns is None:
+        columns = df.columns
+    return df.dropna(subset=columns)
+
+def fill_missing_with_mean(df, columns=None):
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    df_filled = df.copy()
+    for col in columns:
+        if col in df.columns and df[col].dtype in [np.float64, np.int64]:
+            df_filled[col] = df[col].fillna(df[col].mean())
+    return df_filled
+
+def remove_outliers_iqr(df, column, lower_quantile=0.25, upper_quantile=0.75):
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    Q1 = df[column].quantile(lower_quantile)
+    Q3 = df[column].quantile(upper_quantile)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+
+def standardize_column(df, column):
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    mean_val = df[column].mean()
+    std_val = df[column].std()
+    
+    if std_val == 0:
+        return df[column]
+    
+    return (df[column] - mean_val) / std_val
+
+def clean_dataset(df, numeric_columns=None, outlier_columns=None):
+    df_clean = df.copy()
+    
+    if numeric_columns is None:
+        numeric_columns = df.select_dtypes(include=[np.number]).columns
+    
+    df_clean = fill_missing_with_mean(df_clean, numeric_columns)
+    
+    if outlier_columns is not None:
+        for col in outlier_columns:
+            if col in df_clean.columns:
+                df_clean = remove_outliers_iqr(df_clean, col)
+    
+    return df_clean
