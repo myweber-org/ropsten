@@ -75,4 +75,11 @@ if __name__ == "__main__":
     cleaned_data = clean_dataset(sample_data, numeric_cols, outlier_method='zscore', normalize_method='zscore')
     print(f"Original shape: {sample_data.shape}")
     print(f"Cleaned shape: {cleaned_data.shape}")
-    print(cleaned_data.head())
+    print(cleaned_data.head())def deduplicate_list(original_list):
+    seen = set()
+    deduplicated = []
+    for item in original_list:
+        if item not in seen:
+            seen.add(item)
+            deduplicated.append(item)
+    return deduplicated
