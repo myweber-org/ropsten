@@ -68,3 +68,11 @@ class DataCleaner:
         print(self.df.dtypes)
         print("\nBasic Statistics:")
         print(self.df.describe())
+def remove_duplicates_preserve_order(iterable):
+    seen = set()
+    result = []
+    for item in iterable:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
