@@ -125,3 +125,30 @@ def remove_duplicates_preserve_order(sequence):
             seen.add(item)
             result.append(item)
     return result
+def remove_duplicates(data_list):
+    seen = set()
+    unique_data = []
+    for item in data_list:
+        if item not in seen:
+            seen.add(item)
+            unique_data.append(item)
+    return unique_data
+
+def clean_data_with_key(data_list, key_func=None):
+    if key_func is None:
+        return remove_duplicates(data_list)
+    seen = set()
+    unique_data = []
+    for item in data_list:
+        key = key_func(item)
+        if key not in seen:
+            seen.add(key)
+            unique_data.append(item)
+    return unique_data
+
+if __name__ == "__main__":
+    sample_data = [1, 2, 2, 3, 4, 4, 5]
+    print(remove_duplicates(sample_data))
+    
+    sample_objects = [{"id": 1}, {"id": 2}, {"id": 1}, {"id": 3}]
+    print(clean_data_with_key(sample_objects, key_func=lambda x: x["id"]))
