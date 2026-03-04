@@ -650,3 +650,70 @@ def clean_dataset(file_path, numeric_columns):
 if __name__ == "__main__":
     data = clean_dataset('sample_data.csv', ['age', 'income', 'score'])
     data.to_csv('cleaned_data.csv', index=False)
+import pandas as pd
+
+def clean_dataset(df, drop_duplicates=True, fill_missing=None):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame to clean.
+    drop_duplicates (bool): Whether to drop duplicate rows.
+    fill_missing (str or dict): Method to fill missing values.
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame.
+    """
+    cleaned_df = df.copy()
+    
+    if drop_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates()
+    
+    if fill_missing is not None:
+        if isinstance(fill_missing, dict):
+            cleaned_df = cleaned_df.fillna(fill_missing)
+        else:
+            cleaned_df = cleaned_df.fillna(method=fill_missing)
+    
+    return cleaned_df
+
+def validate_data(df, required_columns=None):
+    """
+    Validate the DataFrame for required columns and data types.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate.
+    required_columns (list): List of required column names.
+    
+    Returns:
+    bool: True if validation passes, False otherwise.
+    """
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            print(f"Missing columns: {missing_columns}")
+            return False
+    
+    if df.empty:
+        print("DataFrame is empty")
+        return False
+    
+    return True
+
+if __name__ == "__main__":
+    sample_data = {
+        'name': ['Alice', 'Bob', 'Alice', None, 'Charlie'],
+        'age': [25, 30, 25, 35, None],
+        'score': [85, 90, 85, 95, 88]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    
+    cleaned = clean_dataset(df, drop_duplicates=True, fill_missing={'name': 'Unknown', 'age': df['age'].mean()})
+    print("\nCleaned DataFrame:")
+    print(cleaned)
+    
+    is_valid = validate_data(cleaned, required_columns=['name', 'age', 'score'])
+    print(f"\nData validation passed: {is_valid}")
