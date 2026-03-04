@@ -769,3 +769,72 @@ def validate_dataframe(df, required_columns=None):
             return False, f"Missing required columns: {missing_columns}"
     
     return True, "DataFrame is valid"
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df, column_mapping=None, drop_duplicates=True, fill_missing=True):
+    """
+    Clean a pandas DataFrame by standardizing columns, removing duplicates,
+    and handling missing values.
+    """
+    cleaned_df = df.copy()
+    
+    if column_mapping:
+        cleaned_df = cleaned_df.rename(columns=column_mapping)
+    
+    if drop_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates()
+    
+    if fill_missing:
+        for col in cleaned_df.columns:
+            if cleaned_df[col].dtype in ['int64', 'float64']:
+                cleaned_df[col] = cleaned_df[col].fillna(cleaned_df[col].median())
+            elif cleaned_df[col].dtype == 'object':
+                cleaned_df[col] = cleaned_df[col].fillna('Unknown')
+    
+    cleaned_df = cleaned_df.reset_index(drop=True)
+    return cleaned_df
+
+def validate_data(df, required_columns=None, numeric_columns=None):
+    """
+    Validate data integrity by checking required columns and numeric ranges.
+    """
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            raise ValueError(f"Missing required columns: {missing_cols}")
+    
+    if numeric_columns:
+        for col in numeric_columns:
+            if col in df.columns and df[col].dtype in ['int64', 'float64']:
+                if df[col].isnull().any():
+                    print(f"Warning: Column '{col}' contains missing values")
+                if (df[col] < 0).any():
+                    print(f"Warning: Column '{col}' contains negative values")
+    
+    return True
+
+def sample_data(df, sample_size=1000, random_state=42):
+    """
+    Create a random sample from the dataset for testing purposes.
+    """
+    if len(df) > sample_size:
+        return df.sample(n=sample_size, random_state=random_state)
+    return df
+
+if __name__ == "__main__":
+    test_data = pd.DataFrame({
+        'name': ['Alice', 'Bob', 'Alice', None, 'Charlie'],
+        'age': [25, 30, 25, 40, None],
+        'score': [85.5, 92.0, 85.5, 78.5, 88.0]
+    })
+    
+    cleaned = clean_dataset(test_data)
+    print("Cleaned dataset:")
+    print(cleaned)
+    
+    try:
+        validate_data(cleaned, required_columns=['name', 'age'])
+        print("Data validation passed")
+    except ValueError as e:
+        print(f"Data validation failed: {e}")
