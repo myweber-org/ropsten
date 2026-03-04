@@ -546,3 +546,92 @@ if __name__ == "__main__":
     
     is_valid = validate_data(cleaned, required_columns=['id', 'value'], min_rows=3)
     print(f"\nData validation: {'PASS' if is_valid else 'FAIL'}")
+def remove_duplicates(data_list):
+    """
+    Remove duplicate entries from a list while preserving order.
+    
+    Args:
+        data_list (list): Input list potentially containing duplicates.
+    
+    Returns:
+        list: List with duplicates removed.
+    """
+    seen = set()
+    result = []
+    
+    for item in data_list:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    
+    return result
+
+def clean_numeric_strings(data_list):
+    """
+    Clean list by converting numeric strings to integers.
+    
+    Args:
+        data_list (list): List containing mixed string and numeric values.
+    
+    Returns:
+        list: List with numeric strings converted to integers.
+    """
+    cleaned = []
+    
+    for item in data_list:
+        if isinstance(item, str) and item.isdigit():
+            cleaned.append(int(item))
+        else:
+            cleaned.append(item)
+    
+    return cleaned
+
+def validate_data(data_list, validator_func=None):
+    """
+    Validate data in list using optional validator function.
+    
+    Args:
+        data_list (list): Data to validate.
+        validator_func (callable, optional): Function to validate each item.
+    
+    Returns:
+        tuple: (valid_items, invalid_items)
+    """
+    valid = []
+    invalid = []
+    
+    for item in data_list:
+        if validator_func:
+            if validator_func(item):
+                valid.append(item)
+            else:
+                invalid.append(item)
+        else:
+            valid.append(item)
+    
+    return valid, invalid
+
+def example_usage():
+    """Example usage of the data cleaning functions."""
+    sample_data = [1, 2, 2, 3, "4", "4", "abc", 5, "5"]
+    
+    print("Original data:", sample_data)
+    
+    # Remove duplicates
+    unique_data = remove_duplicates(sample_data)
+    print("After removing duplicates:", unique_data)
+    
+    # Clean numeric strings
+    cleaned_data = clean_numeric_strings(unique_data)
+    print("After cleaning numeric strings:", cleaned_data)
+    
+    # Validate data
+    def is_numeric(item):
+        return isinstance(item, (int, float))
+    
+    valid, invalid = validate_data(cleaned_data, is_numeric)
+    print("Valid numeric items:", valid)
+    print("Invalid non-numeric items:", invalid)
+
+if __name__ == "__main__":
+    example_usage()
