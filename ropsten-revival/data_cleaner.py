@@ -145,3 +145,77 @@ if __name__ == "__main__":
     
     is_valid, message = validate_dataframe(cleaned_df, required_columns=['id', 'value'])
     print(f"\nValidation: {message}")
+import pandas as pd
+import numpy as np
+
+def remove_outliers_iqr(df, column):
+    """
+    Remove outliers from a DataFrame column using the Interquartile Range method.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame.
+    column (str): Column name to process.
+    
+    Returns:
+    pd.DataFrame: DataFrame with outliers removed.
+    """
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    return filtered_df
+
+def calculate_summary_statistics(df):
+    """
+    Calculate summary statistics for numeric columns.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame.
+    
+    Returns:
+    pd.DataFrame: Summary statistics.
+    """
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    summary = df[numeric_cols].agg(['mean', 'median', 'std', 'min', 'max'])
+    return summary
+
+def normalize_column(df, column):
+    """
+    Normalize a column using min-max scaling.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame.
+    column (str): Column name to normalize.
+    
+    Returns:
+    pd.Series: Normalized column values.
+    """
+    min_val = df[column].min()
+    max_val = df[column].max()
+    
+    if max_val == min_val:
+        return df[column]
+    
+    normalized = (df[column] - min_val) / (max_val - min_val)
+    return normalized
+
+if __name__ == "__main__":
+    sample_data = {
+        'A': np.random.normal(100, 15, 1000),
+        'B': np.random.exponential(50, 1000),
+        'C': np.random.uniform(0, 200, 1000)
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original shape:", df.shape)
+    
+    cleaned_df = remove_outliers_iqr(df, 'A')
+    print("After outlier removal:", cleaned_df.shape)
+    
+    df['A_normalized'] = normalize_column(df, 'A')
+    stats = calculate_summary_statistics(df)
+    print("\nSummary statistics:")
+    print(stats)
