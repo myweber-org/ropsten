@@ -59,3 +59,11 @@ if __name__ == "__main__":
     filtered_df = filter_by_threshold(cleaned_df, 'B', 25)
     print("\nFiltered DataFrame (B > 25):")
     print(filtered_df)
+def remove_duplicates_preserve_order(seq):
+    seen = set()
+    result = []
+    for item in seq:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
