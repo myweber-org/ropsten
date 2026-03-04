@@ -1,48 +1,47 @@
 
-import numpy as np
 import pandas as pd
+import numpy as np
+import sys
 
-def remove_outliers_iqr(df, column):
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
-    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
-    return filtered_df
-
-def clean_dataset(df, numeric_columns):
-    cleaned_df = df.copy()
-    for col in numeric_columns:
-        if col in cleaned_df.columns:
-            cleaned_df = remove_outliers_iqr(cleaned_df, col)
-    return cleaned_df.reset_index(drop=True)
-
-def calculate_summary_statistics(df, numeric_columns):
-    summary = {}
-    for col in numeric_columns:
-        if col in df.columns:
-            summary[col] = {
-                'mean': df[col].mean(),
-                'median': df[col].median(),
-                'std': df[col].std(),
-                'min': df[col].min(),
-                'max': df[col].max()
-            }
-    return pd.DataFrame(summary).T
+def clean_csv(input_file, output_file, strategy='mean'):
+    try:
+        df = pd.read_csv(input_file)
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        
+        if strategy == 'mean':
+            df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].mean())
+        elif strategy == 'median':
+            df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].median())
+        elif strategy == 'mode':
+            df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].mode().iloc[0])
+        elif strategy == 'drop':
+            df = df.dropna(subset=numeric_cols)
+        else:
+            raise ValueError(f"Unknown strategy: {strategy}")
+        
+        df.to_csv(output_file, index=False)
+        print(f"Cleaned data saved to {output_file}")
+        return True
+        
+    except FileNotFoundError:
+        print(f"Error: Input file '{input_file}' not found")
+        return False
+    except pd.errors.EmptyDataError:
+        print(f"Error: Input file '{input_file}' is empty")
+        return False
+    except Exception as e:
+        print(f"Error during cleaning: {str(e)}")
+        return False
 
 if __name__ == "__main__":
-    sample_data = pd.DataFrame({
-        'A': np.random.normal(100, 15, 1000),
-        'B': np.random.exponential(50, 1000),
-        'C': np.random.uniform(0, 200, 1000)
-    })
+    if len(sys.argv) < 3:
+        print("Usage: python data_cleaner.py <input_file> <output_file> [strategy]")
+        print("Strategies: mean, median, mode, drop")
+        sys.exit(1)
     
-    numeric_cols = ['A', 'B', 'C']
-    cleaned_data = clean_dataset(sample_data, numeric_cols)
-    stats = calculate_summary_statistics(cleaned_data, numeric_cols)
+    input_file = sys.argv[1]
+    output_file = sys.argv[2]
+    strategy = sys.argv[3] if len(sys.argv) > 3 else 'mean'
     
-    print(f"Original dataset shape: {sample_data.shape}")
-    print(f"Cleaned dataset shape: {cleaned_data.shape}")
-    print("\nSummary statistics after cleaning:")
-    print(stats)
+    success = clean_csv(input_file, output_file, strategy)
+    sys.exit(0 if success else 1)
