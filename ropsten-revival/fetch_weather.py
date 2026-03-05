@@ -210,3 +210,94 @@ if __name__ == "__main__":
     
     weather = get_weather_data(API_KEY, CITY)
     display_weather(weather)
+import requests
+import json
+import time
+from datetime import datetime, timedelta
+from typing import Optional, Dict, Any
+
+class WeatherFetcher:
+    def __init__(self, api_key: str, cache_duration: int = 300):
+        self.api_key = api_key
+        self.base_url = "http://api.openweathermap.org/data/2.5/weather"
+        self.cache = {}
+        self.cache_duration = cache_duration
+
+    def _get_cache_key(self, city: str) -> str:
+        return city.lower().strip()
+
+    def _is_cache_valid(self, cache_entry: Dict[str, Any]) -> bool:
+        if not cache_entry:
+            return False
+        timestamp = cache_entry.get('timestamp', 0)
+        return time.time() - timestamp < self.cache_duration
+
+    def fetch_weather(self, city: str) -> Optional[Dict[str, Any]]:
+        cache_key = self._get_cache_key(city)
+        
+        if cache_key in self.cache and self._is_cache_valid(self.cache[cache_key]):
+            print(f"Returning cached data for {city}")
+            return self.cache[cache_key]['data']
+
+        params = {
+            'q': city,
+            'appid': self.api_key,
+            'units': 'metric'
+        }
+
+        try:
+            response = requests.get(self.base_url, params=params, timeout=10)
+            response.raise_for_status()
+            
+            data = response.json()
+            
+            cache_entry = {
+                'data': data,
+                'timestamp': time.time()
+            }
+            self.cache[cache_key] = cache_entry
+            
+            return data
+            
+        except requests.exceptions.RequestException as e:
+            print(f"Error fetching weather data for {city}: {e}")
+            return None
+        except json.JSONDecodeError as e:
+            print(f"Error parsing response for {city}: {e}")
+            return None
+
+    def get_temperature(self, city: str) -> Optional[float]:
+        data = self.fetch_weather(city)
+        if data and 'main' in data:
+            return data['main'].get('temp')
+        return None
+
+    def get_weather_description(self, city: str) -> Optional[str]:
+        data = self.fetch_weather(city)
+        if data and 'weather' in data and len(data['weather']) > 0:
+            return data['weather'][0].get('description')
+        return None
+
+    def clear_cache(self):
+        self.cache.clear()
+        print("Weather cache cleared")
+
+def main():
+    api_key = "your_api_key_here"
+    fetcher = WeatherFetcher(api_key)
+    
+    cities = ["London", "New York", "Tokyo", "Paris"]
+    
+    for city in cities:
+        print(f"\nFetching weather for {city}:")
+        temp = fetcher.get_temperature(city)
+        desc = fetcher.get_weather_description(city)
+        
+        if temp is not None and desc is not None:
+            print(f"Temperature: {temp}°C")
+            print(f"Description: {desc}")
+        else:
+            print("Failed to fetch weather data")
+
+if __name__ == "__main__":
+    main()
