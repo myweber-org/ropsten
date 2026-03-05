@@ -358,4 +358,118 @@ if __name__ == "__main__":
     city = sys.argv[2]
 
     weather_data = get_weather(api_key, city)
-    display_weather(weather_data)
+    display_weather(weather_data)import requests
+import json
+from datetime import datetime
+from typing import Optional, Dict, Any
+
+class WeatherFetcher:
+    """A class to fetch weather data from OpenWeatherMap API."""
+    
+    BASE_URL = "http://api.openweathermap.org/data/2.5/weather"
+    
+    def __init__(self, api_key: str):
+        self.api_key = api_key
+        self.session = requests.Session()
+    
+    def get_weather(self, city: str, country_code: Optional[str] = None) -> Dict[str, Any]:
+        """Fetch current weather data for a given city."""
+        query = city
+        if country_code:
+            query = f"{city},{country_code}"
+        
+        params = {
+            'q': query,
+            'appid': self.api_key,
+            'units': 'metric'
+        }
+        
+        try:
+            response = self.session.get(self.BASE_URL, params=params, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+            
+            return self._parse_weather_data(data)
+            
+        except requests.exceptions.RequestException as e:
+            return {
+                'error': True,
+                'message': f"Network error occurred: {str(e)}"
+            }
+        except json.JSONDecodeError:
+            return {
+                'error': True,
+                'message': "Invalid response from API"
+            }
+    
+    def _parse_weather_data(self, raw_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Parse raw API response into structured weather data."""
+        if raw_data.get('cod') != 200:
+            return {
+                'error': True,
+                'message': raw_data.get('message', 'Unknown API error')
+            }
+        
+        main = raw_data.get('main', {})
+        weather = raw_data.get('weather', [{}])[0]
+        wind = raw_data.get('wind', {})
+        
+        return {
+            'error': False,
+            'city': raw_data.get('name'),
+            'country': raw_data.get('sys', {}).get('country'),
+            'temperature': main.get('temp'),
+            'feels_like': main.get('feels_like'),
+            'humidity': main.get('humidity'),
+            'pressure': main.get('pressure'),
+            'weather': weather.get('description'),
+            'wind_speed': wind.get('speed'),
+            'wind_direction': wind.get('deg'),
+            'timestamp': datetime.utcfromtimestamp(raw_data.get('dt')).isoformat(),
+            'sunrise': datetime.utcfromtimestamp(raw_data.get('sys', {}).get('sunrise')).isoformat(),
+            'sunset': datetime.utcfromtimestamp(raw_data.get('sys', {}).get('sunset')).isoformat()
+        }
+    
+    def format_weather_report(self, weather_data: Dict[str, Any]) -> str:
+        """Format weather data into a human-readable report."""
+        if weather_data.get('error'):
+            return f"Error: {weather_data.get('message')}"
+        
+        report_lines = [
+            f"Weather Report for {weather_data['city']}, {weather_data['country']}",
+            "=" * 50,
+            f"Temperature: {weather_data['temperature']}°C (Feels like: {weather_data['feels_like']}°C)",
+            f"Conditions: {weather_data['weather'].title()}",
+            f"Humidity: {weather_data['humidity']}%",
+            f"Pressure: {weather_data['pressure']} hPa",
+            f"Wind: {weather_data['wind_speed']} m/s at {weather_data['wind_direction']}°",
+            f"Sunrise: {weather_data['sunrise'][11:16]} UTC",
+            f"Sunset: {weather_data['sunset'][11:16]} UTC",
+            f"Report Time: {weather_data['timestamp'][:19]} UTC"
+        ]
+        
+        return "\n".join(report_lines)
+
+def main():
+    """Example usage of the WeatherFetcher class."""
+    # Note: In production, use environment variables for API keys
+    API_KEY = "your_api_key_here"  # Replace with actual API key
+    
+    fetcher = WeatherFetcher(API_KEY)
+    
+    # Fetch weather for London
+    weather_data = fetcher.get_weather("London", "GB")
+    
+    if not weather_data.get('error'):
+        report = fetcher.format_weather_report(weather_data)
+        print(report)
+        
+        # Save to file
+        with open('weather_report.txt', 'w') as f:
+            f.write(report)
+        print("\nWeather report saved to 'weather_report.txt'")
+    else:
+        print(f"Failed to fetch weather data: {weather_data.get('message')}")
+
+if __name__ == "__main__":
+    main()
