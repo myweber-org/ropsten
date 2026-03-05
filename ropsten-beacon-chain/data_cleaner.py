@@ -97,3 +97,91 @@ class DataCleaner:
             'data_types': self.df.dtypes.to_dict()
         }
         return summary
+import numpy as np
+import pandas as pd
+
+def remove_outliers_iqr(df, column):
+    """
+    Remove outliers from a DataFrame column using the IQR method.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    column (str): Column name to process
+    
+    Returns:
+    pd.DataFrame: DataFrame with outliers removed
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    
+    return filtered_df
+
+def normalize_column(df, column):
+    """
+    Normalize a column using min-max scaling.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    column (str): Column name to normalize
+    
+    Returns:
+    pd.DataFrame: DataFrame with normalized column
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    df_copy = df.copy()
+    min_val = df_copy[column].min()
+    max_val = df_copy[column].max()
+    
+    if max_val == min_val:
+        df_copy[column] = 0.5
+    else:
+        df_copy[column] = (df_copy[column] - min_val) / (max_val - min_val)
+    
+    return df_copy
+
+def clean_dataset(df, numeric_columns):
+    """
+    Clean dataset by removing outliers and normalizing numeric columns.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    numeric_columns (list): List of numeric column names to process
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame
+    """
+    cleaned_df = df.copy()
+    
+    for column in numeric_columns:
+        if column in cleaned_df.columns:
+            cleaned_df = remove_outliers_iqr(cleaned_df, column)
+            cleaned_df = normalize_column(cleaned_df, column)
+    
+    return cleaned_df.reset_index(drop=True)
+
+if __name__ == "__main__":
+    sample_data = {
+        'id': range(1, 21),
+        'value': [10, 12, 13, 14, 15, 16, 17, 18, 19, 20, 
+                  21, 22, 23, 24, 25, 100, 102, 105, 110, 120]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original data:")
+    print(df.describe())
+    
+    cleaned_df = clean_dataset(df, ['value'])
+    print("\nCleaned data:")
+    print(cleaned_df.describe())
+    print(f"\nRemoved {len(df) - len(cleaned_df)} outliers")
