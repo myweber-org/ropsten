@@ -264,3 +264,30 @@ if __name__ == "__main__":
     
     cleaned_df = clean_numeric_data(df, columns=['value'])
     print("\nCleaned data shape:", cleaned_df.shape)
+def remove_duplicates(data_list):
+    seen = set()
+    unique_data = []
+    for item in data_list:
+        if item not in seen:
+            seen.add(item)
+            unique_data.append(item)
+    return unique_data
+
+def clean_data_with_key(data_list, key_func=None):
+    if key_func is None:
+        return remove_duplicates(data_list)
+    
+    seen = set()
+    unique_data = []
+    for item in data_list:
+        key = key_func(item)
+        if key not in seen:
+            seen.add(key)
+            unique_data.append(item)
+    return unique_data
+
+if __name__ == "__main__":
+    sample_data = [1, 2, 2, 3, 4, 4, 5]
+    cleaned = remove_duplicates(sample_data)
+    print(f"Original: {sample_data}")
+    print(f"Cleaned: {cleaned}")
