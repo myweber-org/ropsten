@@ -1,70 +1,49 @@
-import pandas as pd
-import numpy as np
 
-def clean_dataset(df, drop_duplicates=True, fill_missing='mean'):
+import pandas as pd
+import re
+
+def clean_text_column(df, column_name):
     """
-    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    Standardize text by converting to lowercase, removing extra spaces,
+    and stripping special characters except alphanumeric and basic punctuation.
     """
-    original_shape = df.shape
+    if column_name not in df.columns:
+        raise ValueError(f"Column '{column_name}' not found in DataFrame")
     
-    if drop_duplicates:
-        df = df.drop_duplicates()
-        print(f"Removed {original_shape[0] - df.shape[0]} duplicate rows.")
-    
-    if df.isnull().sum().any():
-        print("Missing values found:")
-        print(df.isnull().sum())
-        
-        if fill_missing == 'mean':
-            numeric_cols = df.select_dtypes(include=[np.number]).columns
-            df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].mean())
-        elif fill_missing == 'median':
-            numeric_cols = df.select_dtypes(include=[np.number]).columns
-            df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].median())
-        elif fill_missing == 'mode':
-            for col in df.columns:
-                df[col] = df[col].fillna(df[col].mode()[0] if not df[col].mode().empty else None)
-        elif fill_missing == 'drop':
-            df = df.dropna()
-            print("Rows with missing values have been dropped.")
-        else:
-            print("No filling method applied for missing values.")
-    
-    print(f"Dataset cleaned. Original shape: {original_shape}, New shape: {df.shape}")
+    df[column_name] = df[column_name].astype(str).str.lower()
+    df[column_name] = df[column_name].apply(lambda x: re.sub(r'\s+', ' ', x))
+    df[column_name] = df[column_name].apply(lambda x: re.sub(r'[^a-z0-9\s.,!?]', '', x))
+    df[column_name] = df[column_name].str.strip()
     return df
 
-def validate_data(df, required_columns=None, min_rows=1):
+def remove_duplicates(df, subset=None, keep='first'):
     """
-    Validate the dataset structure and content.
+    Remove duplicate rows from DataFrame.
     """
-    if required_columns:
-        missing_cols = [col for col in required_columns if col not in df.columns]
-        if missing_cols:
-            raise ValueError(f"Missing required columns: {missing_cols}")
+    return df.drop_duplicates(subset=subset, keep=keep)
+
+def clean_dataset(df, text_columns=None, deduplicate=True):
+    """
+    Main cleaning function to process text columns and remove duplicates.
+    """
+    if text_columns:
+        for col in text_columns:
+            df = clean_text_column(df, col)
     
-    if len(df) < min_rows:
-        raise ValueError(f"Dataset must have at least {min_rows} rows.")
+    if deduplicate:
+        df = remove_duplicates(df)
     
-    print("Data validation passed.")
-    return True
+    return df
 
 if __name__ == "__main__":
     sample_data = {
-        'id': [1, 2, 2, 3, 4, 5],
-        'value': [10.5, 20.3, 20.3, np.nan, 40.1, 50.0],
-        'category': ['A', 'B', 'B', 'C', None, 'A']
+        'id': [1, 2, 3, 4, 5],
+        'text': ['Hello World!', 'HELLO world', '  hello   world  ', 'Test', 'test']
     }
-    
     df = pd.DataFrame(sample_data)
-    print("Original dataset:")
+    print("Original DataFrame:")
     print(df)
-    print("\n")
     
-    cleaned_df = clean_dataset(df, drop_duplicates=True, fill_missing='mean')
-    print("\nCleaned dataset:")
+    cleaned_df = clean_dataset(df, text_columns=['text'])
+    print("\nCleaned DataFrame:")
     print(cleaned_df)
-    
-    try:
-        validate_data(cleaned_df, required_columns=['id', 'value'], min_rows=3)
-    except ValueError as e:
-        print(f"Validation error: {e}")
