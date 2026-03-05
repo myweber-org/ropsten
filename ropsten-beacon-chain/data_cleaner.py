@@ -1,69 +1,88 @@
 
 import pandas as pd
+import numpy as np
+from typing import Optional, Dict, List
 
-def clean_dataset(df, drop_na=True, column_case='lower'):
-    """
-    Clean a pandas DataFrame by handling null values and standardizing column names.
+class DataCleaner:
+    def __init__(self, df: pd.DataFrame):
+        self.df = df.copy()
+        self.original_shape = df.shape
+        
+    def handle_missing_values(self, strategy: str = 'mean', columns: Optional[List[str]] = None) -> 'DataCleaner':
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns.tolist()
+        
+        for col in columns:
+            if col not in self.df.columns:
+                continue
+                
+            if strategy == 'mean':
+                fill_value = self.df[col].mean()
+            elif strategy == 'median':
+                fill_value = self.df[col].median()
+            elif strategy == 'mode':
+                fill_value = self.df[col].mode()[0] if not self.df[col].mode().empty else 0
+            elif strategy == 'zero':
+                fill_value = 0
+            else:
+                raise ValueError(f"Unknown strategy: {strategy}")
+                
+            self.df[col].fillna(fill_value, inplace=True)
+            
+        return self
     
-    Parameters:
-    df (pd.DataFrame): Input DataFrame to clean.
-    drop_na (bool): If True, drop rows with any null values. Default is True.
-    column_case (str): Target case for column names ('lower', 'upper', 'title'). Default is 'lower'.
+    def convert_types(self, type_map: Dict[str, str]) -> 'DataCleaner':
+        for col, dtype in type_map.items():
+            if col in self.df.columns:
+                try:
+                    if dtype == 'datetime':
+                        self.df[col] = pd.to_datetime(self.df[col])
+                    else:
+                        self.df[col] = self.df[col].astype(dtype)
+                except Exception as e:
+                    print(f"Warning: Could not convert {col} to {dtype}: {e}")
+                    
+        return self
     
-    Returns:
-    pd.DataFrame: Cleaned DataFrame.
-    """
-    df_clean = df.copy()
+    def remove_outliers(self, columns: List[str], method: str = 'iqr', threshold: float = 1.5) -> 'DataCleaner':
+        for col in columns:
+            if col not in self.df.columns:
+                continue
+                
+            if method == 'iqr':
+                Q1 = self.df[col].quantile(0.25)
+                Q3 = self.df[col].quantile(0.75)
+                IQR = Q3 - Q1
+                lower_bound = Q1 - threshold * IQR
+                upper_bound = Q3 + threshold * IQR
+                
+                mask = (self.df[col] >= lower_bound) & (self.df[col] <= upper_bound)
+                self.df = self.df[mask]
+                
+        return self
     
-    if drop_na:
-        df_clean = df_clean.dropna()
+    def get_cleaned_data(self) -> pd.DataFrame:
+        return self.df
     
-    if column_case == 'lower':
-        df_clean.columns = df_clean.columns.str.lower()
-    elif column_case == 'upper':
-        df_clean.columns = df_clean.columns.str.upper()
-    elif column_case == 'title':
-        df_clean.columns = df_clean.columns.str.title()
-    
-    df_clean = df_clean.reset_index(drop=True)
-    
-    return df_clean
+    def get_summary(self) -> Dict:
+        return {
+            'original_shape': self.original_shape,
+            'cleaned_shape': self.df.shape,
+            'missing_values': self.df.isnull().sum().to_dict(),
+            'data_types': self.df.dtypes.astype(str).to_dict()
+        }
 
-def remove_duplicates(df, subset=None, keep='first'):
-    """
-    Remove duplicate rows from a DataFrame.
+def clean_csv_file(input_path: str, output_path: str, **kwargs) -> Dict:
+    df = pd.read_csv(input_path)
+    cleaner = DataCleaner(df)
     
-    Parameters:
-    df (pd.DataFrame): Input DataFrame.
-    subset (list): Columns to consider for identifying duplicates. Default is None (all columns).
-    keep (str): Which duplicates to keep ('first', 'last', False). Default is 'first'.
+    if 'missing_strategy' in kwargs:
+        cleaner.handle_missing_values(strategy=kwargs['missing_strategy'])
     
-    Returns:
-    pd.DataFrame: DataFrame with duplicates removed.
-    """
-    df_deduped = df.drop_duplicates(subset=subset, keep=keep)
-    df_deduped = df_deduped.reset_index(drop=True)
+    if 'type_map' in kwargs:
+        cleaner.convert_types(kwargs['type_map'])
     
-    return df_deduped
-
-def convert_column_types(df, column_type_map):
-    """
-    Convert data types of specified columns.
+    cleaned_df = cleaner.get_cleaned_data()
+    cleaned_df.to_csv(output_path, index=False)
     
-    Parameters:
-    df (pd.DataFrame): Input DataFrame.
-    column_type_map (dict): Dictionary mapping column names to target data types.
-    
-    Returns:
-    pd.DataFrame: DataFrame with converted column types.
-    """
-    df_converted = df.copy()
-    
-    for column, dtype in column_type_map.items():
-        if column in df_converted.columns:
-            try:
-                df_converted[column] = df_converted[column].astype(dtype)
-            except Exception as e:
-                print(f"Error converting column {column} to {dtype}: {e}")
-    
-    return df_converted
+    return cleaner.get_summary()
