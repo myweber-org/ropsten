@@ -1,49 +1,119 @@
-
+import numpy as np
 import pandas as pd
-import re
 
-def clean_text_column(df, column_name):
+def remove_outliers_iqr(df, column):
     """
-    Standardize text by converting to lowercase, removing extra spaces,
-    and stripping special characters except alphanumeric and basic punctuation.
-    """
-    if column_name not in df.columns:
-        raise ValueError(f"Column '{column_name}' not found in DataFrame")
+    Remove outliers from a DataFrame column using the IQR method.
     
-    df[column_name] = df[column_name].astype(str).str.lower()
-    df[column_name] = df[column_name].apply(lambda x: re.sub(r'\s+', ' ', x))
-    df[column_name] = df[column_name].apply(lambda x: re.sub(r'[^a-z0-9\s.,!?]', '', x))
-    df[column_name] = df[column_name].str.strip()
-    return df
+    Args:
+        df: pandas DataFrame
+        column: Column name to process
+    
+    Returns:
+        DataFrame with outliers removed
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    
+    return filtered_df
 
-def remove_duplicates(df, subset=None, keep='first'):
+def normalize_column(df, column, method='minmax'):
     """
-    Remove duplicate rows from DataFrame.
+    Normalize a column using specified method.
+    
+    Args:
+        df: pandas DataFrame
+        column: Column name to normalize
+        method: 'minmax' or 'zscore'
+    
+    Returns:
+        DataFrame with normalized column
     """
-    return df.drop_duplicates(subset=subset, keep=keep)
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    df_copy = df.copy()
+    
+    if method == 'minmax':
+        min_val = df_copy[column].min()
+        max_val = df_copy[column].max()
+        if max_val != min_val:
+            df_copy[column] = (df_copy[column] - min_val) / (max_val - min_val)
+    
+    elif method == 'zscore':
+        mean_val = df_copy[column].mean()
+        std_val = df_copy[column].std()
+        if std_val > 0:
+            df_copy[column] = (df_copy[column] - mean_val) / std_val
+    
+    else:
+        raise ValueError("Method must be 'minmax' or 'zscore'")
+    
+    return df_copy
 
-def clean_dataset(df, text_columns=None, deduplicate=True):
+def handle_missing_values(df, strategy='mean'):
     """
-    Main cleaning function to process text columns and remove duplicates.
+    Handle missing values in numeric columns.
+    
+    Args:
+        df: pandas DataFrame
+        strategy: 'mean', 'median', or 'drop'
+    
+    Returns:
+        DataFrame with handled missing values
     """
-    if text_columns:
-        for col in text_columns:
-            df = clean_text_column(df, col)
+    df_copy = df.copy()
+    numeric_cols = df_copy.select_dtypes(include=[np.number]).columns
     
-    if deduplicate:
-        df = remove_duplicates(df)
+    if strategy == 'drop':
+        df_copy = df_copy.dropna(subset=numeric_cols)
     
-    return df
+    elif strategy == 'mean':
+        for col in numeric_cols:
+            df_copy[col] = df_copy[col].fillna(df_copy[col].mean())
+    
+    elif strategy == 'median':
+        for col in numeric_cols:
+            df_copy[col] = df_copy[col].fillna(df_copy[col].median())
+    
+    else:
+        raise ValueError("Strategy must be 'mean', 'median', or 'drop'")
+    
+    return df_copy
 
-if __name__ == "__main__":
-    sample_data = {
-        'id': [1, 2, 3, 4, 5],
-        'text': ['Hello World!', 'HELLO world', '  hello   world  ', 'Test', 'test']
-    }
-    df = pd.DataFrame(sample_data)
-    print("Original DataFrame:")
-    print(df)
+def clean_dataframe(df, config):
+    """
+    Apply multiple cleaning operations based on configuration.
     
-    cleaned_df = clean_dataset(df, text_columns=['text'])
-    print("\nCleaned DataFrame:")
-    print(cleaned_df)
+    Args:
+        df: pandas DataFrame
+        config: Dictionary with cleaning configuration
+    
+    Returns:
+        Cleaned DataFrame
+    """
+    df_clean = df.copy()
+    
+    if 'remove_outliers' in config:
+        for col in config['remove_outliers']:
+            if col in df_clean.columns:
+                df_clean = remove_outliers_iqr(df_clean, col)
+    
+    if 'normalize' in config:
+        for col, method in config['normalize'].items():
+            if col in df_clean.columns:
+                df_clean = normalize_column(df_clean, col, method)
+    
+    if 'handle_missing' in config:
+        df_clean = handle_missing_values(df_clean, config['handle_missing'])
+    
+    return df_clean
