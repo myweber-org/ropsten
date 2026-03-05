@@ -99,4 +99,15 @@ def get_data_summary(dataframe):
     if len(numeric_cols) > 0:
         summary['numeric_summary'] = dataframe[numeric_cols].describe().to_dict()
     
-    return summary
+    return summarydef remove_duplicates(input_list):
+    """
+    Removes duplicate items from a list while preserving the original order.
+    Uses a dictionary to track seen items for O(n) time complexity.
+    """
+    seen = {}
+    result = []
+    for item in input_list:
+        if item not in seen:
+            seen[item] = True
+            result.append(item)
+    return result
