@@ -111,3 +111,11 @@ def get_data_summary(dataframe):
             seen[item] = True
             result.append(item)
     return result
+def remove_duplicates_preserve_order(iterable):
+    seen = set()
+    result = []
+    for item in iterable:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
