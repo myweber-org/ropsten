@@ -1771,3 +1771,108 @@ if __name__ == "__main__":
     # Validate the cleaned data
     is_valid = validate_dataframe(cleaned_df, required_columns=['id', 'value'], min_rows=3)
     print(f"Data validation passed: {is_valid}")
+import pandas as pd
+import numpy as np
+from scipy import stats
+
+def remove_outliers_iqr(df, columns=None, factor=1.5):
+    """
+    Remove outliers using Interquartile Range method.
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    df_clean = df.copy()
+    for col in columns:
+        if col in df.columns:
+            Q1 = df[col].quantile(0.25)
+            Q3 = df[col].quantile(0.75)
+            IQR = Q3 - Q1
+            lower_bound = Q1 - factor * IQR
+            upper_bound = Q3 + factor * IQR
+            mask = (df[col] >= lower_bound) & (df[col] <= upper_bound)
+            df_clean = df_clean[mask]
+    
+    return df_clean.reset_index(drop=True)
+
+def z_score_normalize(df, columns=None):
+    """
+    Normalize data using Z-score normalization.
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    df_normalized = df.copy()
+    for col in columns:
+        if col in df.columns:
+            mean_val = df[col].mean()
+            std_val = df[col].std()
+            if std_val > 0:
+                df_normalized[col] = (df[col] - mean_val) / std_val
+    
+    return df_normalized
+
+def min_max_normalize(df, columns=None, feature_range=(0, 1)):
+    """
+    Normalize data using Min-Max scaling.
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    df_normalized = df.copy()
+    min_val, max_val = feature_range
+    
+    for col in columns:
+        if col in df.columns:
+            col_min = df[col].min()
+            col_max = df[col].max()
+            if col_max - col_min > 0:
+                df_normalized[col] = min_val + (df[col] - col_min) * (max_val - min_val) / (col_max - col_min)
+    
+    return df_normalized
+
+def handle_missing_values(df, strategy='mean', columns=None):
+    """
+    Handle missing values using specified strategy.
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    df_filled = df.copy()
+    
+    for col in columns:
+        if col in df.columns and df[col].isnull().any():
+            if strategy == 'mean':
+                fill_value = df[col].mean()
+            elif strategy == 'median':
+                fill_value = df[col].median()
+            elif strategy == 'mode':
+                fill_value = df[col].mode()[0]
+            elif strategy == 'zero':
+                fill_value = 0
+            else:
+                continue
+            
+            df_filled[col] = df[col].fillna(fill_value)
+    
+    return df_filled
+
+def detect_anomalies_zscore(df, columns=None, threshold=3):
+    """
+    Detect anomalies using Z-score method.
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    anomalies = pd.DataFrame()
+    
+    for col in columns:
+        if col in df.columns:
+            z_scores = np.abs(stats.zscore(df[col].dropna()))
+            col_anomalies = df[z_scores > threshold]
+            if not col_anomalies.empty:
+                col_anomalies['anomaly_column'] = col
+                col_anomalies['z_score'] = z_scores[z_scores > threshold]
+                anomalies = pd.concat([anomalies, col_anomalies])
+    
+    return anomalies.reset_index(drop=True)
