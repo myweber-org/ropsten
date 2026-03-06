@@ -717,4 +717,38 @@ if __name__ == "__main__":
     
     print("\nCleaned dataset shape:", cleaned_df.shape)
     print("Cleaned statistics:")
-    print(calculate_statistics(cleaned_df))
+    print(calculate_statistics(cleaned_df))import re
+
+def clean_string(text):
+    """
+    Cleans and normalizes a string by:
+    1. Converting to lowercase.
+    2. Removing leading/trailing whitespace.
+    3. Replacing multiple spaces with a single space.
+    4. Removing non-alphanumeric characters except basic punctuation.
+    """
+    if not isinstance(text, str):
+        return ""
+
+    # Convert to lowercase and strip whitespace
+    text = text.lower().strip()
+
+    # Replace multiple spaces/newlines/tabs with a single space
+    text = re.sub(r'\s+', ' ', text)
+
+    # Remove non-alphanumeric characters except spaces, periods, commas, hyphens, and apostrophes
+    text = re.sub(r'[^a-z0-9\s.,\'-]', '', text)
+
+    return text
+
+def normalize_whitespace(text):
+    """A more specific function to only normalize whitespace."""
+    if not isinstance(text, str):
+        return ""
+    return ' '.join(text.split())
+
+# Example usage (commented out)
+# sample_text = "  Hello,   World! This is a TEST string...  "
+# cleaned = clean_string(sample_text)
+# print(f"Original: '{sample_text}'")
+# print(f"Cleaned: '{cleaned}'")
