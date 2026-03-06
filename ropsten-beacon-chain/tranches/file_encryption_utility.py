@@ -177,3 +177,106 @@ def main():
 
 if __name__ == "__main__":
     main()
+import os
+import base64
+from Crypto.Cipher import AES
+from Crypto.Protocol.KDF import PBKDF2
+from Crypto.Util.Padding import pad, unpad
+from Crypto.Random import get_random_bytes
+
+class FileEncryptor:
+    def __init__(self, password: str, salt_length: int = 16):
+        self.password = password.encode()
+        self.salt_length = salt_length
+
+    def derive_key(self, salt: bytes) -> bytes:
+        return PBKDF2(self.password, salt, dkLen=32, count=1000000)
+
+    def encrypt_file(self, input_path: str, output_path: str) -> bool:
+        try:
+            with open(input_path, 'rb') as f:
+                plaintext = f.read()
+
+            salt = get_random_bytes(self.salt_length)
+            key = self.derive_key(salt)
+            iv = get_random_bytes(AES.block_size)
+
+            cipher = AES.new(key, AES.MODE_CBC, iv)
+            ciphertext = cipher.encrypt(pad(plaintext, AES.block_size))
+
+            with open(output_path, 'wb') as f:
+                f.write(salt + iv + ciphertext)
+
+            return True
+        except Exception:
+            return False
+
+    def decrypt_file(self, input_path: str, output_path: str) -> bool:
+        try:
+            with open(input_path, 'rb') as f:
+                data = f.read()
+
+            salt = data[:self.salt_length]
+            iv = data[self.salt_length:self.salt_length + AES.block_size]
+            ciphertext = data[self.salt_length + AES.block_size:]
+
+            key = self.derive_key(salt)
+            cipher = AES.new(key, AES.MODE_CBC, iv)
+            plaintext = unpad(cipher.decrypt(ciphertext), AES.block_size)
+
+            with open(output_path, 'wb') as f:
+                f.write(plaintext)
+
+            return True
+        except Exception:
+            return False
+
+    def encrypt_string(self, plaintext: str) -> str:
+        salt = get_random_bytes(self.salt_length)
+        key = self.derive_key(salt)
+        iv = get_random_bytes(AES.block_size)
+
+        cipher = AES.new(key, AES.MODE_CBC, iv)
+        ciphertext = cipher.encrypt(pad(plaintext.encode(), AES.block_size))
+
+        combined = salt + iv + ciphertext
+        return base64.b64encode(combined).decode()
+
+    def decrypt_string(self, encrypted_data: str) -> str:
+        data = base64.b64decode(encrypted_data)
+        salt = data[:self.salt_length]
+        iv = data[self.salt_length:self.salt_length + AES.block_size]
+        ciphertext = data[self.salt_length + AES.block_size:]
+
+        key = self.derive_key(salt)
+        cipher = AES.new(key, AES.MODE_CBC, iv)
+        plaintext = unpad(cipher.decrypt(ciphertext), AES.block_size)
+
+        return plaintext.decode()
+
+def example_usage():
+    encryptor = FileEncryptor("secure_password_123")
+
+    # File encryption example
+    with open('test.txt', 'w') as f:
+        f.write("Sensitive data that needs protection")
+
+    encryptor.encrypt_file('test.txt', 'test.enc')
+    encryptor.decrypt_file('test.enc', 'test_decrypted.txt')
+
+    # String encryption example
+    secret_message = "Confidential information"
+    encrypted = encryptor.encrypt_string(secret_message)
+    decrypted = encryptor.decrypt_string(encrypted)
+
+    print(f"Original: {secret_message}")
+    print(f"Encrypted: {encrypted}")
+    print(f"Decrypted: {decrypted}")
+
+    # Cleanup
+    for file in ['test.txt', 'test.enc', 'test_decrypted.txt']:
+        if os.path.exists(file):
+            os.remove(file)
+
+if __name__ == "__main__":
+    example_usage()
