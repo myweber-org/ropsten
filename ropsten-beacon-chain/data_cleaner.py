@@ -940,4 +940,114 @@ if __name__ == "__main__":
     
     stats_df = calculate_statistics(cleaned)
     print("\nStatistics:")
-    print(stats_df)
+    print(stats_df)import pandas as pd
+import numpy as np
+
+def clean_csv_data(filepath, missing_strategy='mean', columns_to_drop=None):
+    """
+    Load and clean CSV data by handling missing values and dropping specified columns.
+    
+    Args:
+        filepath (str): Path to the CSV file.
+        missing_strategy (str): Strategy for handling missing values. 
+                               Options: 'mean', 'median', 'mode', 'drop'.
+        columns_to_drop (list): List of column names to drop from the dataset.
+    
+    Returns:
+        pandas.DataFrame: Cleaned DataFrame.
+    """
+    try:
+        df = pd.read_csv(filepath)
+    except FileNotFoundError:
+        raise FileNotFoundError(f"File not found at path: {filepath}")
+    
+    original_shape = df.shape
+    print(f"Original data shape: {original_shape}")
+    
+    if columns_to_drop:
+        df = df.drop(columns=columns_to_drop, errors='ignore')
+        print(f"Dropped columns: {columns_to_drop}")
+    
+    if missing_strategy != 'drop':
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        
+        for col in numeric_cols:
+            if df[col].isnull().any():
+                if missing_strategy == 'mean':
+                    fill_value = df[col].mean()
+                elif missing_strategy == 'median':
+                    fill_value = df[col].median()
+                elif missing_strategy == 'mode':
+                    fill_value = df[col].mode()[0]
+                else:
+                    continue
+                
+                df[col].fillna(fill_value, inplace=True)
+                print(f"Filled missing values in column '{col}' with {missing_strategy}: {fill_value:.2f}")
+    else:
+        df = df.dropna()
+        print("Dropped rows with missing values")
+    
+    cleaned_shape = df.shape
+    print(f"Cleaned data shape: {cleaned_shape}")
+    print(f"Removed {original_shape[0] - cleaned_shape[0]} rows and {original_shape[1] - cleaned_shape[1]} columns")
+    
+    return df
+
+def detect_outliers_iqr(df, column, threshold=1.5):
+    """
+    Detect outliers in a column using the Interquartile Range (IQR) method.
+    
+    Args:
+        df (pandas.DataFrame): Input DataFrame.
+        column (str): Column name to check for outliers.
+        threshold (float): Multiplier for IQR (default: 1.5).
+    
+    Returns:
+        pandas.Series: Boolean series indicating outliers.
+    """
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - threshold * IQR
+    upper_bound = Q3 + threshold * IQR
+    
+    outliers = (df[column] < lower_bound) | (df[column] > upper_bound)
+    
+    if outliers.any():
+        print(f"Detected {outliers.sum()} outliers in column '{column}'")
+        print(f"Lower bound: {lower_bound:.2f}, Upper bound: {upper_bound:.2f}")
+    
+    return outliers
+
+def save_cleaned_data(df, output_path):
+    """
+    Save cleaned DataFrame to a CSV file.
+    
+    Args:
+        df (pandas.DataFrame): Cleaned DataFrame.
+        output_path (str): Path to save the cleaned data.
+    """
+    df.to_csv(output_path, index=False)
+    print(f"Cleaned data saved to: {output_path}")
+
+if __name__ == "__main__":
+    sample_data = pd.DataFrame({
+        'A': [1, 2, np.nan, 4, 5, 100],
+        'B': [10, 20, 30, np.nan, 50, 60],
+        'C': ['a', 'b', 'c', 'd', 'e', 'f'],
+        'D': [0.1, 0.2, 0.3, 0.4, 0.5, 10.0]
+    })
+    
+    sample_data.to_csv('sample_data.csv', index=False)
+    
+    cleaned_df = clean_csv_data('sample_data.csv', missing_strategy='mean', columns_to_drop=['C'])
+    
+    outliers = detect_outliers_iqr(cleaned_df, 'A')
+    print(f"Outlier indices for column 'A': {cleaned_df[outliers].index.tolist()}")
+    
+    save_cleaned_data(cleaned_df, 'cleaned_sample_data.csv')
