@@ -561,3 +561,85 @@ if __name__ == "__main__":
     input_file = "raw_data.csv"
     output_file = "cleaned_data.csv"
     process_csv(input_file, output_file)
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(data, column):
+    Q1 = data[column].quantile(0.25)
+    Q3 = data[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    return data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+
+def remove_outliers_zscore(data, column, threshold=3):
+    z_scores = np.abs(stats.zscore(data[column]))
+    return data[z_scores < threshold]
+
+def normalize_minmax(data, column):
+    min_val = data[column].min()
+    max_val = data[column].max()
+    data[column + '_normalized'] = (data[column] - min_val) / (max_val - min_val)
+    return data
+
+def standardize_zscore(data, column):
+    mean_val = data[column].mean()
+    std_val = data[column].std()
+    data[column + '_standardized'] = (data[column] - mean_val) / std_val
+    return data
+
+def handle_missing_values(data, strategy='mean'):
+    if strategy == 'mean':
+        return data.fillna(data.mean())
+    elif strategy == 'median':
+        return data.fillna(data.median())
+    elif strategy == 'mode':
+        return data.fillna(data.mode().iloc[0])
+    elif strategy == 'drop':
+        return data.dropna()
+    else:
+        raise ValueError("Invalid strategy. Choose from 'mean', 'median', 'mode', or 'drop'")
+
+def clean_dataset(data, numeric_columns, outlier_method='iqr', missing_strategy='mean'):
+    cleaned_data = data.copy()
+    
+    for col in numeric_columns:
+        if outlier_method == 'iqr':
+            cleaned_data = remove_outliers_iqr(cleaned_data, col)
+        elif outlier_method == 'zscore':
+            cleaned_data = remove_outliers_zscore(cleaned_data, col)
+    
+    cleaned_data = handle_missing_values(cleaned_data, strategy=missing_strategy)
+    
+    return cleaned_data
+
+def create_sample_data():
+    np.random.seed(42)
+    dates = pd.date_range('2023-01-01', periods=100, freq='D')
+    values = np.random.randn(100) * 100 + 500
+    values[10] = 1000
+    values[20] = 50
+    values[30] = np.nan
+    
+    df = pd.DataFrame({
+        'date': dates,
+        'value': values,
+        'category': np.random.choice(['A', 'B', 'C'], 100)
+    })
+    return df
+
+if __name__ == "__main__":
+    df = create_sample_data()
+    print("Original data shape:", df.shape)
+    print("Missing values:", df['value'].isnull().sum())
+    
+    cleaned_df = clean_dataset(df, ['value'], outlier_method='iqr', missing_strategy='mean')
+    print("Cleaned data shape:", cleaned_df.shape)
+    print("Missing values after cleaning:", cleaned_df['value'].isnull().sum())
+    
+    normalized_df = normalize_minmax(cleaned_df.copy(), 'value')
+    standardized_df = standardize_zscore(cleaned_df.copy(), 'value')
+    
+    print("Normalization complete. New column: value_normalized")
+    print("Standardization complete. New column: value_standardized")
