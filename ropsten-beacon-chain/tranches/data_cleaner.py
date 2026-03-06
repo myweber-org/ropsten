@@ -1359,3 +1359,55 @@ if __name__ == "__main__":
     
     print("Cleaned DataFrame:")
     print(cleaned)
+import pandas as pd
+import numpy as np
+
+def clean_csv_data(filepath, fill_strategy='mean'):
+    """
+    Load a CSV file, handle missing values, and return cleaned DataFrame.
+    """
+    try:
+        df = pd.read_csv(filepath)
+    except FileNotFoundError:
+        print(f"Error: File '{filepath}' not found.")
+        return None
+    except pd.errors.EmptyDataError:
+        print("Error: File is empty.")
+        return None
+
+    numeric_columns = df.select_dtypes(include=[np.number]).columns
+
+    if fill_strategy == 'mean':
+        df[numeric_columns] = df[numeric_columns].fillna(df[numeric_columns].mean())
+    elif fill_strategy == 'median':
+        df[numeric_columns] = df[numeric_columns].fillna(df[numeric_columns].median())
+    elif fill_strategy == 'zero':
+        df[numeric_columns] = df[numeric_columns].fillna(0)
+    else:
+        print(f"Warning: Unknown fill strategy '{fill_strategy}'. Using 'mean'.")
+        df[numeric_columns] = df[numeric_columns].fillna(df[numeric_columns].mean())
+
+    categorical_columns = df.select_dtypes(exclude=[np.number]).columns
+    df[categorical_columns] = df[categorical_columns].fillna('Unknown')
+
+    print(f"Data cleaning completed. Rows: {len(df)}, Columns: {len(df.columns)}")
+    print(f"Missing values filled using '{fill_strategy}' strategy for numeric columns.")
+    
+    return df
+
+def save_cleaned_data(df, output_filepath):
+    """
+    Save the cleaned DataFrame to a new CSV file.
+    """
+    if df is not None:
+        df.to_csv(output_filepath, index=False)
+        print(f"Cleaned data saved to '{output_filepath}'")
+    else:
+        print("No data to save.")
+
+if __name__ == "__main__":
+    input_file = "raw_data.csv"
+    output_file = "cleaned_data.csv"
+    
+    cleaned_df = clean_csv_data(input_file, fill_strategy='median')
+    save_cleaned_data(cleaned_df, output_file)
