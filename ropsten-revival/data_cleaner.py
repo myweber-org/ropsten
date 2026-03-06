@@ -451,4 +451,72 @@ def clean_dataset(input_file, output_file):
     return df
 
 if __name__ == "__main__":
-    cleaned_df = clean_dataset('raw_data.csv', 'cleaned_data.csv')
+    cleaned_df = clean_dataset('raw_data.csv', 'cleaned_data.csv')import pandas as pd
+import numpy as np
+
+def clean_dataset(df, drop_duplicates=True, fill_missing='mean'):
+    """
+    Clean a pandas DataFrame by removing duplicates and handling missing values.
+    """
+    cleaned_df = df.copy()
+    
+    if drop_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates()
+        print(f"Removed {len(df) - len(cleaned_df)} duplicate rows.")
+    
+    if fill_missing:
+        numeric_cols = cleaned_df.select_dtypes(include=[np.number]).columns
+        
+        if fill_missing == 'mean':
+            for col in numeric_cols:
+                if cleaned_df[col].isnull().any():
+                    mean_val = cleaned_df[col].mean()
+                    cleaned_df[col].fillna(mean_val, inplace=True)
+                    print(f"Filled missing values in '{col}' with mean: {mean_val:.2f}")
+        elif fill_missing == 'median':
+            for col in numeric_cols:
+                if cleaned_df[col].isnull().any():
+                    median_val = cleaned_df[col].median()
+                    cleaned_df[col].fillna(median_val, inplace=True)
+                    print(f"Filled missing values in '{col}' with median: {median_val:.2f}")
+    
+    return cleaned_df
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    """
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError("Input must be a pandas DataFrame.")
+    
+    if df.empty:
+        raise ValueError("DataFrame is empty.")
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            raise ValueError(f"Missing required columns: {missing_cols}")
+    
+    return True
+
+if __name__ == "__main__":
+    sample_data = {
+        'A': [1, 2, 2, 4, None, 6],
+        'B': [10, None, 30, 40, 50, 60],
+        'C': ['x', 'y', 'y', 'z', 'z', 'x']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\nCleaning data...")
+    
+    cleaned = clean_dataset(df, drop_duplicates=True, fill_missing='mean')
+    print("\nCleaned DataFrame:")
+    print(cleaned)
+    
+    try:
+        validate_dataframe(cleaned, required_columns=['A', 'B'])
+        print("\nData validation passed.")
+    except ValueError as e:
+        print(f"\nData validation failed: {e}")
