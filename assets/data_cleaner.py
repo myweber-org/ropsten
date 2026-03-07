@@ -181,4 +181,101 @@ def remove_outliers_iqr(data, column):
     
     mask = (col_data >= lower_bound) & (col_data <= upper_bound)
     
-    return data[mask]
+    return data[mask]import pandas as pd
+
+def clean_dataset(df, drop_duplicates=True, fill_method=None):
+    """
+    Clean a pandas DataFrame by handling missing values and duplicates.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame to clean.
+    drop_duplicates (bool): Whether to drop duplicate rows.
+    fill_method (str or None): Method to fill missing values. 
+                               Options: 'mean', 'median', 'mode', or None.
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame.
+    """
+    cleaned_df = df.copy()
+    
+    # Handle missing values
+    if fill_method is not None:
+        numeric_cols = cleaned_df.select_dtypes(include=['number']).columns
+        
+        if fill_method == 'mean':
+            cleaned_df[numeric_cols] = cleaned_df[numeric_cols].fillna(
+                cleaned_df[numeric_cols].mean()
+            )
+        elif fill_method == 'median':
+            cleaned_df[numeric_cols] = cleaned_df[numeric_cols].fillna(
+                cleaned_df[numeric_cols].median()
+            )
+        elif fill_method == 'mode':
+            for col in cleaned_df.columns:
+                if cleaned_df[col].dtype == 'object':
+                    cleaned_df[col] = cleaned_df[col].fillna(
+                        cleaned_df[col].mode()[0] if not cleaned_df[col].mode().empty else ''
+                    )
+    
+    # Remove duplicates
+    if drop_duplicates:
+        initial_rows = len(cleaned_df)
+        cleaned_df = cleaned_df.drop_duplicates()
+        removed = initial_rows - len(cleaned_df)
+        if removed > 0:
+            print(f"Removed {removed} duplicate row(s)")
+    
+    # Reset index after cleaning
+    cleaned_df = cleaned_df.reset_index(drop=True)
+    
+    return cleaned_df
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and content.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate.
+    required_columns (list): List of required column names.
+    
+    Returns:
+    tuple: (is_valid, message)
+    """
+    if not isinstance(df, pd.DataFrame):
+        return False, "Input is not a pandas DataFrame"
+    
+    if df.empty:
+        return False, "DataFrame is empty"
+    
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            return False, f"Missing required columns: {missing_cols}"
+    
+    return True, "DataFrame is valid"
+
+# Example usage
+if __name__ == "__main__":
+    # Create sample data
+    sample_data = {
+        'id': [1, 2, 3, 3, 4, None],
+        'name': ['Alice', 'Bob', 'Charlie', 'Charlie', 'David', None],
+        'score': [85.5, 92.0, None, 78.5, 88.0, 90.5],
+        'age': [25, 30, 35, 35, 28, None]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\nShape:", df.shape)
+    
+    # Clean the data
+    cleaned = clean_dataset(df, drop_duplicates=True, fill_method='mean')
+    
+    print("\nCleaned DataFrame:")
+    print(cleaned)
+    print("\nShape after cleaning:", cleaned.shape)
+    
+    # Validate
+    is_valid, message = validate_dataframe(cleaned, required_columns=['id', 'name', 'score'])
+    print(f"\nValidation: {message}")
