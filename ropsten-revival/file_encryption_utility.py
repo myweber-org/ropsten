@@ -526,3 +526,99 @@ def main():
 
 if __name__ == "__main__":
     main()
+import os
+import hashlib
+from Crypto.Cipher import AES
+from Crypto.Protocol.KDF import PBKDF2
+from Crypto.Util.Padding import pad, unpad
+from Crypto.Random import get_random_bytes
+
+class FileEncryptor:
+    def __init__(self, password: str, salt_length: int = 16):
+        self.password = password.encode()
+        self.salt_length = salt_length
+
+    def derive_key(self, salt: bytes) -> bytes:
+        return PBKDF2(self.password, salt, dkLen=32, count=1000000)
+
+    def encrypt_file(self, input_path: str, output_path: str) -> bool:
+        try:
+            with open(input_path, 'rb') as f:
+                plaintext = f.read()
+
+            salt = get_random_bytes(self.salt_length)
+            key = self.derive_key(salt)
+            iv = get_random_bytes(AES.block_size)
+
+            cipher = AES.new(key, AES.MODE_CBC, iv)
+            ciphertext = cipher.encrypt(pad(plaintext, AES.block_size))
+
+            with open(output_path, 'wb') as f:
+                f.write(salt + iv + ciphertext)
+
+            return True
+        except Exception as e:
+            print(f"Encryption failed: {e}")
+            return False
+
+    def decrypt_file(self, input_path: str, output_path: str) -> bool:
+        try:
+            with open(input_path, 'rb') as f:
+                data = f.read()
+
+            salt = data[:self.salt_length]
+            iv = data[self.salt_length:self.salt_length + AES.block_size]
+            ciphertext = data[self.salt_length + AES.block_size:]
+
+            key = self.derive_key(salt)
+            cipher = AES.new(key, AES.MODE_CBC, iv)
+            plaintext = unpad(cipher.decrypt(ciphertext), AES.block_size)
+
+            with open(output_path, 'wb') as f:
+                f.write(plaintext)
+
+            return True
+        except Exception as e:
+            print(f"Decryption failed: {e}")
+            return False
+
+    def calculate_hash(self, file_path: str, algorithm: str = 'sha256') -> str:
+        hash_func = hashlib.new(algorithm)
+        with open(file_path, 'rb') as f:
+            for chunk in iter(lambda: f.read(4096), b''):
+                hash_func.update(chunk)
+        return hash_func.hexdigest()
+
+def main():
+    encryptor = FileEncryptor("secure_password_123")
+    
+    test_file = "test_document.txt"
+    encrypted_file = "encrypted.dat"
+    decrypted_file = "decrypted_document.txt"
+    
+    with open(test_file, 'w') as f:
+        f.write("This is a sample text for encryption demonstration.")
+    
+    if encryptor.encrypt_file(test_file, encrypted_file):
+        print("File encrypted successfully")
+        
+        original_hash = encryptor.calculate_hash(test_file)
+        print(f"Original file hash: {original_hash}")
+        
+        if encryptor.decrypt_file(encrypted_file, decrypted_file):
+            print("File decrypted successfully")
+            
+            decrypted_hash = encryptor.calculate_hash(decrypted_file)
+            print(f"Decrypted file hash: {decrypted_hash}")
+            
+            if original_hash == decrypted_hash:
+                print("Hash verification: PASSED")
+            else:
+                print("Hash verification: FAILED")
+    
+    os.remove(test_file)
+    os.remove(encrypted_file)
+    os.remove(decrypted_file)
+
+if __name__ == "__main__":
+    main()
