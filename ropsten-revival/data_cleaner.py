@@ -720,3 +720,124 @@ if __name__ == "__main__":
     
     is_valid = validate_dataframe(cleaned_df, required_columns=['A', 'B', 'C'])
     print(f"\nDataFrame is valid: {is_valid}")
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(dataframe, column, threshold=1.5):
+    """
+    Remove outliers using IQR method
+    """
+    if column not in dataframe.columns:
+        raise ValueError(f"Column '{column}' not found in dataframe")
+    
+    Q1 = dataframe[column].quantile(0.25)
+    Q3 = dataframe[column].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    lower_bound = Q1 - threshold * IQR
+    upper_bound = Q3 + threshold * IQR
+    
+    filtered_df = dataframe[(dataframe[column] >= lower_bound) & 
+                           (dataframe[column] <= upper_bound)]
+    
+    return filtered_df
+
+def z_score_normalize(dataframe, columns):
+    """
+    Normalize specified columns using z-score normalization
+    """
+    normalized_df = dataframe.copy()
+    
+    for col in columns:
+        if col not in normalized_df.columns:
+            raise ValueError(f"Column '{col}' not found in dataframe")
+        
+        mean_val = normalized_df[col].mean()
+        std_val = normalized_df[col].std()
+        
+        if std_val > 0:
+            normalized_df[col] = (normalized_df[col] - mean_val) / std_val
+        else:
+            normalized_df[col] = 0
+    
+    return normalized_df
+
+def min_max_normalize(dataframe, columns, feature_range=(0, 1)):
+    """
+    Normalize specified columns using min-max normalization
+    """
+    normalized_df = dataframe.copy()
+    
+    min_val, max_val = feature_range
+    
+    for col in columns:
+        if col not in normalized_df.columns:
+            raise ValueError(f"Column '{col}' not found in dataframe")
+        
+        col_min = normalized_df[col].min()
+        col_max = normalized_df[col].max()
+        
+        if col_max > col_min:
+            normalized_df[col] = (normalized_df[col] - col_min) / (col_max - col_min)
+            normalized_df[col] = normalized_df[col] * (max_val - min_val) + min_val
+        else:
+            normalized_df[col] = min_val
+    
+    return normalized_df
+
+def handle_missing_values(dataframe, strategy='mean', fill_value=None):
+    """
+    Handle missing values in numeric columns
+    """
+    df_copy = dataframe.copy()
+    numeric_cols = df_copy.select_dtypes(include=[np.number]).columns
+    
+    for col in numeric_cols:
+        if df_copy[col].isnull().any():
+            if strategy == 'mean':
+                fill_val = df_copy[col].mean()
+            elif strategy == 'median':
+                fill_val = df_copy[col].median()
+            elif strategy == 'mode':
+                fill_val = df_copy[col].mode()[0] if not df_copy[col].mode().empty else 0
+            elif strategy == 'constant' and fill_value is not None:
+                fill_val = fill_value
+            else:
+                raise ValueError("Invalid strategy or missing fill_value for constant strategy")
+            
+            df_copy[col] = df_copy[col].fillna(fill_val)
+    
+    return df_copy
+
+def detect_skewed_columns(dataframe, threshold=0.5):
+    """
+    Detect skewed columns based on skewness value
+    """
+    skewed_cols = []
+    numeric_cols = dataframe.select_dtypes(include=[np.number]).columns
+    
+    for col in numeric_cols:
+        skewness = stats.skew(dataframe[col].dropna())
+        if abs(skewness) > threshold:
+            skewed_cols.append((col, skewness))
+    
+    return sorted(skewed_cols, key=lambda x: abs(x[1]), reverse=True)
+
+def log_transform_skewed(dataframe, columns):
+    """
+    Apply log transformation to reduce skewness
+    """
+    transformed_df = dataframe.copy()
+    
+    for col in columns:
+        if col not in transformed_df.columns:
+            raise ValueError(f"Column '{col}' not found in dataframe")
+        
+        min_val = transformed_df[col].min()
+        if min_val <= 0:
+            transformed_df[col] = transformed_df[col] + abs(min_val) + 1
+        
+        transformed_df[col] = np.log1p(transformed_df[col])
+    
+    return transformed_df
