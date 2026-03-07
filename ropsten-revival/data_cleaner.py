@@ -131,4 +131,84 @@ if __name__ == "__main__":
     
     cleaner.summary()
     print(f"\nCleaned data shape: {cleaned_df.shape}")
-    print(f"\nFirst 5 rows:\n{cleaned_df.head()}")
+    print(f"\nFirst 5 rows:\n{cleaned_df.head()}")import pandas as pd
+import numpy as np
+
+def clean_csv_data(filepath, fill_method='mean', drop_threshold=0.5):
+    """
+    Load and clean a CSV file by handling missing values.
+    
+    Parameters:
+    filepath (str): Path to the CSV file.
+    fill_method (str): Method for filling missing values ('mean', 'median', 'mode', or 'zero').
+    drop_threshold (float): Drop columns with missing values exceeding this ratio (0 to 1).
+    
+    Returns:
+    pandas.DataFrame: Cleaned DataFrame.
+    """
+    try:
+        df = pd.read_csv(filepath)
+    except FileNotFoundError:
+        raise FileNotFoundError(f"File not found: {filepath}")
+    except Exception as e:
+        raise ValueError(f"Error reading CSV: {e}")
+
+    original_shape = df.shape
+    print(f"Original data shape: {original_shape}")
+
+    # Drop columns with too many missing values
+    missing_ratio = df.isnull().sum() / len(df)
+    cols_to_drop = missing_ratio[missing_ratio > drop_threshold].index
+    df = df.drop(columns=cols_to_drop)
+    if len(cols_to_drop) > 0:
+        print(f"Dropped columns: {list(cols_to_drop)}")
+
+    # Fill missing values
+    for column in df.columns:
+        if df[column].isnull().any():
+            if fill_method == 'mean' and pd.api.types.is_numeric_dtype(df[column]):
+                fill_value = df[column].mean()
+            elif fill_method == 'median' and pd.api.types.is_numeric_dtype(df[column]):
+                fill_value = df[column].median()
+            elif fill_method == 'mode':
+                fill_value = df[column].mode()[0] if not df[column].mode().empty else np.nan
+            elif fill_method == 'zero':
+                fill_value = 0
+            else:
+                fill_value = df[column].ffill().bfill().iloc[0] if not df[column].allnull() else np.nan
+            
+            df[column] = df[column].fillna(fill_value)
+            print(f"Filled missing values in '{column}' using {fill_method}")
+
+    # Remove duplicate rows
+    duplicates = df.duplicated().sum()
+    df = df.drop_duplicates()
+    if duplicates > 0:
+        print(f"Removed {duplicates} duplicate rows")
+
+    print(f"Cleaned data shape: {df.shape}")
+    print(f"Total missing values after cleaning: {df.isnull().sum().sum()}")
+    
+    return df
+
+def save_cleaned_data(df, output_path):
+    """
+    Save cleaned DataFrame to a CSV file.
+    
+    Parameters:
+    df (pandas.DataFrame): Cleaned DataFrame.
+    output_path (str): Path to save the cleaned CSV.
+    """
+    df.to_csv(output_path, index=False)
+    print(f"Cleaned data saved to: {output_path}")
+
+if __name__ == "__main__":
+    # Example usage
+    input_file = "sample_data.csv"
+    output_file = "cleaned_data.csv"
+    
+    try:
+        cleaned_df = clean_csv_data(input_file, fill_method='median', drop_threshold=0.3)
+        save_cleaned_data(cleaned_df, output_file)
+    except Exception as e:
+        print(f"Error during cleaning: {e}")
