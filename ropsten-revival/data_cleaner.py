@@ -655,3 +655,68 @@ if __name__ == "__main__":
     print("\nCleaned data summary:")
     cleaned_summary = get_data_summary(cleaned)
     print(f"Missing values: {cleaned_summary['missing_values']}")
+import pandas as pd
+
+def clean_dataset(df):
+    """
+    Clean a pandas DataFrame by removing null values and duplicate rows.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to be cleaned.
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame.
+    """
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError("Input must be a pandas DataFrame")
+    
+    df_cleaned = df.copy()
+    
+    df_cleaned = df_cleaned.dropna()
+    
+    df_cleaned = df_cleaned.drop_duplicates()
+    
+    df_cleaned = df_cleaned.reset_index(drop=True)
+    
+    return df_cleaned
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate the structure of a DataFrame.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate.
+        required_columns (list): List of required column names.
+    
+    Returns:
+        bool: True if DataFrame is valid.
+    """
+    if not isinstance(df, pd.DataFrame):
+        return False
+    
+    if df.empty:
+        return False
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            return False
+    
+    return True
+
+if __name__ == "__main__":
+    sample_data = {
+        'A': [1, 2, None, 4, 1],
+        'B': [5, 6, 7, None, 5],
+        'C': ['x', 'y', 'z', 'x', 'x']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\nCleaned DataFrame:")
+    cleaned_df = clean_dataset(df)
+    print(cleaned_df)
+    
+    is_valid = validate_dataframe(cleaned_df, required_columns=['A', 'B', 'C'])
+    print(f"\nDataFrame is valid: {is_valid}")
