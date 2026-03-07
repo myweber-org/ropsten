@@ -78,3 +78,111 @@ if __name__ == "__main__":
     result_df = example_usage()
     print("\nFirst 5 rows of cleaned data:")
     print(result_df.head())
+import pandas as pd
+import numpy as np
+from scipy import stats
+
+class DataCleaner:
+    def __init__(self, df):
+        self.df = df.copy()
+        self.original_shape = df.shape
+        
+    def remove_outliers_iqr(self, columns=None, factor=1.5):
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
+        
+        clean_df = self.df.copy()
+        for col in columns:
+            if col in clean_df.columns:
+                Q1 = clean_df[col].quantile(0.25)
+                Q3 = clean_df[col].quantile(0.75)
+                IQR = Q3 - Q1
+                lower_bound = Q1 - factor * IQR
+                upper_bound = Q3 + factor * IQR
+                clean_df = clean_df[(clean_df[col] >= lower_bound) & (clean_df[col] <= upper_bound)]
+        
+        removed_count = self.original_shape[0] - clean_df.shape[0]
+        self.df = clean_df
+        return removed_count
+    
+    def normalize_data(self, columns=None, method='minmax'):
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns
+        
+        normalized_df = self.df.copy()
+        for col in columns:
+            if col in normalized_df.columns:
+                if method == 'minmax':
+                    col_min = normalized_df[col].min()
+                    col_max = normalized_df[col].max()
+                    if col_max != col_min:
+                        normalized_df[col] = (normalized_df[col] - col_min) / (col_max - col_min)
+                elif method == 'zscore':
+                    col_mean = normalized_df[col].mean()
+                    col_std = normalized_df[col].std()
+                    if col_std > 0:
+                        normalized_df[col] = (normalized_df[col] - col_mean) / col_std
+        
+        self.df = normalized_df
+        return self.df
+    
+    def handle_missing_values(self, strategy='mean', fill_value=None):
+        numeric_cols = self.df.select_dtypes(include=[np.number]).columns
+        
+        for col in numeric_cols:
+            if self.df[col].isnull().any():
+                if strategy == 'mean':
+                    fill_val = self.df[col].mean()
+                elif strategy == 'median':
+                    fill_val = self.df[col].median()
+                elif strategy == 'mode':
+                    fill_val = self.df[col].mode()[0]
+                elif strategy == 'constant' and fill_value is not None:
+                    fill_val = fill_value
+                else:
+                    continue
+                
+                self.df[col] = self.df[col].fillna(fill_val)
+        
+        return self.df.isnull().sum().sum()
+    
+    def get_cleaned_data(self):
+        return self.df.copy()
+    
+    def get_summary(self):
+        summary = {
+            'original_rows': self.original_shape[0],
+            'current_rows': self.df.shape[0],
+            'columns': self.df.shape[1],
+            'missing_values': self.df.isnull().sum().sum(),
+            'numeric_columns': list(self.df.select_dtypes(include=[np.number]).columns),
+            'categorical_columns': list(self.df.select_dtypes(exclude=[np.number]).columns)
+        }
+        return summary
+
+def load_and_clean_data(filepath, outlier_factor=1.5):
+    try:
+        df = pd.read_csv(filepath)
+        cleaner = DataCleaner(df)
+        
+        print(f"Loaded data with shape: {df.shape}")
+        
+        missing_before = df.isnull().sum().sum()
+        cleaner.handle_missing_values(strategy='median')
+        missing_after = cleaner.df.isnull().sum().sum()
+        print(f"Handled missing values: {missing_before} -> {missing_after}")
+        
+        removed_outliers = cleaner.remove_outliers_iqr(factor=outlier_factor)
+        print(f"Removed {removed_outliers} outliers using IQR method")
+        
+        cleaner.normalize_data(method='minmax')
+        print("Applied min-max normalization to numeric columns")
+        
+        summary = cleaner.get_summary()
+        print(f"Final dataset shape: {cleaner.df.shape}")
+        
+        return cleaner.get_cleaned_data(), summary
+        
+    except Exception as e:
+        print(f"Error processing file: {e}")
+        return None, None
