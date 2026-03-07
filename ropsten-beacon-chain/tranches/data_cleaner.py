@@ -317,3 +317,95 @@ if __name__ == "__main__":
     
     is_valid = validate_data(cleaned, required_columns=['A', 'B'], min_rows=3)
     print(f"\nData validation result: {is_valid}")
+import pandas as pd
+
+def clean_dataset(df, text_columns=None):
+    """
+    Clean a pandas DataFrame by removing rows with null values
+    and standardizing text columns to lowercase.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    text_columns (list): List of column names to standardize as text
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame
+    """
+    cleaned_df = df.copy()
+    
+    # Remove rows with any null values
+    cleaned_df = cleaned_df.dropna()
+    
+    # Standardize text columns to lowercase
+    if text_columns:
+        for col in text_columns:
+            if col in cleaned_df.columns:
+                cleaned_df[col] = cleaned_df[col].astype(str).str.lower().str.strip()
+    
+    # Reset index after cleaning
+    cleaned_df = cleaned_df.reset_index(drop=True)
+    
+    return cleaned_df
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate that DataFrame meets basic requirements.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame to validate
+    required_columns (list): List of required column names
+    
+    Returns:
+    bool: True if validation passes, False otherwise
+    """
+    if df.empty:
+        print("Warning: DataFrame is empty")
+        return False
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            print(f"Missing required columns: {missing_columns}")
+            return False
+    
+    return True
+
+def get_data_summary(df):
+    """
+    Generate a summary of the DataFrame.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    
+    Returns:
+    dict: Summary statistics
+    """
+    summary = {
+        'rows': len(df),
+        'columns': len(df.columns),
+        'null_count': df.isnull().sum().sum(),
+        'dtypes': df.dtypes.to_dict(),
+        'memory_usage': df.memory_usage(deep=True).sum()
+    }
+    return summary
+
+# Example usage (commented out for production)
+# if __name__ == "__main__":
+#     sample_data = {
+#         'name': ['Alice', 'Bob', None, 'Charlie'],
+#         'age': [25, 30, 35, None],
+#         'city': ['New York', 'los angeles', 'Chicago', 'BOSTON']
+#     }
+#     
+#     df = pd.DataFrame(sample_data)
+#     print("Original DataFrame:")
+#     print(df)
+#     
+#     cleaned = clean_dataset(df, text_columns=['name', 'city'])
+#     print("\nCleaned DataFrame:")
+#     print(cleaned)
+#     
+#     summary = get_data_summary(cleaned)
+#     print("\nData Summary:")
+#     for key, value in summary.items():
+#         print(f"{key}: {value}")
