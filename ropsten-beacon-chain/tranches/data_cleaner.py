@@ -93,3 +93,92 @@ if __name__ == "__main__":
     cleaned_data, stats_summary = example_usage()
     print(f"Cleaned data shape: {cleaned_data.shape}")
     print(f"Summary stats: {stats_summary}")
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(dataframe, column, threshold=1.5):
+    """
+    Remove outliers using IQR method
+    """
+    Q1 = dataframe[column].quantile(0.25)
+    Q3 = dataframe[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - threshold * IQR
+    upper_bound = Q3 + threshold * IQR
+    
+    return dataframe[(dataframe[column] >= lower_bound) & 
+                     (dataframe[column] <= upper_bound)]
+
+def z_score_normalize(dataframe, column):
+    """
+    Normalize column using z-score normalization
+    """
+    mean = dataframe[column].mean()
+    std = dataframe[column].std()
+    
+    if std == 0:
+        return dataframe[column]
+    
+    return (dataframe[column] - mean) / std
+
+def min_max_normalize(dataframe, column):
+    """
+    Normalize column using min-max scaling
+    """
+    min_val = dataframe[column].min()
+    max_val = dataframe[column].max()
+    
+    if max_val == min_val:
+        return dataframe[column]
+    
+    return (dataframe[column] - min_val) / (max_val - min_val)
+
+def clean_dataset(dataframe, numeric_columns, outlier_threshold=1.5, normalization_method='zscore'):
+    """
+    Clean dataset by removing outliers and normalizing numeric columns
+    """
+    cleaned_df = dataframe.copy()
+    
+    for column in numeric_columns:
+        if column in cleaned_df.columns:
+            cleaned_df = remove_outliers_iqr(cleaned_df, column, outlier_threshold)
+    
+    for column in numeric_columns:
+        if column in cleaned_df.columns:
+            if normalization_method == 'zscore':
+                cleaned_df[column] = z_score_normalize(cleaned_df, column)
+            elif normalization_method == 'minmax':
+                cleaned_df[column] = min_max_normalize(cleaned_df, column)
+    
+    return cleaned_df
+
+def detect_skewed_columns(dataframe, numeric_columns, skew_threshold=0.5):
+    """
+    Detect columns with significant skewness
+    """
+    skewed_cols = []
+    
+    for column in numeric_columns:
+        if column in dataframe.columns:
+            skewness = dataframe[column].skew()
+            if abs(skewness) > skew_threshold:
+                skewed_cols.append((column, skewness))
+    
+    return sorted(skewed_cols, key=lambda x: abs(x[1]), reverse=True)
+
+def log_transform_skewed(dataframe, skewed_columns):
+    """
+    Apply log transformation to reduce skewness
+    """
+    transformed_df = dataframe.copy()
+    
+    for column, _ in skewed_columns:
+        if column in transformed_df.columns:
+            min_val = transformed_df[column].min()
+            if min_val <= 0:
+                transformed_df[column] = np.log(transformed_df[column] - min_val + 1)
+            else:
+                transformed_df[column] = np.log(transformed_df[column])
+    
+    return transformed_df
