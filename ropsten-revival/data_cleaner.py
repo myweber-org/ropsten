@@ -247,4 +247,98 @@ if __name__ == "__main__":
     save_cleaned_data(cleaned_data, output_file)
     
     print(f"Data cleaning completed. Original shape: {raw_data.shape}")
-    print(f"Cleaned data shape: {cleaned_data.shape}")
+    print(f"Cleaned data shape: {cleaned_data.shape}")import pandas as pd
+import numpy as np
+
+def clean_dataset(df, missing_strategy='mean', outlier_threshold=3):
+    """
+    Clean a pandas DataFrame by handling missing values and outliers.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame to clean.
+    missing_strategy (str): Strategy for handling missing values.
+        Options: 'mean', 'median', 'mode', 'drop'.
+    outlier_threshold (float): Number of standard deviations for outlier detection.
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame.
+    """
+    cleaned_df = df.copy()
+    
+    # Handle missing values
+    numeric_cols = cleaned_df.select_dtypes(include=[np.number]).columns
+    
+    if missing_strategy == 'mean':
+        cleaned_df[numeric_cols] = cleaned_df[numeric_cols].fillna(
+            cleaned_df[numeric_cols].mean()
+        )
+    elif missing_strategy == 'median':
+        cleaned_df[numeric_cols] = cleaned_df[numeric_cols].fillna(
+            cleaned_df[numeric_cols].median()
+        )
+    elif missing_strategy == 'mode':
+        for col in numeric_cols:
+            mode_val = cleaned_df[col].mode()
+            if not mode_val.empty:
+                cleaned_df[col] = cleaned_df[col].fillna(mode_val.iloc[0])
+    elif missing_strategy == 'drop':
+        cleaned_df = cleaned_df.dropna(subset=numeric_cols)
+    
+    # Handle outliers using z-score method
+    if outlier_threshold > 0:
+        for col in numeric_cols:
+            z_scores = np.abs((cleaned_df[col] - cleaned_df[col].mean()) / cleaned_df[col].std())
+            outlier_mask = z_scores > outlier_threshold
+            if outlier_mask.any():
+                # Replace outliers with column median
+                col_median = cleaned_df[col].median()
+                cleaned_df.loc[outlier_mask, col] = col_median
+    
+    return cleaned_df
+
+def remove_duplicates(df, subset=None, keep='first'):
+    """
+    Remove duplicate rows from DataFrame.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame.
+    subset (list): Columns to consider for duplicate detection.
+    keep (str): Which duplicates to keep.
+    
+    Returns:
+    pd.DataFrame: DataFrame with duplicates removed.
+    """
+    return df.drop_duplicates(subset=subset, keep=keep)
+
+def normalize_columns(df, columns=None, method='minmax'):
+    """
+    Normalize specified columns in DataFrame.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame.
+    columns (list): Columns to normalize. If None, normalize all numeric columns.
+    method (str): Normalization method ('minmax' or 'zscore').
+    
+    Returns:
+    pd.DataFrame: DataFrame with normalized columns.
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    normalized_df = df.copy()
+    
+    if method == 'minmax':
+        for col in columns:
+            col_min = normalized_df[col].min()
+            col_max = normalized_df[col].max()
+            if col_max != col_min:
+                normalized_df[col] = (normalized_df[col] - col_min) / (col_max - col_min)
+    
+    elif method == 'zscore':
+        for col in columns:
+            col_mean = normalized_df[col].mean()
+            col_std = normalized_df[col].std()
+            if col_std > 0:
+                normalized_df[col] = (normalized_df[col] - col_mean) / col_std
+    
+    return normalized_df
