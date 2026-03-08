@@ -51,3 +51,11 @@ if __name__ == "__main__":
     stats_summary = get_summary_statistics(cleaned_data.select_dtypes(include=[np.number]))
     print("\nSummary statistics:")
     print(stats_summary)
+def remove_duplicates(sequence):
+    seen = set()
+    result = []
+    for item in sequence:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
