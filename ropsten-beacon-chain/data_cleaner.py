@@ -1,118 +1,43 @@
-
-import pandas as pd
 import numpy as np
+import pandas as pd
 
-def remove_duplicates(df, subset=None, keep='first'):
-    """
-    Remove duplicate rows from a DataFrame.
-    
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    subset (list, optional): Columns to consider for duplicates
-    keep (str, optional): Which duplicates to keep ('first', 'last', False)
-    
-    Returns:
-    pd.DataFrame: DataFrame with duplicates removed
-    """
-    if df.empty:
-        return df
-    
-    if subset is not None:
-        if not all(col in df.columns for col in subset):
-            raise ValueError("All subset columns must exist in DataFrame")
-    
-    cleaned_df = df.drop_duplicates(subset=subset, keep=keep)
-    
-    removed_count = len(df) - len(cleaned_df)
-    print(f"Removed {removed_count} duplicate rows")
-    
+def remove_outliers_iqr(df, column):
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+
+def normalize_minmax(df, column):
+    min_val = df[column].min()
+    max_val = df[column].max()
+    if max_val - min_val == 0:
+        return df[column].apply(lambda x: 0.0)
+    return (df[column] - min_val) / (max_val - min_val)
+
+def clean_dataset(df, numeric_columns):
+    cleaned_df = df.copy()
+    for col in numeric_columns:
+        if col in cleaned_df.columns:
+            cleaned_df = remove_outliers_iqr(cleaned_df, col)
+            cleaned_df[col] = normalize_minmax(cleaned_df, col)
     return cleaned_df.reset_index(drop=True)
 
-def clean_missing_values(df, strategy='drop', fill_value=None):
-    """
-    Handle missing values in DataFrame.
-    
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    strategy (str): 'drop' to remove rows, 'fill' to fill values
-    fill_value: Value to fill when strategy is 'fill'
-    
-    Returns:
-    pd.DataFrame: Cleaned DataFrame
-    """
-    if df.empty:
-        return df
-    
-    if strategy == 'drop':
-        cleaned_df = df.dropna()
-        removed_count = len(df) - len(cleaned_df)
-        print(f"Removed {removed_count} rows with missing values")
-    elif strategy == 'fill':
-        if fill_value is None:
-            fill_value = df.mean(numeric_only=True)
-        cleaned_df = df.fillna(fill_value)
-        print("Filled missing values")
-    else:
-        raise ValueError("Strategy must be 'drop' or 'fill'")
-    
-    return cleaned_df.reset_index(drop=True)
-
-def validate_dataframe(df, required_columns=None):
-    """
-    Validate DataFrame structure and content.
-    
-    Parameters:
-    df (pd.DataFrame): DataFrame to validate
-    required_columns (list, optional): Columns that must exist
-    
-    Returns:
-    bool: True if validation passes
-    """
-    if not isinstance(df, pd.DataFrame):
-        raise TypeError("Input must be a pandas DataFrame")
-    
-    if df.empty:
-        print("Warning: DataFrame is empty")
-        return True
-    
-    if required_columns:
-        missing_cols = [col for col in required_columns if col not in df.columns]
-        if missing_cols:
-            raise ValueError(f"Missing required columns: {missing_cols}")
-    
-    print(f"DataFrame validated: {len(df)} rows, {len(df.columns)} columns")
+def validate_data(df, required_columns):
+    missing_cols = [col for col in required_columns if col not in df.columns]
+    if missing_cols:
+        raise ValueError(f"Missing required columns: {missing_cols}")
     return True
 
-def process_dataframe(df, 
-                     remove_dups=True, 
-                     handle_missing=True, 
-                     missing_strategy='drop',
-                     required_columns=None):
-    """
-    Complete data cleaning pipeline.
+if __name__ == "__main__":
+    sample_data = pd.DataFrame({
+        'feature_a': np.random.normal(100, 15, 50),
+        'feature_b': np.random.exponential(2.0, 50),
+        'category': np.random.choice(['X', 'Y', 'Z'], 50)
+    })
     
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    remove_dups (bool): Whether to remove duplicates
-    handle_missing (bool): Whether to handle missing values
-    missing_strategy (str): Strategy for missing values
-    required_columns (list): Required columns for validation
-    
-    Returns:
-    pd.DataFrame: Cleaned DataFrame
-    """
-    try:
-        validate_dataframe(df, required_columns)
-        
-        if remove_dups:
-            df = remove_duplicates(df)
-        
-        if handle_missing:
-            df = clean_missing_values(df, strategy=missing_strategy)
-        
-        print("Data cleaning completed successfully")
-        return df
-        
-    except Exception as e:
-        print(f"Data cleaning failed: {str(e)}")
-        raise
+    print("Original data shape:", sample_data.shape)
+    cleaned = clean_dataset(sample_data, ['feature_a', 'feature_b'])
+    print("Cleaned data shape:", cleaned.shape)
+    print("Data validation passed:", validate_data(cleaned, ['feature_a', 'feature_b']))
