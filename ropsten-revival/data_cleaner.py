@@ -645,3 +645,71 @@ if __name__ == "__main__":
     cleaned_df = clean_numeric_data(df)
     print("\nCleaned DataFrame:")
     print(cleaned_df)
+import pandas as pd
+import numpy as np
+
+def remove_duplicates(df, subset=None):
+    """
+    Remove duplicate rows from a DataFrame.
+    """
+    return df.drop_duplicates(subset=subset, keep='first')
+
+def fill_missing_values(df, strategy='mean', columns=None):
+    """
+    Fill missing values in specified columns using a given strategy.
+    """
+    if columns is None:
+        columns = df.columns
+    
+    df_filled = df.copy()
+    for col in columns:
+        if df[col].dtype in [np.float64, np.int64]:
+            if strategy == 'mean':
+                fill_value = df[col].mean()
+            elif strategy == 'median':
+                fill_value = df[col].median()
+            elif strategy == 'mode':
+                fill_value = df[col].mode()[0]
+            else:
+                fill_value = 0
+            df_filled[col].fillna(fill_value, inplace=True)
+        else:
+            df_filled[col].fillna('Unknown', inplace=True)
+    return df_filled
+
+def validate_numeric_range(df, column, min_val=None, max_val=None):
+    """
+    Validate that values in a numeric column fall within a specified range.
+    """
+    if min_val is not None:
+        invalid_min = df[column] < min_val
+        if invalid_min.any():
+            print(f"Warning: {invalid_min.sum()} values below minimum {min_val} in column '{column}'")
+    
+    if max_val is not None:
+        invalid_max = df[column] > max_val
+        if invalid_max.any():
+            print(f"Warning: {invalid_max.sum()} values above maximum {max_val} in column '{column}'")
+    
+    return df[(df[column] >= (min_val if min_val else -np.inf)) & 
+              (df[column] <= (max_val if max_val else np.inf))]
+
+def clean_column_names(df):
+    """
+    Standardize column names by converting to lowercase and replacing spaces with underscores.
+    """
+    df_clean = df.copy()
+    df_clean.columns = [col.lower().replace(' ', '_') for col in df_clean.columns]
+    return df_clean
+
+def remove_outliers_iqr(df, column, multiplier=1.5):
+    """
+    Remove outliers from a column using the Interquartile Range (IQR) method.
+    """
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - multiplier * IQR
+    upper_bound = Q3 + multiplier * IQR
+    
+    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
