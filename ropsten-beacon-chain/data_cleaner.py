@@ -1172,4 +1172,146 @@ if __name__ == "__main__":
     
     cleaned_df = clean_numeric_data(df, columns=['A', 'B'])
     print("\nCleaned DataFrame:")
-    print(cleaned_df)
+    print(cleaned_df)import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(data, column, factor=1.5):
+    """
+    Remove outliers from a DataFrame column using the IQR method.
+    
+    Args:
+        data: pandas DataFrame
+        column: Column name to process
+        factor: IQR multiplier (default 1.5)
+    
+    Returns:
+        DataFrame with outliers removed
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    q1 = data[column].quantile(0.25)
+    q3 = data[column].quantile(0.75)
+    iqr = q3 - q1
+    
+    lower_bound = q1 - factor * iqr
+    upper_bound = q3 + factor * iqr
+    
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    return filtered_data
+
+def z_score_normalize(data, column):
+    """
+    Normalize a column using Z-score normalization.
+    
+    Args:
+        data: pandas DataFrame
+        column: Column name to normalize
+    
+    Returns:
+        Series with normalized values
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    mean_val = data[column].mean()
+    std_val = data[column].std()
+    
+    if std_val == 0:
+        return data[column] - mean_val
+    
+    normalized = (data[column] - mean_val) / std_val
+    return normalized
+
+def min_max_normalize(data, column, feature_range=(0, 1)):
+    """
+    Normalize a column using Min-Max scaling.
+    
+    Args:
+        data: pandas DataFrame
+        column: Column name to normalize
+        feature_range: Desired range of transformed data (default 0-1)
+    
+    Returns:
+        Series with normalized values
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    min_val = data[column].min()
+    max_val = data[column].max()
+    
+    if max_val == min_val:
+        return pd.Series([feature_range[0]] * len(data), index=data.index)
+    
+    normalized = (data[column] - min_val) / (max_val - min_val)
+    normalized = normalized * (feature_range[1] - feature_range[0]) + feature_range[0]
+    return normalized
+
+def detect_outliers_zscore(data, column, threshold=3):
+    """
+    Detect outliers using Z-score method.
+    
+    Args:
+        data: pandas DataFrame
+        column: Column name to analyze
+        threshold: Z-score threshold (default 3)
+    
+    Returns:
+        Boolean mask indicating outliers
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+    
+    z_scores = np.abs(stats.zscore(data[column].dropna()))
+    outlier_mask = z_scores > threshold
+    return outlier_mask
+
+def clean_dataset(data, numeric_columns=None, outlier_method='iqr', normalize_method=None):
+    """
+    Clean dataset by handling outliers and optionally normalizing.
+    
+    Args:
+        data: pandas DataFrame
+        numeric_columns: List of numeric columns to process (default: all numeric)
+        outlier_method: 'iqr', 'zscore', or None
+        normalize_method: 'zscore', 'minmax', or None
+    
+    Returns:
+        Cleaned DataFrame
+    """
+    cleaned_data = data.copy()
+    
+    if numeric_columns is None:
+        numeric_columns = cleaned_data.select_dtypes(include=[np.number]).columns.tolist()
+    
+    for column in numeric_columns:
+        if column not in cleaned_data.columns:
+            continue
+            
+        if outlier_method == 'iqr':
+            q1 = cleaned_data[column].quantile(0.25)
+            q3 = cleaned_data[column].quantile(0.75)
+            iqr = q3 - q1
+            lower_bound = q1 - 1.5 * iqr
+            upper_bound = q3 + 1.5 * iqr
+            cleaned_data = cleaned_data[(cleaned_data[column] >= lower_bound) & 
+                                       (cleaned_data[column] <= upper_bound)]
+        
+        elif outlier_method == 'zscore':
+            z_scores = np.abs(stats.zscore(cleaned_data[column].dropna()))
+            mask = z_scores <= 3
+            cleaned_data = cleaned_data[mask]
+    
+    if normalize_method:
+        for column in numeric_columns:
+            if column not in cleaned_data.columns:
+                continue
+                
+            if normalize_method == 'zscore':
+                cleaned_data[f'{column}_normalized'] = z_score_normalize(cleaned_data, column)
+            elif normalize_method == 'minmax':
+                cleaned_data[f'{column}_normalized'] = min_max_normalize(cleaned_data, column)
+    
+    return cleaned_data
