@@ -1,123 +1,108 @@
+
+import pandas as pd
 import numpy as np
-import pandas as pd
 
-def remove_outliers_iqr(df, column):
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
-    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
-
-def normalize_minmax(df, column):
-    min_val = df[column].min()
-    max_val = df[column].max()
-    if max_val == min_val:
-        return df[column].apply(lambda x: 0.5)
-    return df[column].apply(lambda x: (x - min_val) / (max_val - min_val))
-
-def clean_dataset(df, numeric_columns):
-    cleaned_df = df.copy()
-    for col in numeric_columns:
-        if col in cleaned_df.columns:
-            cleaned_df = remove_outliers_iqr(cleaned_df, col)
-            cleaned_df[col] = normalize_minmax(cleaned_df, col)
-    return cleaned_df.reset_index(drop=True)
-
-def validate_data(df, required_columns):
-    missing_cols = [col for col in required_columns if col not in df.columns]
-    if missing_cols:
-        raise ValueError(f"Missing required columns: {missing_cols}")
-    if df.empty:
-        raise ValueError("DataFrame is empty")
-    return True
-import pandas as pd
-import re
-
-def clean_dataframe(df, column_mapping=None, drop_duplicates=True, normalize_text=True):
+def clean_missing_values(df, strategy='mean', columns=None):
     """
-    Clean a pandas DataFrame by removing duplicates and normalizing text columns.
+    Handle missing values in a DataFrame.
     
-    Args:
-        df: pandas DataFrame to clean
-        column_mapping: dictionary mapping old column names to new ones
-        drop_duplicates: whether to remove duplicate rows
-        normalize_text: whether to normalize text columns
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    strategy (str): Strategy to handle missing values - 'mean', 'median', 'mode', or 'drop'
+    columns (list): Specific columns to clean, if None clean all columns
     
     Returns:
-        Cleaned pandas DataFrame
+    pd.DataFrame: Cleaned DataFrame
     """
     df_clean = df.copy()
     
-    if column_mapping:
-        df_clean = df_clean.rename(columns=column_mapping)
+    if columns is None:
+        columns = df_clean.columns
     
-    if drop_duplicates:
-        df_clean = df_clean.drop_duplicates().reset_index(drop=True)
-    
-    if normalize_text:
-        for column in df_clean.select_dtypes(include=['object']).columns:
-            df_clean[column] = df_clean[column].apply(_normalize_string)
+    for col in columns:
+        if df_clean[col].isnull().any():
+            if strategy == 'mean':
+                df_clean[col].fillna(df_clean[col].mean(), inplace=True)
+            elif strategy == 'median':
+                df_clean[col].fillna(df_clean[col].median(), inplace=True)
+            elif strategy == 'mode':
+                df_clean[col].fillna(df_clean[col].mode()[0], inplace=True)
+            elif strategy == 'drop':
+                df_clean = df_clean.dropna(subset=[col])
     
     return df_clean
 
-def _normalize_string(text):
+def remove_outliers_iqr(df, columns=None, threshold=1.5):
     """
-    Normalize a string by converting to lowercase, removing extra whitespace,
-    and stripping special characters.
+    Remove outliers using the Interquartile Range method.
     
-    Args:
-        text: string to normalize
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    columns (list): Columns to check for outliers
+    threshold (float): IQR multiplier threshold
     
     Returns:
-        Normalized string
+    pd.DataFrame: DataFrame with outliers removed
     """
-    if pd.isna(text):
-        return text
+    df_clean = df.copy()
     
-    text = str(text)
-    text = text.lower()
-    text = re.sub(r'\s+', ' ', text)
-    text = text.strip()
-    text = re.sub(r'[^\w\s]', '', text)
+    if columns is None:
+        columns = df_clean.select_dtypes(include=[np.number]).columns
     
-    return text
+    for col in columns:
+        if col in df_clean.columns and pd.api.types.is_numeric_dtype(df_clean[col]):
+            Q1 = df_clean[col].quantile(0.25)
+            Q3 = df_clean[col].quantile(0.75)
+            IQR = Q3 - Q1
+            lower_bound = Q1 - threshold * IQR
+            upper_bound = Q3 + threshold * IQR
+            
+            df_clean = df_clean[(df_clean[col] >= lower_bound) & (df_clean[col] <= upper_bound)]
+    
+    return df_clean
 
-def validate_dataframe(df, required_columns=None, min_rows=1):
+def standardize_columns(df, columns=None):
     """
-    Validate a DataFrame for required columns and minimum row count.
+    Standardize numeric columns to have zero mean and unit variance.
     
-    Args:
-        df: pandas DataFrame to validate
-        required_columns: list of required column names
-        min_rows: minimum number of rows required
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    columns (list): Columns to standardize
     
     Returns:
-        tuple: (is_valid, error_message)
+    pd.DataFrame: DataFrame with standardized columns
     """
-    if required_columns:
-        missing_columns = [col for col in required_columns if col not in df.columns]
-        if missing_columns:
-            return False, f"Missing required columns: {missing_columns}"
+    df_standardized = df.copy()
     
-    if len(df) < min_rows:
-        return False, f"DataFrame has fewer than {min_rows} rows"
+    if columns is None:
+        columns = df_standardized.select_dtypes(include=[np.number]).columns
     
-    return True, "DataFrame validation passed"
+    for col in columns:
+        if col in df_standardized.columns and pd.api.types.is_numeric_dtype(df_standardized[col]):
+            mean = df_standardized[col].mean()
+            std = df_standardized[col].std()
+            if std > 0:
+                df_standardized[col] = (df_standardized[col] - mean) / std
+    
+    return df_standardized
 
-if __name__ == "__main__":
-    sample_data = {
-        'Name': ['John Doe', 'Jane Smith', 'John Doe', 'Bob Johnson  '],
-        'Email': ['john@example.com', 'jane@example.com', 'JOHN@example.com', 'bob@example.com'],
-        'Age': [25, 30, 25, 35]
-    }
+def clean_dataset(df, missing_strategy='mean', outlier_threshold=1.5, standardize=True):
+    """
+    Complete data cleaning pipeline.
     
-    df = pd.DataFrame(sample_data)
-    print("Original DataFrame:")
-    print(df)
-    print("\nCleaned DataFrame:")
-    cleaned_df = clean_dataframe(df, drop_duplicates=True, normalize_text=True)
-    print(cleaned_df)
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    missing_strategy (str): Strategy for handling missing values
+    outlier_threshold (float): IQR threshold for outlier removal
+    standardize (bool): Whether to standardize numeric columns
     
-    is_valid, message = validate_dataframe(cleaned_df, required_columns=['Name', 'Email'])
-    print(f"\nValidation: {message}")
+    Returns:
+    pd.DataFrame: Cleaned and processed DataFrame
+    """
+    df_clean = clean_missing_values(df, strategy=missing_strategy)
+    df_clean = remove_outliers_iqr(df_clean, threshold=outlier_threshold)
+    
+    if standardize:
+        df_clean = standardize_columns(df_clean)
+    
+    return df_clean
