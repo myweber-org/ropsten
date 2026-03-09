@@ -1030,4 +1030,58 @@ def remove_outliers_iqr(data, column):
     upper_bound = Q3 + 1.5 * IQR
     
     filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
-    return filtered_data
+    return filtered_dataimport numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(df, column):
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+
+def normalize_minmax(df, column):
+    min_val = df[column].min()
+    max_val = df[column].max()
+    df[column + '_normalized'] = (df[column] - min_val) / (max_val - min_val)
+    return df
+
+def standardize_zscore(df, column):
+    mean_val = df[column].mean()
+    std_val = df[column].std()
+    df[column + '_standardized'] = (df[column] - mean_val) / std_val
+    return df
+
+def handle_missing_mean(df, column):
+    mean_val = df[column].mean()
+    df[column].fillna(mean_val, inplace=True)
+    return df
+
+def process_dataset(filepath):
+    df = pd.read_csv(filepath)
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    
+    for col in numeric_cols:
+        df = remove_outliers_iqr(df, col)
+        df = normalize_minmax(df, col)
+        df = standardize_zscore(df, col)
+        df = handle_missing_mean(df, col)
+    
+    return df
+
+if __name__ == "__main__":
+    sample_data = pd.DataFrame({
+        'feature1': np.random.normal(100, 15, 200),
+        'feature2': np.random.exponential(50, 200),
+        'feature3': np.random.uniform(0, 1, 200)
+    })
+    
+    sample_data.loc[np.random.choice(200, 10), 'feature1'] = np.nan
+    sample_data.to_csv('sample_dataset.csv', index=False)
+    
+    cleaned_df = process_dataset('sample_dataset.csv')
+    print(f"Original shape: {sample_data.shape}")
+    print(f"Cleaned shape: {cleaned_df.shape}")
+    print(cleaned_df.describe())
