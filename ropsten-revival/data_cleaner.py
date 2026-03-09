@@ -178,3 +178,8 @@ if __name__ == "__main__":
     normalized_df = normalize_column(df, 'values', method='minmax')
     print("DataFrame with Normalized Column:")
     print(normalized_df)
+def filter_none_values(input_list):
+    """
+    Return a new list with all None values removed.
+    """
+    return [item for item in input_list if item is not None]
