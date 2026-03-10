@@ -591,3 +591,52 @@ def calculate_summary_statistics(data, column):
         'max': data[column].max()
     }
     return stats
+import pandas as pd
+import numpy as np
+import sys
+
+def clean_data(input_file, output_file):
+    try:
+        df = pd.read_csv(input_file)
+        
+        df = df.drop_duplicates()
+        
+        df = df.dropna(subset=['critical_column'])
+        
+        numeric_columns = df.select_dtypes(include=[np.number]).columns
+        for col in numeric_columns:
+            df[col] = df[col].fillna(df[col].mean())
+        
+        text_columns = df.select_dtypes(include=['object']).columns
+        for col in text_columns:
+            df[col] = df[col].fillna('unknown')
+        
+        df['date_column'] = pd.to_datetime(df['date_column'], errors='coerce')
+        
+        df = df[df['value_column'] > 0]
+        
+        df.to_csv(output_file, index=False)
+        print(f"Data cleaned successfully. Output saved to {output_file}")
+        
+        return True
+        
+    except FileNotFoundError:
+        print(f"Error: Input file {input_file} not found.")
+        return False
+    except pd.errors.EmptyDataError:
+        print("Error: Input file is empty.")
+        return False
+    except Exception as e:
+        print(f"Error during data cleaning: {str(e)}")
+        return False
+
+if __name__ == "__main__":
+    if len(sys.argv) != 3:
+        print("Usage: python data_cleaner.py <input_file> <output_file>")
+        sys.exit(1)
+    
+    input_file = sys.argv[1]
+    output_file = sys.argv[2]
+    
+    success = clean_data(input_file, output_file)
+    sys.exit(0 if success else 1)
