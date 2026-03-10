@@ -475,3 +475,59 @@ def validate_data(data, required_columns=None, allow_nan=True, max_nan_ratio=0.1
                 return False, f"Column {column} has too many NaN values: {nan_ratio:.1%}"
     
     return True, "Data validation passed"
+import pandas as pd
+import numpy as np
+
+def clean_csv_data(input_file, output_file):
+    """
+    Load a CSV file, handle missing values, and save cleaned data.
+    """
+    try:
+        df = pd.read_csv(input_file)
+        
+        # Fill missing numeric values with column mean
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].mean())
+        
+        # Fill missing categorical values with mode
+        categorical_cols = df.select_dtypes(include=['object']).columns
+        for col in categorical_cols:
+            df[col] = df[col].fillna(df[col].mode()[0] if not df[col].mode().empty else 'Unknown')
+        
+        # Remove duplicate rows
+        df = df.drop_duplicates()
+        
+        # Reset index after cleaning
+        df = df.reset_index(drop=True)
+        
+        # Save cleaned data
+        df.to_csv(output_file, index=False)
+        print(f"Data cleaned successfully. Saved to {output_file}")
+        return df
+        
+    except FileNotFoundError:
+        print(f"Error: File {input_file} not found.")
+        return None
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return None
+
+def validate_data(df):
+    """
+    Perform basic validation on the cleaned dataframe.
+    """
+    if df is not None:
+        print("Data Validation Report:")
+        print(f"Total rows: {len(df)}")
+        print(f"Total columns: {len(df.columns)}")
+        print(f"Missing values: {df.isnull().sum().sum()}")
+        print(f"Duplicate rows: {df.duplicated().sum()}")
+        return True
+    return False
+
+if __name__ == "__main__":
+    input_csv = "raw_data.csv"
+    output_csv = "cleaned_data.csv"
+    
+    cleaned_df = clean_csv_data(input_csv, output_csv)
+    validate_data(cleaned_df)
