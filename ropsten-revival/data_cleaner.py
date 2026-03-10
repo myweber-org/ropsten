@@ -139,3 +139,74 @@ if __name__ == "__main__":
         print(f"Error: File {input_file} not found.")
     except Exception as e:
         print(f"An error occurred: {str(e)}")
+import numpy as np
+
+def remove_outliers_iqr(data, column):
+    """
+    Remove outliers from a specified column using the Interquartile Range method.
+    
+    Parameters:
+    data (np.ndarray): Input data array
+    column (int): Index of column to clean
+    
+    Returns:
+    np.ndarray: Data with outliers removed
+    """
+    if not isinstance(data, np.ndarray):
+        raise TypeError("Input data must be numpy array")
+    
+    if column >= data.shape[1]:
+        raise IndexError("Column index out of bounds")
+    
+    col_data = data[:, column]
+    
+    q1 = np.percentile(col_data, 25)
+    q3 = np.percentile(col_data, 75)
+    iqr = q3 - q1
+    
+    lower_bound = q1 - 1.5 * iqr
+    upper_bound = q3 + 1.5 * iqr
+    
+    mask = (col_data >= lower_bound) & (col_data <= upper_bound)
+    
+    return data[mask]
+
+def calculate_statistics(data):
+    """
+    Calculate basic statistics for cleaned data.
+    
+    Parameters:
+    data (np.ndarray): Input data array
+    
+    Returns:
+    dict: Dictionary containing statistics
+    """
+    stats = {
+        'mean': np.mean(data, axis=0),
+        'median': np.median(data, axis=0),
+        'std': np.std(data, axis=0),
+        'min': np.min(data, axis=0),
+        'max': np.max(data, axis=0)
+    }
+    return stats
+
+def clean_dataset(data, columns_to_clean=None):
+    """
+    Clean multiple columns in dataset.
+    
+    Parameters:
+    data (np.ndarray): Input data
+    columns_to_clean (list): List of column indices to clean
+    
+    Returns:
+    np.ndarray: Cleaned dataset
+    """
+    if columns_to_clean is None:
+        columns_to_clean = list(range(data.shape[1]))
+    
+    cleaned_data = data.copy()
+    
+    for col in columns_to_clean:
+        cleaned_data = remove_outliers_iqr(cleaned_data, col)
+    
+    return cleaned_data
