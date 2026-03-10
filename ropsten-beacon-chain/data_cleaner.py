@@ -640,3 +640,98 @@ if __name__ == "__main__":
     
     success = clean_data(input_file, output_file)
     sys.exit(0 if success else 1)
+import numpy as np
+
+def remove_outliers_iqr(data, column):
+    """
+    Remove outliers from a specified column using the Interquartile Range method.
+    
+    Args:
+        data (np.ndarray): Input data array
+        column (int): Column index to process
+    
+    Returns:
+        np.ndarray: Data with outliers removed
+    """
+    if data.size == 0:
+        return data
+    
+    col_data = data[:, column]
+    q1 = np.percentile(col_data, 25)
+    q3 = np.percentile(col_data, 75)
+    iqr = q3 - q1
+    
+    lower_bound = q1 - 1.5 * iqr
+    upper_bound = q3 + 1.5 * iqr
+    
+    mask = (col_data >= lower_bound) & (col_data <= upper_bound)
+    return data[mask]
+
+def calculate_statistics(data):
+    """
+    Calculate basic statistics for the data.
+    
+    Args:
+        data (np.ndarray): Input data array
+    
+    Returns:
+        dict: Dictionary containing mean, median, and standard deviation
+    """
+    if data.size == 0:
+        return {'mean': 0, 'median': 0, 'std': 0}
+    
+    return {
+        'mean': np.mean(data, axis=0),
+        'median': np.median(data, axis=0),
+        'std': np.std(data, axis=0)
+    }
+
+def normalize_data(data):
+    """
+    Normalize data using min-max scaling.
+    
+    Args:
+        data (np.ndarray): Input data array
+    
+    Returns:
+        np.ndarray: Normalized data
+    """
+    if data.size == 0:
+        return data
+    
+    data_min = np.min(data, axis=0)
+    data_max = np.max(data, axis=0)
+    
+    # Avoid division by zero
+    range_vals = data_max - data_min
+    range_vals[range_vals == 0] = 1
+    
+    normalized = (data - data_min) / range_vals
+    return normalized
+
+def process_dataset(data, target_column):
+    """
+    Complete data processing pipeline.
+    
+    Args:
+        data (np.ndarray): Input data array
+        target_column (int): Column index for outlier removal
+    
+    Returns:
+        tuple: (cleaned_data, statistics, normalized_data)
+    """
+    print(f"Original data shape: {data.shape}")
+    
+    # Remove outliers
+    cleaned_data = remove_outliers_iqr(data, target_column)
+    print(f"Cleaned data shape: {cleaned_data.shape}")
+    
+    # Calculate statistics
+    stats = calculate_statistics(cleaned_data)
+    print(f"Statistics calculated")
+    
+    # Normalize data
+    normalized = normalize_data(cleaned_data)
+    print(f"Data normalized")
+    
+    return cleaned_data, stats, normalized
