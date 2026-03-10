@@ -1272,3 +1272,36 @@ if __name__ == "__main__":
     print("\nCleaning summary:")
     for key, value in summary.items():
         print(f"{key}: {value}")
+import pandas as pd
+import re
+
+def clean_dataframe(df, columns_to_clean=None):
+    """
+    Clean a pandas DataFrame by removing duplicates and normalizing string columns.
+    """
+    df_clean = df.copy()
+    
+    # Remove duplicate rows
+    df_clean = df_clean.drop_duplicates()
+    
+    # If specific columns are provided, clean only those; otherwise, clean all object columns
+    if columns_to_clean is None:
+        columns_to_clean = df_clean.select_dtypes(include=['object']).columns
+    
+    for col in columns_to_clean:
+        if df_clean[col].dtype == 'object':
+            df_clean[col] = df_clean[col].apply(_normalize_string)
+    
+    return df_clean
+
+def _normalize_string(s):
+    """
+    Normalize a string: lower case, strip whitespace, and remove extra spaces.
+    """
+    if pd.isna(s):
+        return s
+    s = str(s)
+    s = s.lower()
+    s = s.strip()
+    s = re.sub(r'\s+', ' ', s)
+    return s
