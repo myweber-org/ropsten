@@ -94,3 +94,91 @@ def clean_dataset(df, outlier_threshold=1.5, normalize=True, standardize=False):
         cleaner.standardize_zscore()
     
     return cleaner.get_cleaned_data(), cleaner.get_summary()
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+class DataCleaner:
+    def __init__(self, df):
+        self.df = df.copy()
+        self.original_columns = df.columns.tolist()
+    
+    def remove_outliers_iqr(self, column, multiplier=1.5):
+        Q1 = self.df[column].quantile(0.25)
+        Q3 = self.df[column].quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - multiplier * IQR
+        upper_bound = Q3 + multiplier * IQR
+        self.df = self.df[(self.df[column] >= lower_bound) & (self.df[column] <= upper_bound)]
+        return self
+    
+    def remove_outliers_zscore(self, column, threshold=3):
+        z_scores = np.abs(stats.zscore(self.df[column]))
+        self.df = self.df[z_scores < threshold]
+        return self
+    
+    def normalize_minmax(self, column):
+        min_val = self.df[column].min()
+        max_val = self.df[column].max()
+        self.df[column] = (self.df[column] - min_val) / (max_val - min_val)
+        return self
+    
+    def normalize_zscore(self, column):
+        mean_val = self.df[column].mean()
+        std_val = self.df[column].std()
+        self.df[column] = (self.df[column] - mean_val) / std_val
+        return self
+    
+    def fill_missing_mean(self, column):
+        self.df[column].fillna(self.df[column].mean(), inplace=True)
+        return self
+    
+    def fill_missing_median(self, column):
+        self.df[column].fillna(self.df[column].median(), inplace=True)
+        return self
+    
+    def drop_duplicates(self):
+        self.df.drop_duplicates(inplace=True)
+        return self
+    
+    def get_cleaned_data(self):
+        return self.df.copy()
+    
+    def summary(self):
+        print(f"Original shape: {self.df.shape}")
+        print(f"Columns: {self.original_columns}")
+        print(f"Missing values per column:")
+        print(self.df.isnull().sum())
+        print(f"Data types:")
+        print(self.df.dtypes)
+
+def create_sample_data():
+    np.random.seed(42)
+    data = {
+        'feature_a': np.random.normal(100, 15, 100),
+        'feature_b': np.random.exponential(50, 100),
+        'feature_c': np.random.randint(1, 100, 100),
+        'category': np.random.choice(['A', 'B', 'C'], 100)
+    }
+    df = pd.DataFrame(data)
+    df.loc[10:15, 'feature_a'] = np.nan
+    df.loc[20:25, 'feature_b'] = np.nan
+    return df
+
+if __name__ == "__main__":
+    sample_df = create_sample_data()
+    cleaner = DataCleaner(sample_df)
+    
+    cleaner.summary()
+    
+    cleaned_df = (cleaner
+                 .fill_missing_mean('feature_a')
+                 .fill_missing_median('feature_b')
+                 .remove_outliers_iqr('feature_c')
+                 .normalize_minmax('feature_a')
+                 .normalize_zscore('feature_b')
+                 .drop_duplicates()
+                 .get_cleaned_data())
+    
+    print(f"\nCleaned shape: {cleaned_df.shape}")
+    print(cleaned_df.describe())
