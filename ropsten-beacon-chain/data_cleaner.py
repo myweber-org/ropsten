@@ -108,4 +108,42 @@ def get_data_summary(df):
     if len(numeric_cols) > 0:
         summary['numeric_summary'] = df[numeric_cols].describe().to_dict()
     
-    return summary
+    return summaryimport pandas as pd
+import numpy as np
+from scipy import stats
+
+def load_and_clean_data(filepath):
+    df = pd.read_csv(filepath)
+    
+    # Remove duplicate rows
+    df = df.drop_duplicates()
+    
+    # Handle missing values
+    for column in df.select_dtypes(include=[np.number]).columns:
+        df[column] = df[column].fillna(df[column].median())
+    
+    # Remove outliers using z-score
+    numeric_columns = df.select_dtypes(include=[np.number]).columns
+    z_scores = np.abs(stats.zscore(df[numeric_columns]))
+    df = df[(z_scores < 3).all(axis=1)]
+    
+    # Normalize numeric columns
+    for column in numeric_columns:
+        if df[column].std() > 0:
+            df[column] = (df[column] - df[column].mean()) / df[column].std()
+    
+    return df
+
+def save_cleaned_data(df, output_path):
+    df.to_csv(output_path, index=False)
+
+if __name__ == "__main__":
+    input_file = "raw_data.csv"
+    output_file = "cleaned_data.csv"
+    
+    cleaned_df = load_and_clean_data(input_file)
+    save_cleaned_data(cleaned_df, output_file)
+    
+    print(f"Data cleaning complete. Original shape: {pd.read_csv(input_file).shape}")
+    print(f"Cleaned shape: {cleaned_df.shape}")
+    print(f"Saved to: {output_file}")
