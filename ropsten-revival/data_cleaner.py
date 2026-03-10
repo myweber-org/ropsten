@@ -36,3 +36,11 @@ if __name__ == "__main__":
     print(f"Original shape: {df.shape}")
     print(f"Cleaned shape: {result_df.shape}")
     print(result_df.head())
+def remove_duplicates_preserve_order(sequence):
+    seen = set()
+    result = []
+    for item in sequence:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
