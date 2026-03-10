@@ -337,3 +337,141 @@ if __name__ == "__main__":
     
     print("\nFirst 5 rows of cleaned data:")
     print(cleaned_df.head())
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+def detect_outliers_iqr(data, column, threshold=1.5):
+    """
+    Detect outliers using Interquartile Range method.
+    
+    Parameters:
+    data (pd.DataFrame): Input dataframe
+    column (str): Column name to check for outliers
+    threshold (float): Multiplier for IQR (default 1.5)
+    
+    Returns:
+    pd.Series: Boolean series indicating outliers
+    """
+    q1 = data[column].quantile(0.25)
+    q3 = data[column].quantile(0.75)
+    iqr = q3 - q1
+    lower_bound = q1 - threshold * iqr
+    upper_bound = q3 + threshold * iqr
+    
+    return (data[column] < lower_bound) | (data[column] > upper_bound)
+
+def remove_outliers(data, column, method='iqr', **kwargs):
+    """
+    Remove outliers from specified column.
+    
+    Parameters:
+    data (pd.DataFrame): Input dataframe
+    column (str): Column name
+    method (str): 'iqr' or 'zscore'
+    **kwargs: Additional arguments for detection method
+    
+    Returns:
+    pd.DataFrame: Dataframe with outliers removed
+    """
+    if method == 'iqr':
+        threshold = kwargs.get('threshold', 1.5)
+        outliers = detect_outliers_iqr(data, column, threshold)
+    elif method == 'zscore':
+        z_threshold = kwargs.get('z_threshold', 3)
+        z_scores = np.abs(stats.zscore(data[column].dropna()))
+        outliers = pd.Series(z_scores > z_threshold, index=data[column].dropna().index)
+    else:
+        raise ValueError("Method must be 'iqr' or 'zscore'")
+    
+    return data[~outliers].reset_index(drop=True)
+
+def normalize_column(data, column, method='minmax'):
+    """
+    Normalize column values.
+    
+    Parameters:
+    data (pd.DataFrame): Input dataframe
+    column (str): Column name to normalize
+    method (str): 'minmax' or 'zscore'
+    
+    Returns:
+    pd.DataFrame: Dataframe with normalized column
+    """
+    result = data.copy()
+    
+    if method == 'minmax':
+        min_val = result[column].min()
+        max_val = result[column].max()
+        if max_val != min_val:
+            result[column] = (result[column] - min_val) / (max_val - min_val)
+    elif method == 'zscore':
+        mean_val = result[column].mean()
+        std_val = result[column].std()
+        if std_val > 0:
+            result[column] = (result[column] - mean_val) / std_val
+    else:
+        raise ValueError("Method must be 'minmax' or 'zscore'")
+    
+    return result
+
+def clean_dataset(data, numeric_columns=None, outlier_method='iqr', normalize_method=None):
+    """
+    Comprehensive dataset cleaning pipeline.
+    
+    Parameters:
+    data (pd.DataFrame): Input dataframe
+    numeric_columns (list): List of numeric columns to process
+    outlier_method (str): Method for outlier detection
+    normalize_method (str): Normalization method or None
+    
+    Returns:
+    pd.DataFrame: Cleaned dataframe
+    """
+    if numeric_columns is None:
+        numeric_columns = data.select_dtypes(include=[np.number]).columns.tolist()
+    
+    cleaned_data = data.copy()
+    
+    # Handle outliers
+    for column in numeric_columns:
+        if column in cleaned_data.columns:
+            cleaned_data = remove_outliers(cleaned_data, column, method=outlier_method)
+    
+    # Normalize if requested
+    if normalize_method:
+        for column in numeric_columns:
+            if column in cleaned_data.columns:
+                cleaned_data = normalize_column(cleaned_data, column, method=normalize_method)
+    
+    return cleaned_data
+
+def validate_data(data, required_columns=None, allow_nan=True, max_nan_ratio=0.1):
+    """
+    Validate dataframe structure and content.
+    
+    Parameters:
+    data (pd.DataFrame): Dataframe to validate
+    required_columns (list): List of required column names
+    allow_nan (bool): Whether NaN values are allowed
+    max_nan_ratio (float): Maximum allowed ratio of NaN values per column
+    
+    Returns:
+    tuple: (is_valid, error_message)
+    """
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in data.columns]
+        if missing_columns:
+            return False, f"Missing required columns: {missing_columns}"
+    
+    if not allow_nan:
+        nan_columns = data.columns[data.isna().any()].tolist()
+        if nan_columns:
+            return False, f"NaN values found in columns: {nan_columns}"
+    else:
+        for column in data.columns:
+            nan_ratio = data[column].isna().mean()
+            if nan_ratio > max_nan_ratio:
+                return False, f"Column {column} has too many NaN values: {nan_ratio:.1%}"
+    
+    return True, "Data validation passed"
