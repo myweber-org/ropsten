@@ -179,3 +179,92 @@ if __name__ == "__main__":
     print("\nExtracted Numbers from Notes:")
     for note in cleaned_df['notes']:
         print(f"{note}: {extract_numeric(note)}")
+import pandas as pd
+import numpy as np
+from datetime import datetime
+
+def clean_dataset(input_file, output_file):
+    """
+    Load a dataset, remove duplicate rows, standardize date formats,
+    and fill missing numeric values with column median.
+    """
+    try:
+        df = pd.read_csv(input_file)
+        
+        # Remove duplicate rows
+        initial_count = len(df)
+        df = df.drop_duplicates()
+        duplicates_removed = initial_count - len(df)
+        
+        # Standardize date columns (assuming columns with 'date' in name)
+        date_columns = [col for col in df.columns if 'date' in col.lower()]
+        for col in date_columns:
+            try:
+                df[col] = pd.to_datetime(df[col], errors='coerce')
+            except:
+                pass
+        
+        # Fill missing numeric values with column median
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        for col in numeric_cols:
+            median_val = df[col].median()
+            df[col] = df[col].fillna(median_val)
+        
+        # Save cleaned data
+        df.to_csv(output_file, index=False)
+        
+        return {
+            'original_rows': initial_count,
+            'cleaned_rows': len(df),
+            'duplicates_removed': duplicates_removed,
+            'date_columns_processed': len(date_columns),
+            'numeric_columns_processed': len(numeric_cols),
+            'output_file': output_file
+        }
+        
+    except Exception as e:
+        print(f"Error during data cleaning: {str(e)}")
+        return None
+
+def validate_dataframe(df):
+    """
+    Perform basic validation checks on a DataFrame.
+    """
+    validation_results = {
+        'has_data': not df.empty,
+        'total_rows': len(df),
+        'total_columns': len(df.columns),
+        'missing_values': df.isnull().sum().sum(),
+        'duplicate_rows': df.duplicated().sum()
+    }
+    
+    # Check for negative values in numeric columns
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    negative_counts = {}
+    for col in numeric_cols:
+        if (df[col] < 0).any():
+            negative_counts[col] = (df[col] < 0).sum()
+    
+    validation_results['columns_with_negatives'] = negative_counts
+    
+    return validation_results
+
+if __name__ == "__main__":
+    # Example usage
+    input_path = "raw_data.csv"
+    output_path = "cleaned_data.csv"
+    
+    results = clean_dataset(input_path, output_path)
+    
+    if results:
+        print("Data cleaning completed successfully:")
+        for key, value in results.items():
+            print(f"{key}: {value}")
+        
+        # Load and validate the cleaned data
+        cleaned_df = pd.read_csv(output_path)
+        validation = validate_dataframe(cleaned_df)
+        
+        print("\nValidation results:")
+        for key, value in validation.items():
+            print(f"{key}: {value}")
