@@ -617,3 +617,87 @@ def calculate_summary_stats(data, column):
         'max': data[column].max()
     }
     return stats
+import pandas as pd
+
+def clean_dataset(df, drop_na=True, rename_columns=True):
+    """
+    Clean a pandas DataFrame by handling missing values and standardizing column names.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean.
+        drop_na (bool): If True, drop rows with any missing values.
+        rename_columns (bool): If True, rename columns to lowercase with underscores.
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame.
+    """
+    df_clean = df.copy()
+    
+    if drop_na:
+        df_clean = df_clean.dropna()
+    
+    if rename_columns:
+        df_clean.columns = (
+            df_clean.columns
+            .str.lower()
+            .str.replace(' ', '_')
+            .str.replace(r'[^a-z0-9_]', '', regex=True)
+        )
+    
+    return df_clean
+
+def validate_dataframe(df, required_columns=None):
+    """
+    Validate DataFrame structure and required columns.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate.
+        required_columns (list): List of required column names.
+    
+    Returns:
+        bool: True if validation passes.
+    
+    Raises:
+        ValueError: If validation fails.
+    """
+    if not isinstance(df, pd.DataFrame):
+        raise ValueError("Input must be a pandas DataFrame")
+    
+    if df.empty:
+        raise ValueError("DataFrame is empty")
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            raise ValueError(f"Missing required columns: {missing_columns}")
+    
+    return True
+
+def sample_data_cleaning():
+    """
+    Example usage of the data cleaning functions.
+    """
+    data = {
+        'Product Name': ['Widget A', 'Widget B', None, 'Widget C'],
+        'Price ($)': [10.5, 20.0, 15.0, None],
+        'Quantity': [100, 200, 150, 300]
+    }
+    
+    df = pd.DataFrame(data)
+    print("Original DataFrame:")
+    print(df)
+    print("\nCleaned DataFrame:")
+    
+    cleaned_df = clean_dataset(df, drop_na=True, rename_columns=True)
+    print(cleaned_df)
+    
+    try:
+        validate_dataframe(cleaned_df, required_columns=['product_name', 'price', 'quantity'])
+        print("\nData validation passed.")
+    except ValueError as e:
+        print(f"\nData validation failed: {e}")
+    
+    return cleaned_df
+
+if __name__ == "__main__":
+    sample_data_cleaning()
