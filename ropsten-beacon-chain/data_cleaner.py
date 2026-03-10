@@ -1409,3 +1409,78 @@ def remove_outliers_iqr(df, column, multiplier=1.5):
     print(f"Bounds: [{lower_bound:.2f}, {upper_bound:.2f}]")
     
     return filtered_df
+import pandas as pd
+import numpy as np
+from scipy import stats
+
+def normalize_data(df, columns=None, method='zscore'):
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    df_normalized = df.copy()
+    
+    for col in columns:
+        if col in df.columns and pd.api.types.is_numeric_dtype(df[col]):
+            if method == 'zscore':
+                df_normalized[col] = (df[col] - df[col].mean()) / df[col].std()
+            elif method == 'minmax':
+                df_normalized[col] = (df[col] - df[col].min()) / (df[col].max() - df[col].min())
+            elif method == 'robust':
+                df_normalized[col] = (df[col] - df[col].median()) / stats.iqr(df[col])
+    
+    return df_normalized
+
+def remove_outliers(df, columns=None, method='iqr', threshold=1.5):
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    df_clean = df.copy()
+    
+    for col in columns:
+        if col in df.columns and pd.api.types.is_numeric_dtype(df[col]):
+            if method == 'iqr':
+                Q1 = df[col].quantile(0.25)
+                Q3 = df[col].quantile(0.75)
+                IQR = Q3 - Q1
+                lower_bound = Q1 - threshold * IQR
+                upper_bound = Q3 + threshold * IQR
+                mask = (df[col] >= lower_bound) & (df[col] <= upper_bound)
+                df_clean = df_clean[mask]
+            elif method == 'zscore':
+                z_scores = np.abs(stats.zscore(df[col].dropna()))
+                mask = z_scores < threshold
+                df_clean = df_clean[mask]
+    
+    return df_clean.reset_index(drop=True)
+
+def handle_missing_values(df, columns=None, strategy='mean'):
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    df_filled = df.copy()
+    
+    for col in columns:
+        if col in df.columns and pd.api.types.is_numeric_dtype(df[col]):
+            if strategy == 'mean':
+                fill_value = df[col].mean()
+            elif strategy == 'median':
+                fill_value = df[col].median()
+            elif strategy == 'mode':
+                fill_value = df[col].mode()[0] if not df[col].mode().empty else 0
+            elif strategy == 'drop':
+                df_filled = df_filled.dropna(subset=[col])
+                continue
+            
+            df_filled[col] = df_filled[col].fillna(fill_value)
+    
+    return df_filled
+
+def clean_dataset(df, normalize_cols=None, outlier_cols=None, missing_cols=None, 
+                  normalize_method='zscore', outlier_method='iqr', missing_strategy='mean'):
+    df_clean = df.copy()
+    
+    df_clean = handle_missing_values(df_clean, missing_cols, missing_strategy)
+    df_clean = remove_outliers(df_clean, outlier_cols, outlier_method)
+    df_clean = normalize_data(df_clean, normalize_cols, normalize_method)
+    
+    return df_clean
