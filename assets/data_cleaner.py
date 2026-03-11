@@ -283,3 +283,156 @@ def clean_dataframe(df: pd.DataFrame,
             cleaned_df = normalize_column(cleaned_df, column)
     
     return cleaned_df
+import numpy as np
+import pandas as pd
+
+def remove_outliers_iqr(data, column, multiplier=1.5):
+    """
+    Remove outliers from a column using the Interquartile Range method.
+    
+    Parameters:
+    data (pd.DataFrame): Input dataframe
+    column (str): Column name to process
+    multiplier (float): IQR multiplier for outlier detection
+    
+    Returns:
+    pd.DataFrame: Dataframe with outliers removed
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in dataframe")
+    
+    q1 = data[column].quantile(0.25)
+    q3 = data[column].quantile(0.75)
+    iqr = q3 - q1
+    
+    lower_bound = q1 - multiplier * iqr
+    upper_bound = q3 + multiplier * iqr
+    
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    return filtered_data
+
+def normalize_minmax(data, column):
+    """
+    Normalize a column using min-max scaling to range [0, 1].
+    
+    Parameters:
+    data (pd.DataFrame): Input dataframe
+    column (str): Column name to normalize
+    
+    Returns:
+    pd.Series: Normalized column values
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in dataframe")
+    
+    min_val = data[column].min()
+    max_val = data[column].max()
+    
+    if max_val == min_val:
+        return pd.Series([0.5] * len(data), index=data.index)
+    
+    normalized = (data[column] - min_val) / (max_val - min_val)
+    return normalized
+
+def standardize_zscore(data, column):
+    """
+    Standardize a column using z-score normalization.
+    
+    Parameters:
+    data (pd.DataFrame): Input dataframe
+    column (str): Column name to standardize
+    
+    Returns:
+    pd.Series: Standardized column values
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in dataframe")
+    
+    mean_val = data[column].mean()
+    std_val = data[column].std()
+    
+    if std_val == 0:
+        return pd.Series([0] * len(data), index=data.index)
+    
+    standardized = (data[column] - mean_val) / std_val
+    return standardized
+
+def clean_dataset(data, numeric_columns=None, outlier_multiplier=1.5, normalize=True):
+    """
+    Comprehensive data cleaning pipeline.
+    
+    Parameters:
+    data (pd.DataFrame): Input dataframe
+    numeric_columns (list): List of numeric column names to process
+    outlier_multiplier (float): IQR multiplier for outlier removal
+    normalize (bool): Whether to normalize numeric columns
+    
+    Returns:
+    pd.DataFrame: Cleaned dataframe
+    """
+    if numeric_columns is None:
+        numeric_columns = data.select_dtypes(include=[np.number]).columns.tolist()
+    
+    cleaned_data = data.copy()
+    
+    for column in numeric_columns:
+        if column in cleaned_data.columns:
+            cleaned_data = remove_outliers_iqr(cleaned_data, column, outlier_multiplier)
+            
+            if normalize:
+                cleaned_data[f"{column}_normalized"] = normalize_minmax(cleaned_data, column)
+                cleaned_data[f"{column}_standardized"] = standardize_zscore(cleaned_data, column)
+    
+    return cleaned_data
+
+def get_summary_statistics(data, numeric_columns=None):
+    """
+    Generate summary statistics for numeric columns.
+    
+    Parameters:
+    data (pd.DataFrame): Input dataframe
+    numeric_columns (list): List of numeric column names
+    
+    Returns:
+    pd.DataFrame: Summary statistics
+    """
+    if numeric_columns is None:
+        numeric_columns = data.select_dtypes(include=[np.number]).columns.tolist()
+    
+    summary = pd.DataFrame()
+    
+    for column in numeric_columns:
+        if column in data.columns:
+            col_data = data[column].dropna()
+            stats = {
+                'column': column,
+                'count': len(col_data),
+                'mean': col_data.mean(),
+                'std': col_data.std(),
+                'min': col_data.min(),
+                '25%': col_data.quantile(0.25),
+                '50%': col_data.quantile(0.50),
+                '75%': col_data.quantile(0.75),
+                'max': col_data.max(),
+                'missing': data[column].isnull().sum()
+            }
+            summary = pd.concat([summary, pd.DataFrame([stats])], ignore_index=True)
+    
+    return summary
+
+if __name__ == "__main__":
+    sample_data = pd.DataFrame({
+        'feature_a': np.random.normal(100, 15, 1000),
+        'feature_b': np.random.exponential(50, 1000),
+        'feature_c': np.random.uniform(0, 200, 1000),
+        'category': np.random.choice(['A', 'B', 'C'], 1000)
+    })
+    
+    print("Original data shape:", sample_data.shape)
+    print("\nOriginal summary statistics:")
+    print(get_summary_statistics(sample_data))
+    
+    cleaned = clean_dataset(sample_data, normalize=True)
+    print("\nCleaned data shape:", cleaned.shape)
+    print("\nCleaned summary statistics:")
+    print(get_summary_statistics(cleaned))
