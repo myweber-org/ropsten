@@ -423,3 +423,88 @@ class DataCleaner:
             'current_cols': final_shape[1],
             'cols_removed': cols_removed
         }
+def remove_duplicates(data_list):
+    """
+    Remove duplicate entries from a list while preserving order.
+    
+    Args:
+        data_list: A list containing potentially duplicate items.
+    
+    Returns:
+        A new list with duplicates removed.
+    """
+    seen = set()
+    result = []
+    
+    for item in data_list:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    
+    return result
+
+def clean_numeric_data(values):
+    """
+    Clean numeric data by converting strings to floats and removing None values.
+    
+    Args:
+        values: A list of numeric values as strings or numbers.
+    
+    Returns:
+        A list of cleaned float values.
+    """
+    cleaned = []
+    
+    for value in values:
+        if value is None:
+            continue
+        
+        try:
+            num = float(value)
+            cleaned.append(num)
+        except (ValueError, TypeError):
+            continue
+    
+    return cleaned
+
+def validate_email_format(email):
+    """
+    Basic email format validation.
+    
+    Args:
+        email: String containing email address.
+    
+    Returns:
+        Boolean indicating if email format is valid.
+    """
+    if not email or not isinstance(email, str):
+        return False
+    
+    parts = email.split('@')
+    
+    if len(parts) != 2:
+        return False
+    
+    if not parts[0] or not parts[1]:
+        return False
+    
+    if '.' not in parts[1]:
+        return False
+    
+    return True
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = [1, 2, 2, 3, 4, 4, 5]
+    cleaned = remove_duplicates(sample_data)
+    print(f"Original: {sample_data}")
+    print(f"Cleaned: {cleaned}")
+    
+    numeric_data = ["1.5", "2.0", None, "invalid", "3.7"]
+    cleaned_nums = clean_numeric_data(numeric_data)
+    print(f"Numeric data: {cleaned_nums}")
+    
+    test_emails = ["test@example.com", "invalid", "user@domain", ""]
+    for email in test_emails:
+        is_valid = validate_email_format(email)
+        print(f"Email '{email}' valid: {is_valid}")
