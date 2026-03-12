@@ -107,3 +107,52 @@ if __name__ == "__main__":
     
     is_valid = validate_dataset(cleaned, ['id', 'value'])
     print(f"\nDataset validation: {'PASS' if is_valid else 'FAIL'}")
+def remove_duplicates(input_list):
+    """
+    Remove duplicate elements from a list while preserving order.
+    Returns a new list with unique elements.
+    """
+    seen = set()
+    result = []
+    for item in input_list:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
+
+def clean_numeric_strings(string_list):
+    """
+    Clean a list of numeric strings by converting to integers,
+    removing duplicates, and returning sorted unique integers.
+    """
+    numbers = []
+    for s in string_list:
+        try:
+            numbers.append(int(s))
+        except ValueError:
+            continue
+    
+    unique_numbers = list(set(numbers))
+    unique_numbers.sort()
+    return unique_numbers
+
+def filter_by_threshold(values, threshold):
+    """
+    Filter values greater than or equal to a threshold.
+    Returns a list of filtered values.
+    """
+    return [v for v in values if v >= threshold]
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = [1, 2, 2, 3, 4, 4, 5]
+    cleaned = remove_duplicates(sample_data)
+    print(f"Original: {sample_data}")
+    print(f"Cleaned: {cleaned}")
+    
+    numeric_strings = ["10", "20", "10", "30", "abc", "20"]
+    cleaned_nums = clean_numeric_strings(numeric_strings)
+    print(f"Numeric strings cleaned: {cleaned_nums}")
+    
+    filtered = filter_by_threshold(cleaned_nums, 20)
+    print(f"Values >= 20: {filtered}")
