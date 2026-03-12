@@ -343,3 +343,137 @@ def clean_dataframe(df, cleaning_steps):
         cleaned_df = step(cleaned_df)
     
     return cleaned_df
+import pandas as pd
+import numpy as np
+
+def clean_dataset(df, missing_strategy='mean', outlier_threshold=3):
+    """
+    Clean a dataset by handling missing values and removing outliers.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    missing_strategy (str): Strategy for handling missing values ('mean', 'median', 'drop')
+    outlier_threshold (float): Z-score threshold for outlier detection
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame
+    """
+    cleaned_df = df.copy()
+    
+    # Handle missing values
+    if missing_strategy == 'mean':
+        cleaned_df = cleaned_df.fillna(cleaned_df.mean())
+    elif missing_strategy == 'median':
+        cleaned_df = cleaned_df.fillna(cleaned_df.median())
+    elif missing_strategy == 'drop':
+        cleaned_df = cleaned_df.dropna()
+    
+    # Remove outliers using Z-score method
+    numeric_cols = cleaned_df.select_dtypes(include=[np.number]).columns
+    z_scores = np.abs((cleaned_df[numeric_cols] - cleaned_df[numeric_cols].mean()) / cleaned_df[numeric_cols].std())
+    outlier_mask = (z_scores < outlier_threshold).all(axis=1)
+    cleaned_df = cleaned_df[outlier_mask]
+    
+    return cleaned_df.reset_index(drop=True)
+
+def normalize_data(df, method='minmax'):
+    """
+    Normalize numerical columns in the DataFrame.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    method (str): Normalization method ('minmax' or 'standard')
+    
+    Returns:
+    pd.DataFrame: Normalized DataFrame
+    """
+    normalized_df = df.copy()
+    numeric_cols = normalized_df.select_dtypes(include=[np.number]).columns
+    
+    if method == 'minmax':
+        for col in numeric_cols:
+            col_min = normalized_df[col].min()
+            col_max = normalized_df[col].max()
+            if col_max != col_min:
+                normalized_df[col] = (normalized_df[col] - col_min) / (col_max - col_min)
+    
+    elif method == 'standard':
+        for col in numeric_cols:
+            col_mean = normalized_df[col].mean()
+            col_std = normalized_df[col].std()
+            if col_std != 0:
+                normalized_df[col] = (normalized_df[col] - col_mean) / col_std
+    
+    return normalized_df
+
+def validate_data(df, required_columns=None, unique_constraints=None):
+    """
+    Validate data integrity and constraints.
+    
+    Parameters:
+    df (pd.DataFrame): Input DataFrame
+    required_columns (list): List of required column names
+    unique_constraints (list): List of columns that should have unique values
+    
+    Returns:
+    dict: Validation results with status and messages
+    """
+    validation_result = {
+        'is_valid': True,
+        'messages': []
+    }
+    
+    # Check required columns
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            validation_result['is_valid'] = False
+            validation_result['messages'].append(f"Missing required columns: {missing_cols}")
+    
+    # Check unique constraints
+    if unique_constraints:
+        for col in unique_constraints:
+            if col in df.columns:
+                duplicates = df[col].duplicated().sum()
+                if duplicates > 0:
+                    validation_result['is_valid'] = False
+                    validation_result['messages'].append(f"Column '{col}' has {duplicates} duplicate values")
+    
+    # Check for infinite values
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    for col in numeric_cols:
+        if np.any(np.isinf(df[col])):
+            validation_result['is_valid'] = False
+            validation_result['messages'].append(f"Column '{col}' contains infinite values")
+    
+    return validation_result
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'A': [1, 2, np.nan, 4, 100],
+        'B': [5, 6, 7, np.nan, 9],
+        'C': ['x', 'y', 'z', 'x', 'y']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print()
+    
+    # Clean the data
+    cleaned = clean_dataset(df, missing_strategy='mean', outlier_threshold=2)
+    print("Cleaned DataFrame:")
+    print(cleaned)
+    print()
+    
+    # Normalize the data
+    normalized = normalize_data(cleaned, method='minmax')
+    print("Normalized DataFrame:")
+    print(normalized)
+    print()
+    
+    # Validate the data
+    validation = validate_data(cleaned, required_columns=['A', 'B'], unique_constraints=['C'])
+    print("Validation Result:")
+    print(validation)
