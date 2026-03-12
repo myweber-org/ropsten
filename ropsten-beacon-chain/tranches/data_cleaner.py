@@ -633,3 +633,176 @@ def process_dataset(file_path, column_to_clean):
     cleaned_stats = calculate_summary_statistics(cleaned_df, column_to_clean)
     
     return cleaned_df, original_stats, cleaned_stats
+import numpy as np
+import pandas as pd
+
+def remove_outliers_iqr(data, column, multiplier=1.5):
+    """
+    Remove outliers from a column using IQR method.
+    
+    Parameters:
+    data (pd.DataFrame): Input dataframe
+    column (str): Column name to process
+    multiplier (float): IQR multiplier for outlier detection
+    
+    Returns:
+    pd.DataFrame: Dataframe with outliers removed
+    """
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in dataframe")
+    
+    q1 = data[column].quantile(0.25)
+    q3 = data[column].quantile(0.75)
+    iqr = q3 - q1
+    
+    lower_bound = q1 - multiplier * iqr
+    upper_bound = q3 + multiplier * iqr
+    
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    return filtered_data
+
+def normalize_minmax(data, columns=None):
+    """
+    Normalize specified columns using min-max scaling.
+    
+    Parameters:
+    data (pd.DataFrame): Input dataframe
+    columns (list): List of column names to normalize
+    
+    Returns:
+    pd.DataFrame: Dataframe with normalized columns
+    """
+    if columns is None:
+        columns = data.select_dtypes(include=[np.number]).columns
+    
+    normalized_data = data.copy()
+    
+    for col in columns:
+        if col in normalized_data.columns and pd.api.types.is_numeric_dtype(normalized_data[col]):
+            col_min = normalized_data[col].min()
+            col_max = normalized_data[col].max()
+            
+            if col_max != col_min:
+                normalized_data[col] = (normalized_data[col] - col_min) / (col_max - col_min)
+            else:
+                normalized_data[col] = 0
+    
+    return normalized_data
+
+def handle_missing_values(data, strategy='mean', columns=None):
+    """
+    Handle missing values in specified columns.
+    
+    Parameters:
+    data (pd.DataFrame): Input dataframe
+    strategy (str): Imputation strategy ('mean', 'median', 'mode', 'drop')
+    columns (list): List of column names to process
+    
+    Returns:
+    pd.DataFrame: Dataframe with handled missing values
+    """
+    if columns is None:
+        columns = data.columns
+    
+    processed_data = data.copy()
+    
+    for col in columns:
+        if col not in processed_data.columns:
+            continue
+            
+        if processed_data[col].isnull().any():
+            if strategy == 'drop':
+                processed_data = processed_data.dropna(subset=[col])
+            elif strategy == 'mean' and pd.api.types.is_numeric_dtype(processed_data[col]):
+                processed_data[col] = processed_data[col].fillna(processed_data[col].mean())
+            elif strategy == 'median' and pd.api.types.is_numeric_dtype(processed_data[col]):
+                processed_data[col] = processed_data[col].fillna(processed_data[col].median())
+            elif strategy == 'mode':
+                processed_data[col] = processed_data[col].fillna(processed_data[col].mode()[0])
+    
+    return processed_data
+
+def clean_dataset(data, config):
+    """
+    Main function to clean dataset based on configuration.
+    
+    Parameters:
+    data (pd.DataFrame): Input dataframe
+    config (dict): Cleaning configuration
+    
+    Returns:
+    pd.DataFrame: Cleaned dataframe
+    """
+    cleaned_data = data.copy()
+    
+    if 'missing_values' in config:
+        cleaned_data = handle_missing_values(
+            cleaned_data,
+            strategy=config['missing_values'].get('strategy', 'mean'),
+            columns=config['missing_values'].get('columns')
+        )
+    
+    if 'outliers' in config:
+        for col_config in config['outliers']:
+            cleaned_data = remove_outliers_iqr(
+                cleaned_data,
+                column=col_config['column'],
+                multiplier=col_config.get('multiplier', 1.5)
+            )
+    
+    if 'normalize' in config:
+        cleaned_data = normalize_minmax(
+            cleaned_data,
+            columns=config['normalize'].get('columns')
+        )
+    
+    return cleaned_data
+
+def get_data_summary(data):
+    """
+    Generate summary statistics for the dataframe.
+    
+    Parameters:
+    data (pd.DataFrame): Input dataframe
+    
+    Returns:
+    dict: Summary statistics
+    """
+    summary = {
+        'shape': data.shape,
+        'missing_values': data.isnull().sum().to_dict(),
+        'data_types': data.dtypes.astype(str).to_dict(),
+        'numeric_stats': {}
+    }
+    
+    numeric_cols = data.select_dtypes(include=[np.number]).columns
+    for col in numeric_cols:
+        summary['numeric_stats'][col] = {
+            'mean': data[col].mean(),
+            'std': data[col].std(),
+            'min': data[col].min(),
+            'max': data[col].max(),
+            'median': data[col].median()
+        }
+    
+    return summary
+
+if __name__ == "__main__":
+    sample_data = pd.DataFrame({
+        'A': [1, 2, 3, 4, 5, 100],
+        'B': [10, 20, None, 40, 50, 60],
+        'C': [0.1, 0.2, 0.3, 0.4, 0.5, 0.6]
+    })
+    
+    config = {
+        'missing_values': {'strategy': 'mean', 'columns': ['B']},
+        'outliers': [{'column': 'A', 'multiplier': 1.5}],
+        'normalize': {'columns': ['C']}
+    }
+    
+    cleaned = clean_dataset(sample_data, config)
+    summary = get_data_summary(cleaned)
+    
+    print("Original data shape:", sample_data.shape)
+    print("Cleaned data shape:", cleaned.shape)
+    print("Cleaned data:\n", cleaned)
