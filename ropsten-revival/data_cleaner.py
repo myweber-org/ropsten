@@ -496,3 +496,11 @@ def process_dataset(df, numeric_columns):
             all_stats[col] = stats
     
     return cleaned_df, all_stats
+def remove_duplicates_preserve_order(iterable):
+    seen = set()
+    result = []
+    for item in iterable:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
