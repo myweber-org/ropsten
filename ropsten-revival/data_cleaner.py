@@ -1,98 +1,129 @@
 
-import numpy as np
 import pandas as pd
+import numpy as np
 
-def remove_outliers_iqr(df, column):
+def remove_missing_rows(df, columns=None):
     """
-    Remove outliers from a DataFrame column using the Interquartile Range method.
+    Remove rows with missing values from DataFrame.
     
     Args:
-        df (pd.DataFrame): Input DataFrame
-        column (str): Column name to process
+        df: pandas DataFrame
+        columns: list of columns to check for missing values. 
+                 If None, checks all columns.
     
     Returns:
-        pd.DataFrame: DataFrame with outliers removed
-    """
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
-    
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
-    
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
-    
-    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
-    
-    return filtered_df.reset_index(drop=True)
-
-def calculate_summary_statistics(df, column):
-    """
-    Calculate summary statistics for a column after outlier removal.
-    
-    Args:
-        df (pd.DataFrame): Input DataFrame
-        column (str): Column name to analyze
-    
-    Returns:
-        dict: Dictionary containing summary statistics
-    """
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
-    
-    stats = {
-        'mean': df[column].mean(),
-        'median': df[column].median(),
-        'std': df[column].std(),
-        'min': df[column].min(),
-        'max': df[column].max(),
-        'count': len(df[column])
-    }
-    
-    return stats
-
-def process_numerical_data(df, columns=None):
-    """
-    Process multiple numerical columns by removing outliers.
-    
-    Args:
-        df (pd.DataFrame): Input DataFrame
-        columns (list): List of column names to process. If None, processes all numerical columns.
-    
-    Returns:
-        pd.DataFrame: Processed DataFrame
+        Cleaned DataFrame
     """
     if columns is None:
-        columns = df.select_dtypes(include=[np.number]).columns.tolist()
+        columns = df.columns
     
-    processed_df = df.copy()
-    
-    for column in columns:
-        if column in df.columns and pd.api.types.is_numeric_dtype(df[column]):
-            try:
-                processed_df = remove_outliers_iqr(processed_df, column)
-            except Exception as e:
-                print(f"Error processing column '{column}': {e}")
-    
-    return processed_df
+    return df.dropna(subset=columns)
 
-if __name__ == "__main__":
-    # Example usage
-    sample_data = {
-        'temperature': [22, 23, 24, 25, 26, 100, 27, 28, 29, 30, -10],
-        'humidity': [45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55],
-        'pressure': [1013, 1014, 1015, 1016, 1017, 2000, 1018, 1019, 1020, 1021, 500]
+def fill_missing_with_mean(df, columns=None):
+    """
+    Fill missing values with column mean.
+    
+    Args:
+        df: pandas DataFrame
+        columns: list of columns to fill. If None, fills all numeric columns.
+    
+    Returns:
+        DataFrame with filled values
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    df_filled = df.copy()
+    for col in columns:
+        if col in df.columns and df[col].dtype in [np.float64, np.int64]:
+            df_filled[col] = df[col].fillna(df[col].mean())
+    
+    return df_filled
+
+def remove_outliers_iqr(df, columns=None, multiplier=1.5):
+    """
+    Remove outliers using IQR method.
+    
+    Args:
+        df: pandas DataFrame
+        columns: list of columns to check for outliers.
+                 If None, checks all numeric columns.
+        multiplier: IQR multiplier (default 1.5)
+    
+    Returns:
+        DataFrame without outliers
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    df_clean = df.copy()
+    
+    for col in columns:
+        if col in df.columns and df[col].dtype in [np.float64, np.int64]:
+            Q1 = df[col].quantile(0.25)
+            Q3 = df[col].quantile(0.75)
+            IQR = Q3 - Q1
+            
+            lower_bound = Q1 - multiplier * IQR
+            upper_bound = Q3 + multiplier * IQR
+            
+            mask = (df[col] >= lower_bound) & (df[col] <= upper_bound)
+            df_clean = df_clean[mask]
+    
+    return df_clean.reset_index(drop=True)
+
+def standardize_columns(df, columns=None):
+    """
+    Standardize numeric columns to have mean=0 and std=1.
+    
+    Args:
+        df: pandas DataFrame
+        columns: list of columns to standardize.
+                 If None, standardizes all numeric columns.
+    
+    Returns:
+        DataFrame with standardized columns
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    df_standardized = df.copy()
+    
+    for col in columns:
+        if col in df.columns and df[col].dtype in [np.float64, np.int64]:
+            mean = df[col].mean()
+            std = df[col].std()
+            
+            if std > 0:
+                df_standardized[col] = (df[col] - mean) / std
+    
+    return df_standardized
+
+def get_data_summary(df):
+    """
+    Generate summary statistics for DataFrame.
+    
+    Args:
+        df: pandas DataFrame
+    
+    Returns:
+        Dictionary with summary statistics
+    """
+    summary = {
+        'shape': df.shape,
+        'missing_values': df.isnull().sum().to_dict(),
+        'data_types': df.dtypes.to_dict(),
+        'numeric_stats': {}
     }
     
-    df = pd.DataFrame(sample_data)
-    print("Original DataFrame:")
-    print(df)
-    print("\nSummary statistics for temperature:")
-    print(calculate_summary_statistics(df, 'temperature'))
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    for col in numeric_cols:
+        summary['numeric_stats'][col] = {
+            'mean': df[col].mean(),
+            'std': df[col].std(),
+            'min': df[col].min(),
+            'max': df[col].max(),
+            'median': df[col].median()
+        }
     
-    cleaned_df = process_numerical_data(df, ['temperature', 'pressure'])
-    print("\nCleaned DataFrame:")
-    print(cleaned_df)
-    print("\nSummary statistics after cleaning:")
-    print(calculate_summary_statistics(cleaned_df, 'temperature'))
+    return summary
