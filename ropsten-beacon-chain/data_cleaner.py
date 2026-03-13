@@ -364,3 +364,100 @@ if __name__ == "__main__":
     
     validation = validate_dataset(cleaned_df, required_columns=['id', 'name', 'age'])
     print(f"\nValidation results: {validation}")
+import pandas as pd
+import numpy as np
+
+def clean_csv_data(file_path, output_path=None):
+    """
+    Load a CSV file, clean missing values, and save cleaned data.
+    """
+    try:
+        df = pd.read_csv(file_path)
+        print(f"Original data shape: {df.shape}")
+        
+        # Check for missing values
+        missing_count = df.isnull().sum().sum()
+        if missing_count > 0:
+            print(f"Found {missing_count} missing values")
+            # Fill numeric columns with median
+            numeric_cols = df.select_dtypes(include=[np.number]).columns
+            df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].median())
+            
+            # Fill categorical columns with mode
+            categorical_cols = df.select_dtypes(include=['object']).columns
+            for col in categorical_cols:
+                df[col] = df[col].fillna(df[col].mode()[0] if not df[col].mode().empty else 'Unknown')
+        
+        # Remove duplicate rows
+        duplicates = df.duplicated().sum()
+        if duplicates > 0:
+            print(f"Removing {duplicates} duplicate rows")
+            df = df.drop_duplicates()
+        
+        # Remove outliers using IQR method for numeric columns
+        for col in numeric_cols:
+            Q1 = df[col].quantile(0.25)
+            Q3 = df[col].quantile(0.75)
+            IQR = Q3 - Q1
+            lower_bound = Q1 - 1.5 * IQR
+            upper_bound = Q3 + 1.5 * IQR
+            df = df[(df[col] >= lower_bound) & (df[col] <= upper_bound)]
+        
+        print(f"Cleaned data shape: {df.shape}")
+        
+        # Save cleaned data
+        if output_path:
+            df.to_csv(output_path, index=False)
+            print(f"Cleaned data saved to: {output_path}")
+        else:
+            base_name = file_path.rsplit('.', 1)[0]
+            output_path = f"{base_name}_cleaned.csv"
+            df.to_csv(output_path, index=False)
+            print(f"Cleaned data saved to: {output_path}")
+        
+        return df
+        
+    except FileNotFoundError:
+        print(f"Error: File '{file_path}' not found")
+        return None
+    except Exception as e:
+        print(f"Error during data cleaning: {str(e)}")
+        return None
+
+def validate_data(df, required_columns=None):
+    """
+    Validate data quality after cleaning.
+    """
+    if df is None or df.empty:
+        print("Error: Invalid or empty DataFrame")
+        return False
+    
+    # Check required columns
+    if required_columns:
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            print(f"Missing required columns: {missing_cols}")
+            return False
+    
+    # Check for remaining missing values
+    remaining_missing = df.isnull().sum().sum()
+    if remaining_missing > 0:
+        print(f"Warning: {remaining_missing} missing values still present")
+    
+    # Check data types
+    print("Data types:")
+    print(df.dtypes)
+    
+    # Basic statistics
+    print("\nBasic statistics:")
+    print(df.describe())
+    
+    return True
+
+if __name__ == "__main__":
+    # Example usage
+    input_file = "sample_data.csv"
+    cleaned_data = clean_csv_data(input_file)
+    
+    if cleaned_data is not None:
+        validate_data(cleaned_data)
