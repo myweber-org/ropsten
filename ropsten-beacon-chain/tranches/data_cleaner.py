@@ -387,3 +387,105 @@ def clean_dataset(df, numeric_columns, outlier_method='iqr', normalize_method='m
         df_final = df_clean
 
     return df_final
+import pandas as pd
+import numpy as np
+from pathlib import Path
+
+def clean_csv_data(input_path, output_path=None):
+    """
+    Load a CSV file, clean missing values, and save cleaned data.
+    """
+    try:
+        df = pd.read_csv(input_path)
+        print(f"Original shape: {df.shape}")
+        
+        # Remove duplicate rows
+        df = df.drop_duplicates()
+        print(f"After removing duplicates: {df.shape}")
+        
+        # Fill missing numeric values with column median
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        for col in numeric_cols:
+            if df[col].isnull().sum() > 0:
+                df[col] = df[col].fillna(df[col].median())
+        
+        # Fill missing categorical values with mode
+        categorical_cols = df.select_dtypes(include=['object']).columns
+        for col in categorical_cols:
+            if df[col].isnull().sum() > 0:
+                df[col] = df[col].fillna(df[col].mode()[0] if not df[col].mode().empty else 'Unknown')
+        
+        # Remove columns with too many missing values (threshold: 50%)
+        missing_threshold = 0.5
+        cols_to_drop = [col for col in df.columns if df[col].isnull().mean() > missing_threshold]
+        if cols_to_drop:
+            df = df.drop(columns=cols_to_drop)
+            print(f"Dropped columns with >{missing_threshold*100}% missing values: {cols_to_drop}")
+        
+        # Generate output path if not provided
+        if output_path is None:
+            input_file = Path(input_path)
+            output_path = input_file.parent / f"{input_file.stem}_cleaned{input_file.suffix}"
+        
+        # Save cleaned data
+        df.to_csv(output_path, index=False)
+        print(f"Cleaned data saved to: {output_path}")
+        print(f"Final shape: {df.shape}")
+        
+        return df, output_path
+        
+    except FileNotFoundError:
+        print(f"Error: File not found at {input_path}")
+        return None, None
+    except Exception as e:
+        print(f"Error during data cleaning: {str(e)}")
+        return None, None
+
+def validate_dataframe(df):
+    """
+    Perform basic validation on cleaned dataframe.
+    """
+    if df is None:
+        return False
+    
+    validation_results = {
+        'has_data': not df.empty,
+        'total_rows': len(df),
+        'total_columns': len(df.columns),
+        'missing_values': df.isnull().sum().sum(),
+        'duplicate_rows': df.duplicated().sum()
+    }
+    
+    print("Data Validation Results:")
+    for key, value in validation_results.items():
+        print(f"  {key}: {value}")
+    
+    return validation_results['missing_values'] == 0 and validation_results['duplicate_rows'] == 0
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'id': [1, 2, 3, 4, 5, 6],
+        'name': ['Alice', 'Bob', 'Charlie', None, 'Eve', 'Alice'],
+        'age': [25, 30, None, 35, 40, 25],
+        'score': [85.5, 92.0, 78.5, None, 88.0, 85.5],
+        'department': ['HR', 'IT', 'IT', None, 'Finance', 'HR']
+    }
+    
+    # Create temporary CSV for demonstration
+    temp_df = pd.DataFrame(sample_data)
+    temp_input = "temp_sample_data.csv"
+    temp_df.to_csv(temp_input, index=False)
+    
+    print("Starting data cleaning process...")
+    cleaned_df, output_file = clean_csv_data(temp_input)
+    
+    if cleaned_df is not None:
+        is_valid = validate_dataframe(cleaned_df)
+        print(f"Data validation passed: {is_valid}")
+    
+    # Clean up temporary file
+    import os
+    if os.path.exists(temp_input):
+        os.remove(temp_input)
+        print(f"Removed temporary file: {temp_input}")
