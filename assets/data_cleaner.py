@@ -114,3 +114,110 @@ def example_usage():
 
 if __name__ == "__main__":
     example_usage()
+import pandas as pd
+import numpy as np
+from typing import List, Optional
+
+class DataCleaner:
+    def __init__(self, df: pd.DataFrame):
+        self.df = df.copy()
+        self.original_shape = df.shape
+        
+    def remove_duplicates(self, subset: Optional[List[str]] = None) -> pd.DataFrame:
+        initial_count = len(self.df)
+        self.df = self.df.drop_duplicates(subset=subset, keep='first')
+        removed = initial_count - len(self.df)
+        print(f"Removed {removed} duplicate rows")
+        return self.df
+    
+    def normalize_text_columns(self, columns: List[str]) -> pd.DataFrame:
+        for col in columns:
+            if col in self.df.columns and self.df[col].dtype == 'object':
+                self.df[col] = self.df[col].str.strip().str.lower()
+                self.df[col] = self.df[col].replace('', np.nan)
+        print(f"Normalized text columns: {columns}")
+        return self.df
+    
+    def fill_missing_values(self, strategy: str = 'mean', columns: Optional[List[str]] = None) -> pd.DataFrame:
+        if columns is None:
+            columns = self.df.select_dtypes(include=[np.number]).columns.tolist()
+        
+        for col in columns:
+            if col in self.df.columns:
+                if strategy == 'mean' and self.df[col].dtype in [np.float64, np.int64]:
+                    self.df[col].fillna(self.df[col].mean(), inplace=True)
+                elif strategy == 'median' and self.df[col].dtype in [np.float64, np.int64]:
+                    self.df[col].fillna(self.df[col].median(), inplace=True)
+                elif strategy == 'mode':
+                    self.df[col].fillna(self.df[col].mode()[0] if not self.df[col].mode().empty else None, inplace=True)
+                elif strategy == 'ffill':
+                    self.df[col].fillna(method='ffill', inplace=True)
+                elif strategy == 'bfill':
+                    self.df[col].fillna(method='bfill', inplace=True)
+        
+        print(f"Filled missing values using {strategy} strategy for columns: {columns}")
+        return self.df
+    
+    def remove_outliers_iqr(self, columns: List[str], multiplier: float = 1.5) -> pd.DataFrame:
+        initial_count = len(self.df)
+        
+        for col in columns:
+            if col in self.df.columns and self.df[col].dtype in [np.float64, np.int64]:
+                Q1 = self.df[col].quantile(0.25)
+                Q3 = self.df[col].quantile(0.75)
+                IQR = Q3 - Q1
+                lower_bound = Q1 - multiplier * IQR
+                upper_bound = Q3 + multiplier * IQR
+                
+                self.df = self.df[(self.df[col] >= lower_bound) & (self.df[col] <= upper_bound)]
+        
+        removed = initial_count - len(self.df)
+        print(f"Removed {removed} outliers using IQR method from columns: {columns}")
+        return self.df
+    
+    def get_cleaning_report(self) -> dict:
+        final_shape = self.df.shape
+        return {
+            'original_rows': self.original_shape[0],
+            'original_columns': self.original_shape[1],
+            'final_rows': final_shape[0],
+            'final_columns': final_shape[1],
+            'rows_removed': self.original_shape[0] - final_shape[0],
+            'columns_removed': self.original_shape[1] - final_shape[1],
+            'remaining_missing_values': self.df.isnull().sum().sum()
+        }
+    
+    def save_cleaned_data(self, filepath: str, format: str = 'csv'):
+        if format == 'csv':
+            self.df.to_csv(filepath, index=False)
+        elif format == 'excel':
+            self.df.to_excel(filepath, index=False)
+        elif format == 'parquet':
+            self.df.to_parquet(filepath, index=False)
+        print(f"Cleaned data saved to {filepath} in {format} format")
+
+def create_sample_data() -> pd.DataFrame:
+    data = {
+        'id': [1, 2, 3, 4, 5, 5, 6, 7],
+        'name': ['John', 'Jane', 'Bob', 'Alice', 'John', 'John', 'Eve', 'Frank'],
+        'age': [25, 30, 35, 28, 25, 25, 40, 150],
+        'salary': [50000, 60000, 70000, None, 50000, 50000, 80000, 1000000],
+        'department': ['IT', 'HR', 'IT', 'Finance', 'IT', 'IT', 'HR', 'Management']
+    }
+    return pd.DataFrame(data)
+
+if __name__ == "__main__":
+    sample_df = create_sample_data()
+    cleaner = DataCleaner(sample_df)
+    
+    cleaner.remove_duplicates(subset=['id', 'name'])
+    cleaner.normalize_text_columns(['name', 'department'])
+    cleaner.fill_missing_values(strategy='mean', columns=['salary'])
+    cleaner.remove_outliers_iqr(columns=['age', 'salary'], multiplier=1.5)
+    
+    report = cleaner.get_cleaning_report()
+    print("\nCleaning Report:")
+    for key, value in report.items():
+        print(f"{key}: {value}")
+    
+    cleaner.save_cleaned_data('cleaned_data.csv')
