@@ -1148,4 +1148,112 @@ def validate_dataframe(df, required_columns=None):
         if missing_columns:
             return False, f"Missing required columns: {missing_columns}"
     
-    return True, "DataFrame is valid"
+    return True, "DataFrame is valid"import pandas as pd
+import numpy as np
+from pathlib import Path
+
+def clean_csv_data(input_path, output_path=None):
+    """
+    Load a CSV file, perform basic cleaning operations,
+    and save the cleaned data.
+    """
+    try:
+        df = pd.read_csv(input_path)
+        print(f"Loaded data with shape: {df.shape}")
+        
+        # Remove duplicate rows
+        initial_rows = len(df)
+        df.drop_duplicates(inplace=True)
+        removed_duplicates = initial_rows - len(df)
+        print(f"Removed {removed_duplicates} duplicate rows")
+        
+        # Fill missing numeric values with column median
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        for col in numeric_cols:
+            if df[col].isnull().sum() > 0:
+                median_val = df[col].median()
+                df[col].fillna(median_val, inplace=True)
+                print(f"Filled missing values in {col} with median: {median_val}")
+        
+        # Convert date columns if present
+        date_columns = [col for col in df.columns if 'date' in col.lower() or 'time' in col.lower()]
+        for col in date_columns:
+            try:
+                df[col] = pd.to_datetime(df[col])
+                print(f"Converted {col} to datetime format")
+            except:
+                print(f"Could not convert {col} to datetime")
+        
+        # Remove rows where all values are null
+        df.dropna(how='all', inplace=True)
+        
+        # Reset index after cleaning
+        df.reset_index(drop=True, inplace=True)
+        
+        # Save cleaned data
+        if output_path is None:
+            output_path = Path(input_path).stem + '_cleaned.csv'
+        
+        df.to_csv(output_path, index=False)
+        print(f"Cleaned data saved to: {output_path}")
+        print(f"Final data shape: {df.shape}")
+        
+        return df, output_path
+        
+    except FileNotFoundError:
+        print(f"Error: File not found at {input_path}")
+        return None, None
+    except pd.errors.EmptyDataError:
+        print("Error: The CSV file is empty")
+        return None, None
+    except Exception as e:
+        print(f"Error during data cleaning: {str(e)}")
+        return None, None
+
+def validate_dataframe(df):
+    """
+    Perform basic validation on a DataFrame.
+    """
+    if df is None or df.empty:
+        print("DataFrame is empty or None")
+        return False
+    
+    validation_results = {
+        'total_rows': len(df),
+        'total_columns': len(df.columns),
+        'missing_values': df.isnull().sum().sum(),
+        'duplicate_rows': df.duplicated().sum(),
+        'data_types': df.dtypes.to_dict()
+    }
+    
+    print("Data Validation Results:")
+    for key, value in validation_results.items():
+        print(f"  {key}: {value}")
+    
+    return True
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'date': ['2023-01-01', '2023-01-01', '2023-01-02', None, '2023-01-03'],
+        'temperature': [22.5, 22.5, 24.0, None, 23.0],
+        'humidity': [65, 65, 70, None, 68],
+        'location': ['A', 'A', 'B', None, 'C']
+    }
+    
+    # Create a temporary CSV for demonstration
+    temp_df = pd.DataFrame(sample_data)
+    temp_csv = 'sample_data.csv'
+    temp_df.to_csv(temp_csv, index=False)
+    
+    # Clean the data
+    cleaned_df, output_file = clean_csv_data(temp_csv)
+    
+    if cleaned_df is not None:
+        validate_dataframe(cleaned_df)
+    
+    # Clean up temporary file
+    import os
+    if os.path.exists(temp_csv):
+        os.remove(temp_csv)
+        print(f"Removed temporary file: {temp_csv}")
