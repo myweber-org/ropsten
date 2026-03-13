@@ -425,4 +425,34 @@ if __name__ == "__main__":
         for day in forecast:
             print(f"{day['date']}: {day['temp_min']}°C - {day['temp_max']}°C, {day['weather']}")
         
-        save_to_file(forecast, "london_forecast.json")
+        save_to_file(forecast, "london_forecast.json")import requests
+import json
+
+def get_weather(city_name, api_key):
+    base_url = "http://api.openweathermap.org/data/2.5/weather?"
+    complete_url = f"{base_url}appid={api_key}&q={city_name}&units=metric"
+    
+    response = requests.get(complete_url)
+    data = response.json()
+    
+    if data["cod"] != "404":
+        main = data["main"]
+        weather_desc = data["weather"][0]["description"]
+        temperature = main["temp"]
+        humidity = main["humidity"]
+        
+        result = {
+            "city": city_name,
+            "temperature": temperature,
+            "humidity": humidity,
+            "description": weather_desc
+        }
+        return result
+    else:
+        return {"error": "City not found"}
+
+if __name__ == "__main__":
+    API_KEY = "your_api_key_here"
+    city = "London"
+    weather_info = get_weather(city, API_KEY)
+    print(json.dumps(weather_info, indent=2))
