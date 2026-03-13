@@ -334,4 +334,150 @@ if __name__ == "__main__":
     
     print(f"Original shape: {sample_data.shape}")
     print(f"Cleaned shape: {cleaned_data.shape}")
-    print(cleaned_data.describe())
+    print(cleaned_data.describe())import numpy as np
+import pandas as pd
+from scipy import stats
+
+def remove_outliers_iqr(data, column):
+    """
+    Remove outliers from a pandas Series using the IQR method.
+    Returns a cleaned Series with outliers set to NaN.
+    """
+    if not isinstance(data, pd.Series):
+        raise TypeError("Input data must be a pandas Series")
+    
+    Q1 = data.quantile(0.25)
+    Q3 = data.quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    cleaned = data.copy()
+    cleaned[(cleaned < lower_bound) | (cleaned > upper_bound)] = np.nan
+    return cleaned
+
+def normalize_minmax(data):
+    """
+    Normalize data using min-max scaling to range [0, 1].
+    Handles NaN values by ignoring them in calculation.
+    """
+    if not isinstance(data, (pd.Series, np.ndarray, list)):
+        raise TypeError("Input must be array-like")
+    
+    data_array = np.array(data, dtype=float)
+    valid_mask = ~np.isnan(data_array)
+    
+    if not np.any(valid_mask):
+        return np.full_like(data_array, np.nan)
+    
+    valid_data = data_array[valid_mask]
+    data_min = np.min(valid_data)
+    data_max = np.max(valid_data)
+    
+    if data_max == data_min:
+        normalized = np.zeros_like(data_array)
+    else:
+        normalized = (data_array - data_min) / (data_max - data_min)
+    
+    normalized[~valid_mask] = np.nan
+    return normalized
+
+def winsorize_data(data, limits=(0.05, 0.05)):
+    """
+    Apply winsorization to limit extreme values.
+    Uses scipy.stats.mstats.winsorize for efficient processing.
+    """
+    try:
+        from scipy.stats.mstats import winsorize
+    except ImportError:
+        raise ImportError("scipy is required for winsorization")
+    
+    if not isinstance(data, (pd.Series, np.ndarray, list)):
+        raise TypeError("Input must be array-like")
+    
+    data_array = np.ma.array(data, dtype=float)
+    winsorized = winsorize(data_array, limits=limits)
+    return winsorized.data
+
+def clean_dataframe(df, columns=None, methods=None):
+    """
+    Apply cleaning methods to specified columns of a DataFrame.
+    Supports 'iqr', 'normalize', and 'winsorize' methods.
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=[np.number]).columns
+    
+    if methods is None:
+        methods = {col: 'iqr' for col in columns}
+    
+    cleaned_df = df.copy()
+    
+    for col in columns:
+        if col not in df.columns:
+            continue
+            
+        method = methods.get(col, 'iqr')
+        original_data = cleaned_df[col]
+        
+        if method == 'iqr':
+            cleaned_df[col] = remove_outliers_iqr(original_data, col)
+        elif method == 'normalize':
+            cleaned_df[col] = normalize_minmax(original_data)
+        elif method == 'winsorize':
+            cleaned_df[col] = winsorize_data(original_data)
+        else:
+            raise ValueError(f"Unknown method: {method}")
+    
+    return cleaned_df
+
+def get_cleaning_summary(original_df, cleaned_df):
+    """
+    Generate summary statistics comparing original and cleaned data.
+    """
+    summary = {}
+    
+    for col in original_df.select_dtypes(include=[np.number]).columns:
+        if col not in cleaned_df.columns:
+            continue
+            
+        orig = original_df[col]
+        clean = cleaned_df[col]
+        
+        summary[col] = {
+            'original_count': len(orig),
+            'cleaned_count': len(clean),
+            'outliers_removed': orig.isna().sum() - clean.isna().sum(),
+            'original_mean': orig.mean(),
+            'cleaned_mean': clean.mean(),
+            'original_std': orig.std(),
+            'cleaned_std': clean.std()
+        }
+    
+    return pd.DataFrame(summary).T
+
+if __name__ == "__main__":
+    # Example usage
+    np.random.seed(42)
+    sample_data = pd.DataFrame({
+        'A': np.random.normal(100, 15, 100),
+        'B': np.random.exponential(50, 100),
+        'C': np.random.uniform(0, 1, 100)
+    })
+    
+    # Add some outliers
+    sample_data.loc[10:15, 'A'] = 500
+    sample_data.loc[20:25, 'B'] = 1000
+    
+    print("Original data shape:", sample_data.shape)
+    print("Original statistics:")
+    print(sample_data.describe())
+    
+    cleaned = clean_dataframe(sample_data, methods={'A': 'iqr', 'B': 'winsorize', 'C': 'normalize'})
+    
+    print("\nCleaned data shape:", cleaned.shape)
+    print("Cleaned statistics:")
+    print(cleaned.describe())
+    
+    summary = get_cleaning_summary(sample_data, cleaned)
+    print("\nCleaning summary:")
+    print(summary)
