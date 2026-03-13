@@ -287,4 +287,80 @@ if __name__ == "__main__":
     # Normalize the data
     normalized = normalize_data(cleaned, method='minmax')
     print("Normalized dataset:")
-    print(normalized)
+    print(normalized)import pandas as pd
+
+def clean_dataset(df, remove_duplicates=True):
+    """
+    Clean a pandas DataFrame by removing null values and optionally duplicates.
+    
+    Args:
+        df (pd.DataFrame): Input DataFrame to clean.
+        remove_duplicates (bool): Whether to remove duplicate rows.
+    
+    Returns:
+        pd.DataFrame: Cleaned DataFrame.
+    """
+    cleaned_df = df.copy()
+    
+    cleaned_df = cleaned_df.dropna()
+    
+    if remove_duplicates:
+        cleaned_df = cleaned_df.drop_duplicates()
+    
+    print(f"Original shape: {df.shape}")
+    print(f"Cleaned shape: {cleaned_df.shape}")
+    print(f"Rows removed: {df.shape[0] - cleaned_df.shape[0]}")
+    
+    return cleaned_df
+
+def validate_dataset(df, required_columns=None):
+    """
+    Validate dataset structure and content.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate.
+        required_columns (list): List of required column names.
+    
+    Returns:
+        dict: Validation results.
+    """
+    validation_results = {
+        'is_valid': True,
+        'issues': []
+    }
+    
+    if df.empty:
+        validation_results['is_valid'] = False
+        validation_results['issues'].append('DataFrame is empty')
+    
+    if required_columns:
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            validation_results['is_valid'] = False
+            validation_results['issues'].append(f'Missing columns: {missing_columns}')
+    
+    null_counts = df.isnull().sum()
+    if null_counts.sum() > 0:
+        validation_results['issues'].append(f'Null values found: {null_counts.to_dict()}')
+    
+    return validation_results
+
+if __name__ == "__main__":
+    sample_data = {
+        'id': [1, 2, 3, 4, 5, 5],
+        'name': ['Alice', 'Bob', None, 'David', 'Eve', 'Eve'],
+        'age': [25, 30, 35, None, 40, 40],
+        'score': [85.5, 92.0, 78.5, 88.0, 95.5, 95.5]
+    }
+    
+    df = pd.DataFrame(sample_data)
+    print("Sample dataset:")
+    print(df)
+    print("\n" + "="*50)
+    
+    cleaned_df = clean_dataset(df)
+    print("\nCleaned dataset:")
+    print(cleaned_df)
+    
+    validation = validate_dataset(cleaned_df, required_columns=['id', 'name', 'age'])
+    print(f"\nValidation results: {validation}")
