@@ -106,3 +106,59 @@ if __name__ == "__main__":
     if cleaned_data is not None:
         print("Data cleaning completed successfully")
         print(cleaned_data.describe())
+import pandas as pd
+import numpy as np
+
+def clean_data(df):
+    """
+    Cleans a pandas DataFrame by removing duplicate rows and
+    handling missing values in numeric columns.
+    """
+    # Remove duplicate rows
+    df_cleaned = df.drop_duplicates()
+
+    # For numeric columns, fill missing values with the column median
+    numeric_cols = df_cleaned.select_dtypes(include=[np.number]).columns
+    df_cleaned[numeric_cols] = df_cleaned[numeric_cols].apply(
+        lambda col: col.fillna(col.median())
+    )
+
+    # For non-numeric columns, fill missing values with 'Unknown'
+    non_numeric_cols = df_cleaned.select_dtypes(exclude=[np.number]).columns
+    df_cleaned[non_numeric_cols] = df_cleaned[non_numeric_cols].fillna('Unknown')
+
+    return df_cleaned
+
+def validate_data(df):
+    """
+    Performs basic validation on the cleaned DataFrame.
+    """
+    if df.empty:
+        raise ValueError("DataFrame is empty after cleaning.")
+
+    # Check for any remaining NaN values
+    if df.isnull().any().any():
+        raise ValueError("DataFrame still contains NaN values.")
+
+    print("Data validation passed.")
+    return True
+
+if __name__ == "__main__":
+    # Example usage
+    sample_data = {
+        'A': [1, 2, 2, np.nan, 5],
+        'B': [10.5, np.nan, 10.5, 13.2, 15.0],
+        'C': ['x', 'y', 'x', np.nan, 'z']
+    }
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+
+    cleaned_df = clean_data(df)
+    print("\nCleaned DataFrame:")
+    print(cleaned_df)
+
+    try:
+        validate_data(cleaned_df)
+    except ValueError as e:
+        print(f"Validation error: {e}")
