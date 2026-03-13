@@ -480,4 +480,128 @@ if __name__ == "__main__":
     
     summary = get_cleaning_summary(sample_data, cleaned)
     print("\nCleaning summary:")
-    print(summary)
+    print(summary)import pandas as pd
+import numpy as np
+
+def remove_duplicates(df, subset=None):
+    """
+    Remove duplicate rows from DataFrame.
+    
+    Args:
+        df: pandas DataFrame
+        subset: column label or sequence of labels to consider for duplicates
+    
+    Returns:
+        DataFrame with duplicates removed
+    """
+    return df.drop_duplicates(subset=subset, keep='first')
+
+def convert_column_types(df, column_types):
+    """
+    Convert specified columns to given data types.
+    
+    Args:
+        df: pandas DataFrame
+        column_types: dict mapping column names to target types
+    
+    Returns:
+        DataFrame with converted column types
+    """
+    df_converted = df.copy()
+    for column, dtype in column_types.items():
+        if column in df_converted.columns:
+            df_converted[column] = df_converted[column].astype(dtype)
+    return df_converted
+
+def handle_missing_values(df, strategy='drop', fill_value=None):
+    """
+    Handle missing values in DataFrame.
+    
+    Args:
+        df: pandas DataFrame
+        strategy: 'drop' to remove rows, 'fill' to fill values
+        fill_value: value to use when strategy is 'fill'
+    
+    Returns:
+        DataFrame with handled missing values
+    """
+    if strategy == 'drop':
+        return df.dropna()
+    elif strategy == 'fill':
+        return df.fillna(fill_value)
+    else:
+        raise ValueError("Strategy must be 'drop' or 'fill'")
+
+def normalize_numeric_columns(df, columns):
+    """
+    Normalize numeric columns to range [0, 1].
+    
+    Args:
+        df: pandas DataFrame
+        columns: list of column names to normalize
+    
+    Returns:
+        DataFrame with normalized columns
+    """
+    df_normalized = df.copy()
+    for column in columns:
+        if column in df_normalized.columns and pd.api.types.is_numeric_dtype(df_normalized[column]):
+            col_min = df_normalized[column].min()
+            col_max = df_normalized[column].max()
+            if col_max != col_min:
+                df_normalized[column] = (df_normalized[column] - col_min) / (col_max - col_min)
+    return df_normalized
+
+def clean_dataframe(df, operations):
+    """
+    Apply multiple cleaning operations to DataFrame.
+    
+    Args:
+        df: pandas DataFrame
+        operations: list of tuples (operation_name, kwargs)
+    
+    Returns:
+        Cleaned DataFrame
+    """
+    cleaned_df = df.copy()
+    
+    operation_map = {
+        'remove_duplicates': remove_duplicates,
+        'convert_types': convert_column_types,
+        'handle_missing': handle_missing_values,
+        'normalize': normalize_numeric_columns
+    }
+    
+    for op_name, kwargs in operations:
+        if op_name in operation_map:
+            cleaned_df = operation_map[op_name](cleaned_df, **kwargs)
+    
+    return cleaned_df
+
+def validate_dataframe(df, rules):
+    """
+    Validate DataFrame against specified rules.
+    
+    Args:
+        df: pandas DataFrame
+        rules: dict with validation rules
+    
+    Returns:
+        dict with validation results
+    """
+    results = {}
+    
+    if 'required_columns' in rules:
+        missing = set(rules['required_columns']) - set(df.columns)
+        results['missing_columns'] = list(missing)
+    
+    if 'numeric_ranges' in rules:
+        range_violations = {}
+        for column, (min_val, max_val) in rules['numeric_ranges'].items():
+            if column in df.columns and pd.api.types.is_numeric_dtype(df[column]):
+                violations = df[(df[column] < min_val) | (df[column] > max_val)]
+                if not violations.empty:
+                    range_violations[column] = len(violations)
+        results['range_violations'] = range_violations
+    
+    return results
