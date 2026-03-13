@@ -1,154 +1,139 @@
 
-def deduplicate_list(input_list):
-    seen = set()
-    result = []
-    for item in input_list:
-        if item not in seen:
-            seen.add(item)
-            result.append(item)
-    return result
-import pandas as pd
 import numpy as np
+import pandas as pd
+from scipy import stats
 
-def remove_outliers_iqr(df, column):
+def remove_outliers_iqr(data, column, factor=1.5):
     """
-    Remove outliers from a DataFrame column using the Interquartile Range method.
-    
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    column (str): Column name to process
-    
-    Returns:
-    pd.DataFrame: DataFrame with outliers removed
+    Remove outliers using IQR method
     """
-    if column not in df.columns:
+    if column not in data.columns:
         raise ValueError(f"Column '{column}' not found in DataFrame")
     
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
+    Q1 = data[column].quantile(0.25)
+    Q3 = data[column].quantile(0.75)
     IQR = Q3 - Q1
     
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
+    lower_bound = Q1 - factor * IQR
+    upper_bound = Q3 + factor * IQR
     
-    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    filtered_data = data[(data[column] >= lower_bound) & (data[column] <= upper_bound)]
+    outliers_removed = len(data) - len(filtered_data)
     
-    return filtered_df
+    return filtered_data, outliers_removed
 
-def clean_dataset(df, numeric_columns=None):
+def remove_outliers_zscore(data, column, threshold=3):
     """
-    Clean dataset by removing outliers from all numeric columns.
-    
-    Parameters:
-    df (pd.DataFrame): Input DataFrame
-    numeric_columns (list): List of numeric column names. If None, uses all numeric columns.
-    
-    Returns:
-    pd.DataFrame: Cleaned DataFrame
+    Remove outliers using Z-score method
     """
-    if numeric_columns is None:
-        numeric_columns = df.select_dtypes(include=[np.number]).columns.tolist()
-    
-    cleaned_df = df.copy()
-    
-    for column in numeric_columns:
-        if column in df.columns:
-            try:
-                cleaned_df = remove_outliers_iqr(cleaned_df, column)
-            except Exception as e:
-                print(f"Warning: Could not process column '{column}': {e}")
-    
-    return cleaned_df
-
-if __name__ == "__main__":
-    sample_data = {
-        'A': np.random.normal(100, 15, 1000),
-        'B': np.random.exponential(50, 1000),
-        'C': np.random.randint(1, 100, 1000)
-    }
-    
-    sample_df = pd.DataFrame(sample_data)
-    sample_df.loc[::100, 'A'] = 500
-    
-    print(f"Original shape: {sample_df.shape}")
-    cleaned_df = clean_dataset(sample_df)
-    print(f"Cleaned shape: {cleaned_df.shape}")
-    print(f"Outliers removed: {len(sample_df) - len(cleaned_df)}")
-import pandas as pd
-import numpy as np
-
-def remove_outliers_iqr(df, column):
-    """
-    Remove outliers from a DataFrame column using the Interquartile Range method.
-    
-    Args:
-        df (pd.DataFrame): Input DataFrame
-        column (str): Column name to process
-    
-    Returns:
-        pd.DataFrame: DataFrame with outliers removed
-    """
-    if column not in df.columns:
+    if column not in data.columns:
         raise ValueError(f"Column '{column}' not found in DataFrame")
     
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
+    z_scores = np.abs(stats.zscore(data[column]))
+    filtered_data = data[z_scores < threshold]
+    outliers_removed = len(data) - len(filtered_data)
     
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
-    
-    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
-    
-    return filtered_df
+    return filtered_data, outliers_removed
 
-def calculate_summary_stats(df, column):
+def normalize_minmax(data, column):
     """
-    Calculate summary statistics for a column.
-    
-    Args:
-        df (pd.DataFrame): Input DataFrame
-        column (str): Column name to analyze
-    
-    Returns:
-        dict: Dictionary containing summary statistics
+    Normalize data using Min-Max scaling
     """
-    if column not in df.columns:
+    if column not in data.columns:
         raise ValueError(f"Column '{column}' not found in DataFrame")
     
-    stats = {
-        'mean': df[column].mean(),
-        'median': df[column].median(),
-        'std': df[column].std(),
-        'min': df[column].min(),
-        'max': df[column].max(),
-        'count': df[column].count(),
-        'missing': df[column].isnull().sum()
-    }
+    min_val = data[column].min()
+    max_val = data[column].max()
     
-    return stats
+    if min_val == max_val:
+        return data[column].apply(lambda x: 0.5)
+    
+    normalized = (data[column] - min_val) / (max_val - min_val)
+    return normalized
 
-def example_usage():
+def normalize_zscore(data, column):
     """
-    Example usage of the data cleaning functions.
+    Normalize data using Z-score standardization
     """
-    np.random.seed(42)
-    data = {
-        'id': range(100),
-        'value': np.random.normal(100, 15, 100)
-    }
+    if column not in data.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
     
-    df = pd.DataFrame(data)
+    mean_val = data[column].mean()
+    std_val = data[column].std()
     
-    print("Original DataFrame shape:", df.shape)
-    print("Original summary stats:", calculate_summary_stats(df, 'value'))
+    if std_val == 0:
+        return data[column].apply(lambda x: 0)
     
-    cleaned_df = remove_outliers_iqr(df, 'value')
-    
-    print("\nCleaned DataFrame shape:", cleaned_df.shape)
-    print("Cleaned summary stats:", calculate_summary_stats(cleaned_df, 'value'))
-    
-    return cleaned_df
+    normalized = (data[column] - mean_val) / std_val
+    return normalized
 
-if __name__ == "__main__":
-    result_df = example_usage()
+def clean_dataset(data, numeric_columns, outlier_method='iqr', normalize_method='zscore'):
+    """
+    Main function to clean dataset by removing outliers and normalizing numeric columns
+    """
+    cleaned_data = data.copy()
+    stats_report = {}
+    
+    for col in numeric_columns:
+        if col not in cleaned_data.columns:
+            print(f"Warning: Column '{col}' not found, skipping")
+            continue
+        
+        original_count = len(cleaned_data)
+        
+        if outlier_method == 'iqr':
+            cleaned_data, outliers_removed = remove_outliers_iqr(cleaned_data, col)
+        elif outlier_method == 'zscore':
+            cleaned_data, outliers_removed = remove_outliers_zscore(cleaned_data, col)
+        else:
+            raise ValueError("outlier_method must be 'iqr' or 'zscore'")
+        
+        if normalize_method == 'minmax':
+            cleaned_data[f"{col}_normalized"] = normalize_minmax(cleaned_data, col)
+        elif normalize_method == 'zscore':
+            cleaned_data[f"{col}_normalized"] = normalize_zscore(cleaned_data, col)
+        else:
+            raise ValueError("normalize_method must be 'minmax' or 'zscore'")
+        
+        stats_report[col] = {
+            'original_samples': original_count,
+            'cleaned_samples': len(cleaned_data),
+            'outliers_removed': outliers_removed,
+            'outlier_percentage': (outliers_removed / original_count) * 100
+        }
+    
+    return cleaned_data, stats_report
+
+def generate_cleaning_summary(stats_report):
+    """
+    Generate a summary report of the cleaning process
+    """
+    summary = []
+    summary.append("Data Cleaning Summary")
+    summary.append("=" * 50)
+    
+    total_original = 0
+    total_cleaned = 0
+    total_outliers = 0
+    
+    for col, stats in stats_report.items():
+        summary.append(f"Column: {col}")
+        summary.append(f"  Original samples: {stats['original_samples']}")
+        summary.append(f"  Cleaned samples: {stats['cleaned_samples']}")
+        summary.append(f"  Outliers removed: {stats['outliers_removed']}")
+        summary.append(f"  Outlier percentage: {stats['outlier_percentage']:.2f}%")
+        summary.append("-" * 30)
+        
+        total_original += stats['original_samples']
+        total_cleaned += stats['cleaned_samples']
+        total_outliers += stats['outliers_removed']
+    
+    if stats_report:
+        avg_outlier_percentage = (total_outliers / total_original) * 100
+        summary.append(f"\nOverall Statistics:")
+        summary.append(f"Total original samples: {total_original}")
+        summary.append(f"Total cleaned samples: {total_cleaned}")
+        summary.append(f"Total outliers removed: {total_outliers}")
+        summary.append(f"Average outlier percentage: {avg_outlier_percentage:.2f}%")
+    
+    return "\n".join(summary)
