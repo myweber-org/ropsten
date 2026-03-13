@@ -55,3 +55,54 @@ def clean_dataset(df, numeric_columns, outlier_removal=True, normalization='minm
                 df_clean = standardize_zscore(df_clean, col)
     
     return df_clean
+import pandas as pd
+import numpy as np
+
+def remove_outliers_iqr(df, column):
+    Q1 = df[column].quantile(0.25)
+    Q3 = df[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    filtered_df = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
+    outliers_removed = len(df) - len(filtered_df)
+    
+    return filtered_df, outliers_removed
+
+def clean_dataset(file_path, output_path):
+    try:
+        df = pd.read_csv(file_path)
+        print(f"Original dataset shape: {df.shape}")
+        
+        numeric_columns = df.select_dtypes(include=[np.number]).columns
+        
+        total_outliers = 0
+        for col in numeric_columns:
+            df, outliers = remove_outliers_iqr(df, col)
+            total_outliers += outliers
+            print(f"Removed {outliers} outliers from column: {col}")
+        
+        df.to_csv(output_path, index=False)
+        print(f"Cleaned dataset saved to: {output_path}")
+        print(f"Total outliers removed: {total_outliers}")
+        print(f"Final dataset shape: {df.shape}")
+        
+        return df
+        
+    except FileNotFoundError:
+        print(f"Error: File not found at {file_path}")
+        return None
+    except Exception as e:
+        print(f"Error during cleaning: {str(e)}")
+        return None
+
+if __name__ == "__main__":
+    input_file = "raw_data.csv"
+    output_file = "cleaned_data.csv"
+    
+    cleaned_data = clean_dataset(input_file, output_file)
+    
+    if cleaned_data is not None:
+        print("Data cleaning completed successfully")
+        print(cleaned_data.describe())
