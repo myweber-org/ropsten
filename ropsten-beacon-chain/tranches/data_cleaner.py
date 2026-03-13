@@ -180,3 +180,51 @@ def remove_duplicates_preserve_order(sequence):
             seen.add(item)
             result.append(item)
     return result
+import pandas as pd
+import re
+
+def clean_string_column(series):
+    """
+    Normalize string column: lowercase, strip whitespace, remove extra spaces.
+    """
+    if series.dtype == 'object':
+        series = series.astype(str)
+        series = series.str.lower()
+        series = series.str.strip()
+        series = series.apply(lambda x: re.sub(r'\s+', ' ', x))
+    return series
+
+def remove_duplicate_rows(df, subset=None, keep='first'):
+    """
+    Remove duplicate rows from DataFrame.
+    """
+    return df.drop_duplicates(subset=subset, keep=keep)
+
+def clean_dataframe(df, string_columns=None):
+    """
+    Apply cleaning functions to DataFrame.
+    """
+    df_clean = df.copy()
+    
+    if string_columns is None:
+        string_columns = df_clean.select_dtypes(include=['object']).columns
+    
+    for col in string_columns:
+        if col in df_clean.columns:
+            df_clean[col] = clean_string_column(df_clean[col])
+    
+    df_clean = remove_duplicate_rows(df_clean)
+    return df_clean
+
+if __name__ == "__main__":
+    sample_data = {
+        'Name': ['  John Doe  ', 'Jane Smith', 'JOHN DOE', 'Jane  Smith'],
+        'Age': [25, 30, 25, 30],
+        'City': ['New York', 'Los Angeles', 'new york', 'Los  Angeles']
+    }
+    df = pd.DataFrame(sample_data)
+    print("Original DataFrame:")
+    print(df)
+    print("\nCleaned DataFrame:")
+    cleaned_df = clean_dataframe(df)
+    print(cleaned_df)
