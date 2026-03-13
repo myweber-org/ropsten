@@ -80,3 +80,11 @@ if __name__ == "__main__":
     if cleaned_df is not None:
         is_valid = validate_dataframe(cleaned_df)
         print(f"Data validation result: {is_valid}")
+def remove_duplicates_preserve_order(iterable):
+    seen = set()
+    result = []
+    for item in iterable:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
