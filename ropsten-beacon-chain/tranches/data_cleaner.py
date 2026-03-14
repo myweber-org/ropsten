@@ -39,4 +39,50 @@ if __name__ == "__main__":
 
     cleaned = clean_dataframe(df, fill_missing={'A': 0, 'B': 'bfill', 'C': 'unknown'})
     print("\nCleaned DataFrame:")
-    print(cleaned)
+    print(cleaned)import csv
+import re
+
+def clean_string(value):
+    if not isinstance(value, str):
+        return value
+    value = value.strip()
+    value = re.sub(r'\s+', ' ', value)
+    return value
+
+def clean_numeric(value):
+    if isinstance(value, (int, float)):
+        return value
+    if isinstance(value, str):
+        cleaned = re.sub(r'[^\d.-]', '', value)
+        try:
+            if '.' in cleaned:
+                return float(cleaned)
+            else:
+                return int(cleaned)
+        except ValueError:
+            return None
+    return None
+
+def clean_csv_row(row):
+    cleaned_row = {}
+    for key, value in row.items():
+        if key.endswith('_id') or key.endswith('_count'):
+            cleaned_row[key] = clean_numeric(value)
+        else:
+            cleaned_row[key] = clean_string(value)
+    return cleaned_row
+
+def process_csv_file(input_path, output_path):
+    with open(input_path, 'r', newline='', encoding='utf-8') as infile:
+        reader = csv.DictReader(infile)
+        fieldnames = reader.fieldnames
+        
+        with open(output_path, 'w', newline='', encoding='utf-8') as outfile:
+            writer = csv.DictWriter(outfile, fieldnames=fieldnames)
+            writer.writeheader()
+            
+            for row in reader:
+                cleaned_row = clean_csv_row(row)
+                writer.writerow(cleaned_row)
+    
+    return True
