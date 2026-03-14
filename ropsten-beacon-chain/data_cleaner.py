@@ -267,3 +267,88 @@ if __name__ == "__main__":
     normalized = normalize_data(cleaned, method='minmax')
     print("\nNormalized DataFrame:")
     print(normalized)
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+def detect_outliers_iqr(data, column, threshold=1.5):
+    """
+    Detect outliers using Interquartile Range method.
+    Returns boolean mask for outliers.
+    """
+    q1 = data[column].quantile(0.25)
+    q3 = data[column].quantile(0.75)
+    iqr = q3 - q1
+    lower_bound = q1 - threshold * iqr
+    upper_bound = q3 + threshold * iqr
+    return (data[column] < lower_bound) | (data[column] > upper_bound)
+
+def remove_outliers(data, columns, method='iqr', threshold=1.5):
+    """
+    Remove outliers from specified columns.
+    Supports 'iqr' and 'zscore' methods.
+    """
+    clean_data = data.copy()
+    
+    for column in columns:
+        if method == 'iqr':
+            outliers = detect_outliers_iqr(clean_data, column, threshold)
+        elif method == 'zscore':
+            z_scores = np.abs(stats.zscore(clean_data[column].dropna()))
+            outliers = z_scores > threshold
+        else:
+            raise ValueError("Method must be 'iqr' or 'zscore'")
+        
+        clean_data = clean_data[~outliers]
+    
+    return clean_data.reset_index(drop=True)
+
+def normalize_data(data, columns, method='minmax'):
+    """
+    Normalize specified columns using different methods.
+    Supports 'minmax' and 'standard' normalization.
+    """
+    normalized_data = data.copy()
+    
+    for column in columns:
+        if method == 'minmax':
+            min_val = normalized_data[column].min()
+            max_val = normalized_data[column].max()
+            normalized_data[column] = (normalized_data[column] - min_val) / (max_val - min_val)
+        elif method == 'standard':
+            mean_val = normalized_data[column].mean()
+            std_val = normalized_data[column].std()
+            normalized_data[column] = (normalized_data[column] - mean_val) / std_val
+        else:
+            raise ValueError("Method must be 'minmax' or 'standard'")
+    
+    return normalized_data
+
+def clean_dataset(data, outlier_columns=None, normalize_columns=None, outlier_method='iqr', normalize_method='minmax'):
+    """
+    Complete data cleaning pipeline.
+    """
+    cleaned_data = data.copy()
+    
+    if outlier_columns:
+        cleaned_data = remove_outliers(cleaned_data, outlier_columns, outlier_method)
+    
+    if normalize_columns:
+        cleaned_data = normalize_data(cleaned_data, normalize_columns, normalize_method)
+    
+    return cleaned_data
+
+def validate_data(data, required_columns, check_missing=True, check_types=True):
+    """
+    Validate dataset structure and content.
+    """
+    missing_columns = [col for col in required_columns if col not in data.columns]
+    if missing_columns:
+        raise ValueError(f"Missing required columns: {missing_columns}")
+    
+    if check_missing:
+        missing_values = data.isnull().sum()
+        if missing_values.any():
+            print(f"Warning: Dataset contains missing values:\n{missing_values[missing_values > 0]}")
+    
+    return True
