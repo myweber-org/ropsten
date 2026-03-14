@@ -262,3 +262,104 @@ if __name__ == "__main__":
     target_directory = input("Enter directory path to organize: ").strip()
     organize_files_by_extension(target_directory)
     print("File organization completed.")
+import os
+import hashlib
+import shutil
+import logging
+from datetime import datetime
+from pathlib import Path
+
+class FileOrganizer:
+    def __init__(self, source_dir, target_dir):
+        self.source_dir = Path(source_dir)
+        self.target_dir = Path(target_dir)
+        self.duplicates = []
+        self.setup_logging()
+        
+    def setup_logging(self):
+        logging.basicConfig(
+            filename='file_organizer.log',
+            level=logging.INFO,
+            format='%(asctime)s - %(levelname)s - %(message)s'
+        )
+        
+    def calculate_hash(self, filepath):
+        hash_md5 = hashlib.md5()
+        with open(filepath, "rb") as f:
+            for chunk in iter(lambda: f.read(4096), b""):
+                hash_md5.update(chunk)
+        return hash_md5.hexdigest()
+    
+    def organize_by_extension(self):
+        if not self.target_dir.exists():
+            self.target_dir.mkdir(parents=True)
+            
+        for item in self.source_dir.iterdir():
+            if item.is_file():
+                extension = item.suffix.lower() or 'no_extension'
+                category_dir = self.target_dir / extension[1:] if extension != 'no_extension' else self.target_dir / 'no_extension'
+                
+                if not category_dir.exists():
+                    category_dir.mkdir(parents=True)
+                
+                target_path = category_dir / item.name
+                
+                if target_path.exists():
+                    source_hash = self.calculate_hash(item)
+                    target_hash = self.calculate_hash(target_path)
+                    
+                    if source_hash == target_hash:
+                        self.duplicates.append(str(item))
+                        logging.warning(f"Duplicate found: {item}")
+                        continue
+                    else:
+                        new_name = f"{item.stem}_{datetime.now().strftime('%Y%m%d_%H%M%S')}{item.suffix}"
+                        target_path = category_dir / new_name
+                
+                shutil.move(str(item), str(target_path))
+                logging.info(f"Moved {item} to {target_path}")
+    
+    def generate_report(self):
+        report_path = self.target_dir / 'organization_report.txt'
+        with open(report_path, 'w') as f:
+            f.write(f"File Organization Report - {datetime.now()}\n")
+            f.write("=" * 50 + "\n\n")
+            f.write(f"Source Directory: {self.source_dir}\n")
+            f.write(f"Target Directory: {self.target_dir}\n\n")
+            
+            if self.duplicates:
+                f.write("Duplicate Files Found:\n")
+                for dup in self.duplicates:
+                    f.write(f"  - {dup}\n")
+            else:
+                f.write("No duplicate files found.\n")
+            
+            f.write("\nDirectory Structure:\n")
+            for root, dirs, files in os.walk(self.target_dir):
+                level = root.replace(str(self.target_dir), '').count(os.sep)
+                indent = ' ' * 2 * level
+                f.write(f"{indent}{os.path.basename(root)}/\n")
+                subindent = ' ' * 2 * (level + 1)
+                for file in files:
+                    f.write(f"{subindent}{file}\n")
+        
+        logging.info(f"Report generated: {report_path}")
+        return report_path
+
+def main():
+    source_directory = input("Enter source directory path: ").strip()
+    target_directory = input("Enter target directory path: ").strip()
+    
+    organizer = FileOrganizer(source_directory, target_directory)
+    
+    print("Starting file organization...")
+    organizer.organize_by_extension()
+    
+    report = organizer.generate_report()
+    print(f"Organization complete! Report saved to: {report}")
+    
+    if organizer.duplicates:
+        print(f"Found {len(organizer.duplicates)} duplicate file(s). Check the log for details.")
+
+if __name__ == "__main__":
+    main()
